@@ -1,0 +1,4101 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BGL Queue — Dashboard Live</title>
+<link rel="icon" type="image/jpeg" href="icons/app-icon.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* 60-30-10 Design System Tokens (ui-ux-design-system) */
+    --bg-base: #090a10;
+    --bg-surface: #111420;
+    --bg-surface-hover: #181d2e;
+    --bg-surface-active: #20263c;
+    --bg-input: #0c0e18;
+    --sidebar-bg: #0c0e17;
+    
+    /* Subtle Borders */
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.16);
+    --border-focus: rgba(59, 130, 246, 0.5);
+    
+    /* 10% Intentional Accents */
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --primary-dim: rgba(59, 130, 246, 0.15);
+    --primary-border: rgba(59, 130, 246, 0.35);
+    
+    --accent-green: #10b981;
+    --accent-green-dim: rgba(16, 185, 129, 0.15);
+    --accent-cyan: #06b6d4;
+    --accent-cyan-dim: rgba(6, 182, 212, 0.15);
+    --accent-purple: #a855f7;
+    --accent-purple-dim: rgba(168, 85, 247, 0.15);
+    --accent-orange: #f97316;
+    --accent-orange-dim: rgba(249, 115, 22, 0.15);
+    --accent-red: #ef4444;
+    --accent-red-dim: rgba(239, 68, 68, 0.15);
+    
+    /* Typography */
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    
+    /* Radii & Shadows */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.45);
+    --shadow-elevated: 0 12px 36px rgba(0, 0, 0, 0.6);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     TELA DE LOGIN (VIDRO FOSCO PRETO / CINZA ESCURO)
+     ═════════════════════════════════════════════════════════════ */
+  #login-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    padding: 20px;
+    background: #090a10 url('icons/login_bg.jpg') center/cover no-repeat fixed;
+  }
+
+  #login-screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(9, 10, 16, 0.6) 0%, rgba(9, 10, 16, 0.92) 100%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .login-card {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    background: rgba(13, 16, 26, 0.82); /* Vidro fosco preto/cinza escuro */
+    backdrop-filter: blur(24px) saturate(190%);
+    -webkit-backdrop-filter: blur(24px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), 0 0 40px rgba(59, 130, 246, 0.15);
+    border-radius: var(--radius-xl);
+    padding: 36px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .login-header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .login-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .login-logo-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+  }
+
+  .login-title {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .badge-live {
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  .login-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .login-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .login-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .login-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .login-icon {
+    position: absolute;
+    left: 14px;
+    font-size: 16px;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+
+  .login-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 14px 14px 44px;
+    font-size: 15px;
+    color: #fff;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .login-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  }
+
+  .login-btn {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(37, 99, 235, 0.4);
+    transition: all 0.2s ease;
+  }
+
+  .login-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+  }
+
+  .login-remember {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .login-remember input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+
+  .login-error {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    display: none;
+    text-align: center;
+  }
+
+  .shake {
+    animation: shake 0.4s ease-in-out;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-8px); }
+    40%, 80% { transform: translateX(8px); }
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     DASHBOARD PRINCIPAL (SIDEBAR + CONTEÚDO)
+     ═════════════════════════════════════════════════════════════ */
+  #app {
+    display: none;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  #app.authenticated {
+    display: flex;
+  }
+
+  /* Backdrop do Dashboard com a Imagem 3D Tech Gerada */
+  #app::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: #090a10 url('icons/dashboard_bg.jpg') center/cover no-repeat fixed;
+    opacity: 0.38;
+    filter: brightness(0.65) contrast(1.15);
+    z-index: -2;
+    pointer-events: none;
+  }
+
+  #app::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.14) 0%, transparent 45%),
+      radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.10) 0%, transparent 50%),
+      linear-gradient(180deg, rgba(9, 10, 16, 0.84) 0%, rgba(12, 14, 24, 0.96) 100%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* ── Sidebar Estilo Discord / Twitch (250px) ── */
+  #sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 250px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .sidebar-brand {
+    padding: 22px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4);
+  }
+
+  .brand-name {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+  }
+
+  .nav-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 8px 12px 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+  }
+
+  .nav-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+  }
+
+  .nav-item.active {
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+  }
+
+  .nav-item .nav-icon {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+  }
+
+  .nav-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+  }
+
+  .nav-item.active .nav-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+  }
+
+  .sidebar-footer {
+    padding: 16px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar-ws-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    transition: all 0.3s ease;
+  }
+
+  .status-dot.online {
+    background: #10b981;
+    box-shadow: 0 0 10px #10b981;
+  }
+
+  .sidebar-logout-btn {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .sidebar-logout-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+
+  /* ── Conteúdo Principal (Main Content) ── */
+  #main-content {
+    margin-left: 250px;
+    flex: 1;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 1500px;
+  }
+
+  /* ── Header Top Bar do Dashboard ── */
+  .dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .header-breadcrumb {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .header-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .quick-mode-pill {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    color: #60a5fa;
+  }
+
+  /* ── Seções / Abas ── */
+  .tab-pane {
+    display: none;
+    flex-direction: column;
+    gap: 18px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .tab-pane.active {
+    display: flex;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Cards Genéricos ── */
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-desc {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* ── Buttons Universais ── */
+  button {
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+  }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+
+  .btn-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
+  }
+  .btn-success:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+
+  .btn-danger {
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+  }
+  .btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.28); }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+
+  /* ═════════════════════════════════════════════════════════════
+     COMPONENTES DA ABA: FILA
+     ═════════════════════════════════════════════════════════════ */
+  
+  /* Mode Selector Grid */
+  .mode-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .mode-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    border: 2px solid var(--border);
+    background: var(--bg-surface);
+    transition: all 0.25s ease;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  .mode-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.2); }
+  .mode-card.mode-active { transform: translateY(-2px); }
+
+  .mode-card[data-mode="FULL"].mode-active {
+    border-color: #06b6d4;
+    background: rgba(6, 182, 212, 0.12);
+    box-shadow: 0 0 24px rgba(6, 182, 212, 0.35);
+  }
+  .mode-card[data-mode="FALA"].mode-active {
+    border-color: #a855f7;
+    background: rgba(168, 85, 247, 0.12);
+    box-shadow: 0 0 24px rgba(168, 85, 247, 0.35);
+  }
+  .mode-card[data-mode="ENTREGA"].mode-active {
+    border-color: #f97316;
+    background: rgba(249, 115, 22, 0.12);
+    box-shadow: 0 0 24px rgba(249, 115, 22, 0.35);
+  }
+  .mode-card[data-mode="MINI"].mode-active {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.12);
+    box-shadow: 0 0 24px rgba(59, 130, 246, 0.35);
+  }
+
+  .mode-card-icon { font-size: 1.8rem; }
+  .mode-card-title { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
+  .mode-card-desc { font-size: 11px; color: var(--text-muted); }
+
+  .mode-active-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .mode-card.mode-active .mode-active-indicator { opacity: 1; box-shadow: 0 0 8px currentColor; }
+
+  /* 6-Step Stepper */
+  .stepper-container {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .stepper-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .stepper-title {
+    font-weight: 700;
+    color: var(--accent-cyan);
+    font-size: 13px;
+  }
+
+  .stepper-user-tag {
+    font-size: 11px;
+    background: rgba(6, 182, 212, 0.15);
+    color: var(--accent-cyan);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+
+  .stepper-steps {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+
+  .step-pill {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: all 0.25s ease;
+  }
+
+  .step-pill.step-pending { opacity: 0.5; }
+  .step-pill.step-active {
+    opacity: 1;
+    border-color: var(--accent-cyan);
+    background: rgba(6, 182, 212, 0.12);
+    box-shadow: 0 0 14px rgba(6, 182, 212, 0.35);
+  }
+  .step-pill.step-done {
+    opacity: 1;
+    border-color: var(--accent-green);
+    background: rgba(16, 185, 129, 0.1);
+  }
+
+  .step-num { font-size: 10px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; }
+  .step-pill.step-active .step-num { color: var(--accent-cyan); }
+  .step-pill.step-done .step-num { color: var(--accent-green); }
+  .step-name { font-size: 11.5px; font-weight: 700; color: var(--text); }
+  .step-status-badge { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+
+  /* TikTok Connection Bar */
+  .tiktok-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 18px;
+    flex-wrap: wrap;
+  }
+
+  .tiktok-input-box {
+    display: flex;
+    align-items: center;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0 12px;
+    flex: 1;
+    min-width: 200px;
+    transition: all 0.2s ease;
+  }
+  .tiktok-input-box:focus-within {
+    border-color: #fe2c55;
+    box-shadow: 0 0 0 2px rgba(254, 44, 85, 0.25);
+  }
+  .tiktok-input-box input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 0;
+    width: 100%;
+  }
+
+  .tiktok-pill {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tiktok-pill.offline { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); }
+  .tiktok-pill.connecting { background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.25); }
+  .tiktok-pill.online { background: rgba(16, 185, 129, 0.15); color: #4ade80; border: 1px solid rgba(16, 185, 129, 0.35); }
+
+  /* Queue Input & List */
+  .manual-add-row {
+    display: flex;
+    gap: 10px;
+  }
+  .manual-add-row input {
+    flex: 1;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+  .manual-add-row input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  }
+
+  .queue-list-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .queue-item-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+  }
+  .queue-item-card:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-surface-hover);
+    transform: translateY(-1px);
+  }
+
+  .queue-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .avatar-pill {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  }
+
+  .nick-name { font-size: 15px; font-weight: 700; color: #fff; }
+  .nick-meta { font-size: 11.5px; color: var(--text-muted); }
+
+  .queue-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     ABA NOVA: ESTATÍSTICAS
+     ═════════════════════════════════════════════════════════════ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--primary);
+  }
+
+  .stat-card.green::before { background: var(--accent-green); }
+  .stat-card.purple::before { background: var(--accent-purple); }
+  .stat-card.cyan::before { background: var(--accent-cyan); }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .history-table-container {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 13px;
+  }
+
+  .history-table th {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 12px 18px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .history-table td {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .history-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .history-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  @media (max-width: 900px) {
+    #sidebar { width: 72px; }
+    .sidebar-brand .brand-name, .nav-item .nav-label, .nav-group-title, .sidebar-ws-status span:last-child { display: none; }
+    .nav-item { justify-content: center; padding: 12px; }
+    #main-content { margin-left: 72px; padding: 16px; }
+    .mode-cards-grid { grid-template-columns: repeat(2, 1fr); }
+    .stepper-steps { grid-template-columns: repeat(3, 1fr); }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═════════════════════════════════════════════════════════════
+     TELA DE LOGIN
+     ═════════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card" id="loginCard">
+    <div class="login-header">
+      <div class="login-logo">
+        <div class="login-logo-badge">🎁</div>
+      </div>
+      <div class="login-title">
+        BGL Queue
+        <span class="badge-live">LIVE</span>
+      </div>
+      <div class="login-subtitle">Painel de Automação e Entrega de Robux</div>
+    </div>
+
+    <div id="loginError" class="login-error">
+      Senha incorreta! Tente novamente.
+    </div>
+
+    <div class="login-input-group">
+      <label class="login-label" for="loginPass">Senha de Acesso</label>
+      <div class="login-input-wrapper">
+        <span class="login-icon">🔒</span>
+        <input type="password" id="loginPass" class="login-input" placeholder="Digite sua senha..." autocomplete="current-password" autofocus>
+      </div>
+    </div>
+
+    <label class="login-remember">
+      <input type="checkbox" id="rememberMe" checked>
+      <span>Lembrar login por 7 dias neste navegador</span>
+    </label>
+
+    <button type="button" class="login-btn" onclick="attemptLogin()">
+      Entrar no Painel ➜
+    </button>
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════
+     APP DASHBOARD PRINCIPAL
+     ═════════════════════════════════════════════════════════════ -->
+<div id="app">
+  <!-- SIDEBAR FIXA -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-left">
+        <div class="brand-icon">🎁</div>
+        <span class="brand-name">BGL Queue</span>
+      </div>
+      <span class="badge-live">LIVE</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-group-title">Automação</div>
+      
+      <a class="nav-item active" id="nav-queue" onclick="switchTab('queue')">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Fila</span>
+        <span class="nav-badge" id="sideQueueCount">0</span>
+      </a>
+
+      <a class="nav-item" id="nav-speech" onclick="switchTab('speech')">
+        <span class="nav-icon">🔊</span>
+        <span class="nav-label">Falas & Áudio</span>
+      </a>
+
+      <a class="nav-item" id="nav-liveproof" onclick="switchTab('liveproof')">
+        <span class="nav-icon">🎭</span>
+        <span class="nav-label">Prova Fake</span>
+      </a>
+
+      <a class="nav-item" id="nav-banned" onclick="switchTab('banned')">
+        <span class="nav-icon">🚫</span>
+        <span class="nav-label">Banidos</span>
+        <span class="nav-badge" id="sideBannedCount">0</span>
+      </a>
+
+      <a class="nav-item" id="nav-auto" onclick="switchTab('auto')">
+        <span class="nav-icon">⚡</span>
+        <span class="nav-label">Auto Live</span>
+      </a>
+
+      <div class="nav-group-title">Relatórios</div>
+
+      <a class="nav-item" id="nav-stats" onclick="switchTab('stats')">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Estatísticas</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-ws-status">
+        <span id="serverLabel" style="font-size: 11px; color: var(--text-muted);">Servidor Render</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div id="wsDot" class="status-dot online"></div>
+          <span id="wsText" style="font-size: 11px; font-weight: 700; color: #4ade80;">Online</span>
+        </div>
+      </div>
+      <button type="button" class="sidebar-logout-btn" onclick="logout()">
+        🚪 Sair do Painel
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <main id="main-content">
+    <!-- Top Header Bar -->
+    <header class="dashboard-header">
+      <div class="header-left">
+        <div class="header-breadcrumb" id="headerBreadcrumb">Dashboard / Fila Ao Vivo</div>
+        <div class="header-title" id="headerTitle">
+          📋 Fila de Entregas
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="quick-mode-pill" id="quickModePill">MODO: FULL</div>
+
+        <button id="pause-queue-btn" onclick="togglePauseQueue()" style="background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5; padding: 8px 16px; border-radius: 999px;">
+          <span id="pause-indicator-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+          <span id="pause-btn-text">⏸️ Pausar Fila</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ═════════════════════════════════════════════════════════
+         ABA 1: FILA
+         ═════════════════════════════════════════════════════════ -->
+    <section id="tab-queue" class="tab-pane active">
+      <!-- Banner de Fila Pausada -->
+      <div id="paused-banner" style="display: none; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.35); border-radius: var(--radius-md); padding: 12px 18px; color: #fca5a5; font-size: 13.5px; font-weight: 700; align-items: center; justify-content: space-between; gap: 10px;">
+        <span>⏸️ <strong>Fila Pausada:</strong> Novos nicks acumulam na fila, mas nada é enviado ao Roblox até você reativar um modo.</span>
+        <button onclick="setOperationMode('FULL')" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">▶ Retomar no FULL</button>
+      </div>
+
+      <!-- Seletor de Modo de Operação -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚙️ Modo de Operação da Automação</div>
+          <span style="font-size: 12px; color: var(--text-muted);">Clique no modo ativo para pausar ou alternar</span>
+        </div>
+        <div class="mode-cards-grid">
+          <div class="mode-card mode-active" data-mode="FULL" id="mode-card-FULL" onclick="toggleOperationMode('FULL')">
+            <div class="mode-active-indicator" style="color:#06b6d4;"></div>
+            <div class="mode-card-icon" style="color:#06b6d4;">⚡</div>
+            <div class="mode-card-title" style="color:#06b6d4;">FULL</div>
+            <div class="mode-card-desc">Tudo automático</div>
+          </div>
+          <div class="mode-card" data-mode="FALA" id="mode-card-FALA" onclick="toggleOperationMode('FALA')">
+            <div class="mode-active-indicator" style="color:#a855f7;"></div>
+            <div class="mode-card-icon" style="color:#a855f7;">🎙️</div>
+            <div class="mode-card-title" style="color:#a855f7;">FALA</div>
+            <div class="mode-card-desc">Só falas</div>
+          </div>
+          <div class="mode-card" data-mode="ENTREGA" id="mode-card-ENTREGA" onclick="toggleOperationMode('ENTREGA')">
+            <div class="mode-active-indicator" style="color:#f97316;"></div>
+            <div class="mode-card-icon" style="color:#f97316;">📦</div>
+            <div class="mode-card-title" style="color:#f97316;">ENTREGA</div>
+            <div class="mode-card-desc">Só entrega</div>
+          </div>
+          <div class="mode-card" data-mode="MINI" id="mode-card-MINI" onclick="toggleOperationMode('MINI')">
+            <div class="mode-active-indicator" style="color:#3b82f6;"></div>
+            <div class="mode-card-icon" style="color:#3b82f6;">🪄</div>
+            <div class="mode-card-title" style="color:#3b82f6;">MINI</div>
+            <div class="mode-card-desc">Só overlays</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6-Step Stepper -->
+      <div class="stepper-container" id="live-stepper-box">
+        <div class="stepper-header">
+          <div class="stepper-title">⚡ Progresso da Entrega no Roblox (6 Passos)</div>
+          <div id="stepper-user-badge" class="stepper-user-tag">Aguardando fila...</div>
+        </div>
+        <div class="stepper-steps">
+          <div class="step-pill step-pending" id="step-pill-1"><div class="step-num">Passo 1</div><div class="step-name">Recebeu nick</div><div class="step-status-badge">Pendente</div></div>
+          <div class="step-pill step-pending" id="step-pill-2"><div class="step-num">Passo 2</div><div class="step-name">Clicou botão</div><div class="step-status-badge">Pendente</div></div>
+          <div class="step-pill step-pending" id="step-pill-3"><div class="step-num">Passo 3</div><div class="step-name">Pesquisou</div><div class="step-status-badge">Pendente</div></div>
+          <div class="step-pill step-pending" id="step-pill-4"><div class="step-num">Passo 4</div><div class="step-name">Clicou player</div><div class="step-status-badge">Pendente</div></div>
+          <div class="step-pill step-pending" id="step-pill-5"><div class="step-num">Passo 5</div><div class="step-name">Abriu gui</div><div class="step-status-badge">Pendente</div></div>
+          <div class="step-pill step-pending" id="step-pill-6"><div class="step-num">Passo 6</div><div class="step-name">Concluiu</div><div class="step-status-badge">Pendente</div></div>
+        </div>
+      </div>
+
+      <!-- Conexão TikTok Live -->
+      <div class="tiktok-bar">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+          <span style="font-size: 20px;">🎵</span>
+          <div class="tiktok-input-box">
+            <span style="color:#fe2c55; font-weight:800; margin-right:4px;">@</span>
+            <input type="text" id="tiktok-username-input" placeholder="seu_perfil_tiktok" autocomplete="off" spellcheck="false" />
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div id="tiktok-live-pill" class="tiktok-pill offline">
+            <span>●</span>
+            <span id="tiktok-pill-text">Desconectado</span>
+          </div>
+          <button id="tiktok-connect-btn" class="btn-success" onclick="toggleTikTokConnection()">
+            Conectar
+          </button>
+        </div>
+      </div>
+
+      <!-- Switch Rápido: Agradecimento de Nicks -->
+      <div class="card" style="padding: 14px 20px; flex-direction: row; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 22px;">🗣️</span>
+          <div>
+            <div style="font-size: 14px; font-weight: 700; color: #fff;">Agradecer Nicks Individualmente</div>
+            <div style="font-size: 12px; color: var(--text-muted);">Fala no TTS o agradecimento personalizado para cada entrega concluída</div>
+          </div>
+        </div>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" id="quick-thank-toggle" checked onchange="toggleThankNicksQuick(this.checked)" style="width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer;">
+          <span id="quick-thank-label" style="font-size: 13px; font-weight: 700; color: var(--primary);">ATIVADO</span>
+        </label>
+      </div>
+
+      <!-- Fila Toolbar & Manual Add -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>Fila em Tempo Real</span>
+            <span id="count" style="font-size: 13px; color: var(--text-muted); font-weight: 600;">0 na fila</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="settings-btn" class="btn-secondary" onclick="toggleSettings()">⚙️ Configurações</button>
+            <button id="clear-btn" class="btn-danger" onclick="clearQueue()">Limpar Fila</button>
+          </div>
+        </div>
+
+        <!-- Painel de Configurações da Fila -->
+        <div id="settings-panel" style="display: none; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; flex-direction: column; gap: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 14px;">
+            <label for="set-cooldown" style="font-size: 13px; color: var(--text-muted);">Cooldown por usuário (segundos)</label>
+            <input id="set-cooldown" type="number" min="0" step="1" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color:#fff; padding:6px 10px; width:90px;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 14px;">
+            <label for="set-max-queue" style="font-size: 13px; color: var(--text-muted);">Tamanho máximo da fila</label>
+            <input id="set-max-queue" type="number" min="1" step="1" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color:#fff; padding:6px 10px; width:90px;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 14px;">
+            <label for="set-pickup-delay" style="font-size: 13px; color: var(--text-muted);">Delay antes de mandar pra fila (segundos)</label>
+            <input id="set-pickup-delay" type="number" min="0" step="1" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color:#fff; padding:6px 10px; width:90px;">
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
+            <button id="save-settings-btn" class="btn-success" onclick="saveSettings()">Salvar Configurações</button>
+            <span id="settings-saved-msg" style="display:none; color:var(--accent-green); font-size:13px; font-weight:700;">Salvo ✓</span>
+          </div>
+        </div>
+
+        <!-- Campo Adicionar Nick Manual -->
+        <div class="manual-add-row">
+          <input id="manual-nick-input" type="text" placeholder="Adicionar nick manualmente no Roblox..." maxlength="20">
+          <button id="manual-add-btn" class="btn-primary" onclick="addManual()">+ Adicionar</button>
+        </div>
+
+        <!-- Lista de Nicks -->
+        <div id="list" class="queue-list-box"></div>
+        <div id="empty" style="text-align: center; color: var(--text-muted); padding: 50px 0; font-size: 14px; display: none;">
+          Nenhum nick na fila no momento. Assim que alguém enviar no chat da live ou você adicionar manualmente, aparecerá aqui. 🎮
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════
+         ABA 2: FALAS & ÁUDIO
+         ═════════════════════════════════════════════════════════ -->
+    <section id="tab-speech" class="tab-pane">
+      <!-- Seção: Agradecimento Individual por Nick -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" style="color: var(--accent-purple);">
+            🗣️ Agradecimento Individual por Nick
+          </div>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="speech-thank-enabled" checked onchange="updateSpeechThankSettings()" style="width: 18px; height: 18px; accent-color: var(--accent-purple); cursor: pointer;">
+            <span id="speech-thank-badge" style="font-weight: 700; font-size: 0.82rem; padding: 4px 12px; border-radius: 999px; background: rgba(168,85,247,0.15); border: 1px solid var(--accent-purple); color: #c084fc;">ATIVADO</span>
+          </label>
+        </div>
+
+        <div class="card-desc">
+          Configure a fala executada pela extensão quando um jogador recebe Robux. Use a tag <code style="color: #c084fc; background: rgba(168,85,247,0.15); padding: 2px 6px; border-radius: 4px;">{nick}</code> para falar o nome do usuário.
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 220px auto; gap: 12px; align-items: end;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Frase / Template de Agradecimento</label>
+            <input type="text" id="speech-thank-template" value="Obrigado {nick}!" onchange="updateSpeechThankSettings()" placeholder="Ex: Obrigado {nick}!" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: #fff; font-size: 14px; width: 100%;">
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Momento da Fala</label>
+            <select id="speech-thank-timing" onchange="updateSpeechThankSettings()" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: #fff; font-size: 13.5px; cursor: pointer;">
+              <option value="finish">✅ Ao Concluir Entrega</option>
+              <option value="start">▶ Ao Iniciar Entrega</option>
+            </select>
+          </div>
+
+          <button onclick="testThankSpeech()" class="btn-secondary" style="color: #c084fc; border-color: rgba(168,85,247,0.4); padding: 10px 16px;">
+            🔊 Testar Voz
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--accent-cyan); font-weight: 700;">🔊 Saída Configurada:</span>
+            <span id="speech-thank-output-name" style="font-weight: 700; color: #fff;">Alto-falante padrão</span>
+          </div>
+          <button type="button" onclick="requestAudioDeviceAccess()" class="btn-secondary" style="font-size: 12px; padding: 4px 10px; color: var(--accent-cyan);">
+            🎙️ Detectar VB-Cable
+          </button>
+        </div>
+      </div>
+
+      <!-- Configurações Globais de Áudio & Dispositivo Virtual -->
+      <div class="card">
+        <div class="card-title" style="color: var(--accent-cyan);">
+          ⚙️ Dispositivo de Saída & Áudio Global (VB-Cable / Voicemeeter)
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 12.5px; color: var(--text-muted); font-weight: 600;">Dispositivo de Saída de Áudio</label>
+              <span id="audio-device-status" style="font-size: 11.5px; font-weight: 600;"></span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <select id="audio-output-device" onchange="onAudioDeviceChanged()" style="flex: 1; min-width: 180px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; color: #fff; font-size: 13.5px;">
+                <option value="">🔊 Alto-falante padrão (Padrão do Sistema)</option>
+              </select>
+              <button type="button" onclick="requestAudioDeviceAccess()" id="btn-detect-audio" class="btn-secondary" style="color: var(--accent-cyan);">
+                🎙️ Liberar VB-Cable
+              </button>
+              <button type="button" onclick="testAudioOutput()" id="btn-test-audio" class="btn-secondary" style="color: #c084fc;">
+                🔊 Testar Saída
+              </button>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-dim); line-height: 1.4;">
+              💡 <em>O Chrome oculta microfones virtuais até você permitir o microfone. Clique em <strong>"Liberar VB-Cable"</strong> para listar seu CABLE Input.</em>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 12.5px; color: var(--text-muted); font-weight: 600;">Volume Global de Falas</label>
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px;">
+              <input type="range" id="global-audio-volume" min="0" max="1" step="0.05" value="1" style="flex: 1; accent-color: var(--primary);">
+              <span id="global-audio-volume-val" style="font-weight: 800; font-size: 15px; color: var(--primary); min-width: 45px;">100%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mute Switch -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="mute-all-audio" style="width: 18px; height: 18px; accent-color: var(--accent-red); cursor: pointer;">
+            <label for="mute-all-audio" style="cursor: pointer; font-weight: 700; color: var(--accent-red); font-size: 14px;">
+              🔇 MODO MUDO (Desativar todas as falas e áudios na live)
+            </label>
+          </div>
+          <div id="mute-status-badge" style="background: rgba(16,185,129,0.15); border: 1px solid var(--accent-green); color: var(--accent-green); font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 999px;">
+            ATIVADO
+          </div>
+        </div>
+
+        <!-- Sliders TTS -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11.5px; color: var(--text-muted);">Voz TTS</label>
+            <select id="global-tts-voice" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: #fff; font-size: 13px;"></select>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11.5px; color: var(--text-muted);">Velocidade</label>
+            <input type="number" id="global-tts-rate" value="1" min="0.5" max="2" step="0.1" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: #fff; font-size: 13px;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11.5px; color: var(--text-muted);">Tom</label>
+            <input type="number" id="global-tts-pitch" value="1" min="0.5" max="2" step="0.1" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: #fff; font-size: 13px;">
+          </div>
+        </div>
+
+        <!-- Live Close Fala -->
+        <div style="background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.3); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-weight: 700; color: var(--accent-orange); font-size: 14px;">⏰ Fala de Encerramento da Live</div>
+          <div style="font-size: 12px; color: var(--text-muted);">Toca automaticamente 10 segundos antes da live encerrar.</div>
+          <textarea id="live-close-text" rows="2" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 13.5px; resize: vertical;">Atenção, a live vai encerrar em 10 segundos! Obrigado a todos que participaram!</textarea>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;"><input type="radio" name="live-close-src" value="tts" checked style="accent-color: var(--accent-orange);"> TTS</label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;"><input type="radio" name="live-close-src" value="recorded" style="accent-color: var(--accent-orange);"> Som Gravado</label>
+            <button id="live-close-test-btn" class="btn-secondary" onclick="testLiveCloseFala()" style="margin-left: auto; font-size: 12px;">▶ Testar Encerramento</button>
+          </div>
+          <div style="background: rgba(0,0,0,0.25); border-radius: 6px; padding: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button id="live-close-rec-start" onclick="startLiveCloseRecording()" class="btn-danger" style="padding: 4px 10px; font-size: 12px;">⏺ Gravar Som</button>
+            <button id="live-close-rec-stop" onclick="stopLiveCloseRecording()" class="btn-danger" style="padding: 4px 10px; font-size: 12px; display: none;">⏹ Parar</button>
+            <span id="live-close-rec-status" style="font-size: 12px; color: var(--text-muted);">Nenhum som gravado</span>
+            <audio id="live-close-rec-audio" controls style="width: 100%; display: none; margin-top: 4px;"></audio>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila de Falas em Tempo Real -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" style="color: var(--accent-cyan);">📋 Fila de Falas em Tempo Real</div>
+          <button id="clear-falas-queue-btn" class="btn-danger" onclick="clearFalasQueue()" style="font-size: 12px; padding: 4px 10px;">🗑 Limpar Fila de Áudio</button>
+        </div>
+        <div id="falas-queue-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 12px; border-radius: var(--radius-sm); min-height: 40px;">
+          <div style="font-style: italic;">Fila de áudio vazia</div>
+        </div>
+      </div>
+
+      <!-- Minhas Falas Programadas -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔊 Minhas Falas Programadas</div>
+          <button id="add-fala-btn" class="btn-primary" onclick="addFala()">+ Adicionar Fala</button>
+        </div>
+        <div id="falas-list" style="display: flex; flex-direction: column; gap: 14px;"></div>
+        <button id="falas-save-all-btn" class="btn-success" onclick="saveFalasAll()" style="width: 100%; padding: 14px; font-size: 15px;">💾 Salvar Todas as Configurações de Falas</button>
+        <div id="falas-save-status" style="font-size: 13px; color: var(--accent-green); text-align: center; min-height: 18px;"></div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════
+         ABA 3: PROVA FAKE
+         ═════════════════════════════════════════════════════════ -->
+    <section id="tab-liveproof" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title" style="color: var(--accent-purple); font-size: 18px;">🎭 Prova Fake (Anti-Gravação)</div>
+            <div class="card-desc">Toca áudio e simula interação ao vivo para provar no chat que a live NÃO é gravada.</div>
+          </div>
+          <div id="liveproof-status-badge" style="background: rgba(16,185,129,0.15); border: 1px solid var(--accent-green); color: var(--accent-green); font-weight: 700; font-size: 12px; padding: 6px 14px; border-radius: 999px;">
+            Pronto
+          </div>
+        </div>
+
+        <!-- Barra de Configurações da Prova Fake -->
+        <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center; background: rgba(0,0,0,0.3); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700;">
+            <input type="checkbox" id="liveproof-enabled" checked style="accent-color: var(--accent-purple); width: 18px; height: 18px;">
+            Ativar Sistema
+          </label>
+
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">Fonte:</span>
+            <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;"><input type="radio" name="liveproof-src" value="tts" checked style="accent-color: var(--accent-purple);"> TTS</label>
+            <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;"><input type="radio" name="liveproof-src" value="recorded" style="accent-color: var(--accent-purple);"> Gravado</label>
+            <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;"><input type="radio" name="liveproof-src" value="disabled" style="accent-color: var(--accent-red);"> Mudo</label>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+            <label for="liveproof-duration" style="font-size: 13px; color: var(--text-muted); font-weight: 600;">Duração:</label>
+            <input type="number" id="liveproof-duration" min="1" max="15" step="0.5" value="4.0" style="width: 65px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: #fff;">
+            <span style="font-size: 12px; color: var(--text-muted);">seg</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input type="checkbox" id="liveproof-keyboard-sound" checked style="accent-color: var(--accent-purple); width: 16px; height: 16px;">
+            <label for="liveproof-keyboard-sound" style="font-size: 13px; color: var(--text-muted); cursor: pointer;">Som de teclado de fundo</label>
+          </div>
+        </div>
+
+        <!-- Seletor de Versões da Prova Fake -->
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="font-weight: 700; color: var(--accent-purple); font-size: 14px;">🗣️ Versões de Falas & Gravações</span>
+              <span id="liveproof-version-count-badge" style="font-size: 11px; background: rgba(168,85,247,0.15); color: var(--accent-purple); padding: 3px 8px; border-radius: 6px; font-weight: 700;">🎲 3 Versões</span>
+            </div>
+            <button type="button" id="liveproof-test-smart-btn" onclick="testSmartLiveProof()" class="btn-secondary" style="font-size: 12px;">
+              🎲 Testar Sorteio da Prova Fake
+            </button>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; background: rgba(0,0,0,0.25); padding: 8px; border-radius: 8px;">
+            <div id="liveproof-version-tabs" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;"></div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button type="button" id="liveproof-add-version-btn" onclick="addLiveProofVersion()" class="btn-secondary" style="font-size: 12px;">+ Nova Versão</button>
+              <button type="button" id="liveproof-test-ver-btn" onclick="testLiveProofActiveVersion()" class="btn-secondary" style="font-size: 12px;">▶ Ouvir Esta</button>
+              <button type="button" id="liveproof-del-ver-btn" onclick="deleteLiveProofActiveVersion()" class="btn-danger" style="font-size: 12px; padding: 4px 8px;">🗑 Excluir</button>
+            </div>
+          </div>
+
+          <textarea id="liveproof-current-text" rows="2" style="background: rgba(0,0,0,0.45); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: #fff; font-size: 14px; resize: vertical;"></textarea>
+
+          <div id="liveproof-rec-box" style="background: rgba(0,0,0,0.25); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 12px; color: var(--accent-purple); font-weight: 700;">🎙️ Gravação de Áudio com Microfone (desta Versão)</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <button type="button" id="liveproof-rec-start-btn" onclick="startLiveProofRecording()" class="btn-danger" style="padding: 6px 12px; font-size: 12px;">⏺ Gravar Minha Voz</button>
+              <button type="button" id="liveproof-rec-stop-btn" onclick="stopLiveProofRecording()" class="btn-danger" style="padding: 6px 12px; font-size: 12px; display: none;">⏹ Parar Gravação</button>
+              <button type="button" id="liveproof-rec-del-btn" onclick="deleteLiveProofRecording()" class="btn-secondary" style="padding: 6px 10px; font-size: 12px;" disabled>🗑 Excluir Áudio</button>
+              <span id="liveproof-rec-status" style="font-size: 12px; color: var(--text-muted);">Sem áudio gravado</span>
+            </div>
+            <audio id="liveproof-rec-audio" controls style="width: 100%; display: none; margin-top: 4px;"></audio>
+          </div>
+        </div>
+
+        <!-- 3 Métodos de Ativação Automática -->
+        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="font-weight: 700; color: var(--accent-purple); font-size: 14px;">⚡ 3 Métodos de Ativação Automática:</div>
+
+          <div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; font-size: 13.5px;">
+              <input type="checkbox" id="liveproof-trigger-deliveries" checked style="accent-color: var(--accent-purple); width: 16px; height: 16px;">
+              1. Disparar por Quantidade de Entregas
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-left: 24px;">
+              <span style="font-size: 13px;">A cada</span>
+              <input type="number" id="liveproof-every-deliveries" min="1" max="100" value="5" style="width: 70px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: #fff;">
+              <span style="font-size: 13px;">entregas concluídas</span>
+            </div>
+          </div>
+
+          <div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; font-size: 13.5px;">
+              <input type="checkbox" id="liveproof-trigger-timer" checked style="accent-color: var(--accent-purple); width: 16px; height: 16px;">
+              2. Disparar por Intervalo de Tempo (Temporizador)
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-left: 24px;">
+              <span style="font-size: 13px;">A cada</span>
+              <input type="number" id="liveproof-timer-seconds" min="30" max="3600" step="10" value="180" style="width: 80px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: #fff;">
+              <span style="font-size: 13px;">segundos (ex: 180 = 3 minutos)</span>
+            </div>
+          </div>
+
+          <div>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; font-size: 13.5px;">
+              <input type="checkbox" id="liveproof-trigger-chat" checked style="accent-color: var(--accent-purple); width: 16px; height: 16px;">
+              3. Disparar ao detectar fala de 'Gravada / Fake' no chat do TikTok
+            </label>
+          </div>
+        </div>
+
+        <button id="liveproof-save-btn" class="btn-success" onclick="saveLiveProofSettings()" style="padding: 12px; font-size: 14px;">💾 Salvar Configurações da Prova Fake</button>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════
+         ABA 4: BANIDOS
+         ═════════════════════════════════════════════════════════ -->
+    <section id="tab-banned" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🚫 Usuários Banidos Permanentemente</div>
+          <span id="banned-count" style="font-size: 13px; color: var(--text-muted); font-weight: 600;">0 banidos</span>
+        </div>
+        <div class="card-desc">Nicks nesta lista são bloqueados e nunca entram na fila de entregas.</div>
+        <div id="banned-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        <div id="banned-empty" style="text-align: center; color: var(--text-muted); padding: 50px 0; font-size: 14px;">
+          Nenhum nick banido no momento. 🛡️
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════
+         ABA 5: AUTO LIVE
+         ═════════════════════════════════════════════════════════ -->
+    <section id="tab-auto" class="tab-pane">
+      <div class="card" style="flex-direction: row; align-items: center; gap: 20px; flex-wrap: wrap;">
+        <div id="live-indicator" style="width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; background: rgba(255,255,255,0.06); border: 1px solid var(--border);">
+          📴
+        </div>
+        <div style="flex: 1; min-width: 200px;">
+          <div id="live-state-label" style="font-size: 17px; font-weight: 700; color: #fff;">Offline</div>
+          <div id="live-timer" style="font-size: 32px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums;">--:--:--</div>
+          <div id="live-sub" style="font-size: 12px; color: var(--text-muted);">Clique em Iniciar para começar a automação.</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="start-btn" class="btn-success" onclick="startAutoLive()" style="padding: 12px 20px; font-size: 14px;">▶ Iniciar Live</button>
+          <button id="stop-btn" class="btn-danger" onclick="stopAutoLive()" disabled style="padding: 12px 20px; font-size: 14px;">⏹ Parar Live</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚙️ Configurações da Automação da Live</div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label for="auto-duration" style="font-size: 13px; color: var(--text-muted);">Duração de cada live (minutos)</label>
+            <input id="auto-duration" type="number" min="1" value="30" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color:#fff; width: 90px;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label for="auto-pause" style="font-size: 13px; color: var(--text-muted);">Pausa entre lives (minutos)</label>
+            <input id="auto-pause" type="number" min="0" value="5" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color:#fff; width: 90px;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label for="auto-wait-open" style="font-size: 13px; color: var(--text-muted);">Espera após abrir a live (segundos)</label>
+            <input id="auto-wait-open" type="number" min="0" value="8" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color:#fff; width: 90px;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label for="auto-repeat" style="font-size: 13px; color: var(--text-muted);">Número de ciclos (0 = infinito)</label>
+            <input id="auto-repeat" type="number" min="0" value="0" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color:#fff; width: 90px;">
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="auto-url" style="font-size: 12px; color: var(--text-muted);">🌐 URL que abre no Chrome</label>
+            <input id="auto-url" type="text" value="https://www.roblox.com/upgrades/robux?ctx=navpopover" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color:#fff; font-size: 13px;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="auto-chrome" style="font-size: 12px; color: var(--text-muted);">📁 Caminho do Chrome</label>
+            <input id="auto-chrome" type="text" value="C:\Program Files\Google\Chrome\Application\chrome.exe" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color:#fff; font-size: 13px;">
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px;">
+          <button id="save-auto-btn" class="btn-primary" onclick="saveAutoSettings()">💾 Salvar Configurações</button>
+          <span id="auto-saved-msg" style="display:none; color:var(--accent-green); font-size:13px; font-weight:700;">Salvo ✓</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════
+         ABA 6: ESTATÍSTICAS (NOVA!)
+         ═════════════════════════════════════════════════════════ -->
+    <section id="tab-stats" class="tab-pane">
+      <!-- 4 KPI Cards -->
+      <div class="stats-grid">
+        <div class="stat-card green">
+          <div class="stat-label">Entregas Realizadas</div>
+          <div class="stat-value" id="statsDeliveryCount">0</div>
+          <div class="stat-sub">Sucessos registrados</div>
+        </div>
+
+        <div class="stat-card cyan">
+          <div class="stat-label">Tempo Ativo de Live</div>
+          <div class="stat-value" id="statsActiveTimer">00:00:00</div>
+          <div class="stat-sub">Sessão em andamento</div>
+        </div>
+
+        <div class="stat-card purple">
+          <div class="stat-label">Ritmo de Envio</div>
+          <div class="stat-value" id="statsDeliveryRate">0/h</div>
+          <div class="stat-sub">Média de entregas / hora</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Fila Atual</div>
+          <div class="stat-value" id="statsCurrentQueue">0</div>
+          <div class="stat-sub">Nicks aguardando</div>
+        </div>
+      </div>
+
+      <!-- Tabela com Histórico das Últimas Entregas -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📜 Histórico Recente de Entregas</div>
+          <button onclick="resetStats()" class="btn-secondary" style="font-size: 12px; padding: 4px 10px;">
+            🗑️ Resetar Estatísticas
+          </button>
+        </div>
+
+        <div class="history-table-container">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nick do Jogador</th>
+                <th>Horário</th>
+                <th>Modo</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="statsHistoryBody">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 32px 0;">
+                  Nenhuma entrega registrada nesta sessão ainda.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- SUPABASE CLIENT -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- SCRIPTS DO APLICATIVO -->
+<script>
+  /* ═════════════════════════════════════════════════════════════
+     AUTENTICAÇÃO / LOGIN
+     ═════════════════════════════════════════════════════════════ */
+  const AUTH_HASH = "329a1e5bcd6150aec9b6b35df33233829cfc2c3f7ce492495416998b3bc3f6f1"; // SHA-256 de "joaolegal"
+  const AUTH_FALLBACK_PLAIN = "joaolegal";
+
+  async function hashString(str) {
+    try {
+      const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+    } catch(e) {
+      return "";
+    }
+  }
+
+  function checkAuth() {
+    // 1. Verifica no localStorage (com expiração de 7 dias)
+    const stored = localStorage.getItem("bgl_auth");
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        if (data && data.hash === AUTH_HASH && (Date.now() - data.ts) < SEVEN_DAYS) {
+          grantAccess();
+          return;
+        }
+      } catch(e) {}
+    }
+
+    // 2. Verifica no sessionStorage
+    const sessionAuth = sessionStorage.getItem("bgl_auth_session");
+    if (sessionAuth === AUTH_HASH) {
+      grantAccess();
+      return;
+    }
+
+    // Não autenticado
+    showLogin();
+  }
+
+  async function attemptLogin() {
+    const input = document.getElementById("loginPass");
+    const pass = input ? input.value.trim() : "";
+    const card = document.getElementById("loginCard");
+    const errBox = document.getElementById("loginError");
+
+    if (!pass) {
+      if (errBox) { errBox.style.display = "block"; errBox.innerText = "Por favor, digite sua senha."; }
+      if (card) { card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake"); }
+      return;
+    }
+
+    const hashed = await hashString(pass);
+    if (hashed === AUTH_HASH || pass === AUTH_FALLBACK_PLAIN) {
+      const remember = document.getElementById("rememberMe")?.checked;
+      if (remember) {
+        localStorage.setItem("bgl_auth", JSON.stringify({ hash: AUTH_HASH, ts: Date.now() }));
+      } else {
+        sessionStorage.setItem("bgl_auth_session", AUTH_HASH);
+      }
+      grantAccess();
+    } else {
+      if (errBox) { errBox.style.display = "block"; errBox.innerText = "Senha incorreta! Tente novamente."; }
+      if (card) { card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake"); }
+      if (input) input.value = "";
+    }
+  }
+
+  function grantAccess() {
+    const loginScreen = document.getElementById("login-screen");
+    const app = document.getElementById("app");
+    if (loginScreen) loginScreen.style.display = "none";
+    if (app) app.classList.add("authenticated");
+  }
+
+  function showLogin() {
+    const loginScreen = document.getElementById("login-screen");
+    const app = document.getElementById("app");
+    if (loginScreen) loginScreen.style.display = "flex";
+    if (app) app.classList.remove("authenticated");
+  }
+
+  function logout() {
+    if (confirm("Deseja realmente sair do painel?")) {
+      localStorage.removeItem("bgl_auth");
+      sessionStorage.removeItem("bgl_auth_session");
+      location.reload();
+    }
+  }
+
+  document.getElementById("loginPass")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") attemptLogin();
+  });
+
+  // Executa checagem de login
+  checkAuth();
+
+  /* ═════════════════════════════════════════════════════════════
+     NAVEGAÇÃO POR ABAS / SIDEBAR
+     ═════════════════════════════════════════════════════════ */
+  const TAB_TITLES = {
+    queue: { title: "📋 Fila de Entregas", breadcrumb: "Dashboard / Fila Ao Vivo" },
+    speech: { title: "🔊 Falas & Configurações de Áudio", breadcrumb: "Dashboard / Áudio & TTS" },
+    liveproof: { title: "🎭 Sistema de Prova Fake", breadcrumb: "Dashboard / Anti-Gravação" },
+    banned: { title: "🚫 Jogadores Banidos", breadcrumb: "Dashboard / Lista Negra" },
+    auto: { title: "⚡ Controle da Auto Live", breadcrumb: "Dashboard / Automação" },
+    stats: { title: "📊 Estatísticas da Sessão", breadcrumb: "Dashboard / Relatórios" }
+  };
+
+  function switchTab(name) {
+    document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".sidebar-nav .nav-item").forEach(n => n.classList.remove("active"));
+
+    const pane = document.getElementById("tab-" + name);
+    const nav = document.getElementById("nav-" + name);
+    if (pane) pane.classList.add("active");
+    if (nav) nav.classList.add("active");
+
+    const meta = TAB_TITLES[name] || { title: "Dashboard", breadcrumb: "Dashboard" };
+    const hTitle = document.getElementById("headerTitle");
+    const hBread = document.getElementById("headerBreadcrumb");
+    if (hTitle) hTitle.innerHTML = meta.title;
+    if (hBread) hBread.innerText = meta.breadcrumb;
+
+    if (name === "stats") updateStatsUI();
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     ESTATÍSTICAS DA SESSÃO
+     ═════════════════════════════════════════════════════════ */
+  let sessionStartTime = Date.now();
+  let sessionDeliveries = JSON.parse(localStorage.getItem("bgl_stats_deliveries") || "[]");
+
+  function addDeliveryToStats(nick) {
+    const item = {
+      id: Date.now(),
+      nick: nick,
+      time: new Date().toLocaleTimeString("pt-BR"),
+      mode: currentMode || "FULL",
+      status: "Entregue ✓"
+    };
+    sessionDeliveries.unshift(item);
+    if (sessionDeliveries.length > 50) sessionDeliveries.pop();
+    localStorage.setItem("bgl_stats_deliveries", JSON.stringify(sessionDeliveries));
+    updateStatsUI();
+  }
+
+  function resetStats() {
+    if (confirm("Resetar as estatísticas da sessão atual?")) {
+      sessionDeliveries = [];
+      sessionStartTime = Date.now();
+      localStorage.removeItem("bgl_stats_deliveries");
+      updateStatsUI();
+    }
+  }
+
+  function updateStatsUI() {
+    const delCountEl = document.getElementById("statsDeliveryCount");
+    if (delCountEl) delCountEl.innerText = sessionDeliveries.length;
+
+    const curQEl = document.getElementById("statsCurrentQueue");
+    if (curQEl) curQEl.innerText = _currentQueueCache.length;
+
+    // Horas passadas
+    const elapsedHours = Math.max(0.01, (Date.now() - sessionStartTime) / (1000 * 60 * 60));
+    const rate = Math.round(sessionDeliveries.length / elapsedHours);
+    const rateEl = document.getElementById("statsDeliveryRate");
+    if (rateEl) rateEl.innerText = `${rate}/h`;
+
+    // Renderiza tabela recente
+    const tbody = document.getElementById("statsHistoryBody");
+    if (!tbody) return;
+
+    if (sessionDeliveries.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Nenhuma entrega registrada nesta sessão ainda.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = sessionDeliveries.map((item, idx) => `
+      <tr>
+        <td style="color: var(--text-dim); font-weight: 700;">#${sessionDeliveries.length - idx}</td>
+        <td style="font-weight: 700; color: #fff;">${escapeHtml(item.nick)}</td>
+        <td style="color: var(--text-muted);">${item.time}</td>
+        <td><span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(59,130,246,0.15); color: #60a5fa; font-weight: 700;">${item.mode}</span></td>
+        <td style="color: var(--accent-green); font-weight: 700;">${item.status}</td>
+      </tr>
+    `).join("");
+  }
+
+  // Timer de sessão ativo
+  setInterval(() => {
+    const el = document.getElementById("statsActiveTimer");
+    if (!el) return;
+    const diff = Math.floor((Date.now() - sessionStartTime) / 1000);
+    const h = String(Math.floor(diff / 3600)).padStart(2, "0");
+    const m = String(Math.floor((diff % 3600) / 60)).padStart(2, "0");
+    const s = String(diff % 60).padStart(2, "0");
+    el.innerText = `${h}:${m}:${s}`;
+  }, 1000);
+
+  /* ═════════════════════════════════════════════════════════════
+     WEBSOCKET & SUPABASE ENGINE (INTEGRAÇÃO COMPLETA)
+     ═════════════════════════════════════════════════════════════ */
+  const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const RENDER_URL = "https://bgl-queue-server.onrender.com";
+
+  function updateServerStatusUI(isOnline, labelText = null) {
+    const dot = document.getElementById("wsDot");
+    const txt = document.getElementById("wsText");
+    const lbl = document.getElementById("serverLabel");
+    if (lbl && labelText) lbl.innerText = labelText;
+    if (dot) dot.className = isOnline ? "status-dot online" : "status-dot";
+    if (txt) {
+      txt.innerText = isOnline ? "Online" : "Offline";
+      txt.style.color = isOnline ? "#4ade80" : "#f87171";
+    }
+  }
+
+  async function checkRenderHealth() {
+    if (IS_LOCAL) return;
+    try {
+      await fetch(RENDER_URL, { mode: "no-cors", cache: "no-store" });
+      updateServerStatusUI(true, "Servidor Render");
+    } catch(e) {
+      if (supabaseClient) {
+        updateServerStatusUI(true, "Nuvem (Supabase)");
+      } else {
+        updateServerStatusUI(false, "Servidor Render");
+      }
+    }
+  }
+
+  function connect() {
+    if (!IS_LOCAL) {
+      // Na nuvem (Vercel), a comunicação com Render e a extensão é feita via Supabase Realtime!
+      updateServerStatusUI(true, "Servidor Render");
+      checkRenderHealth();
+      setInterval(checkRenderHealth, 20000);
+      return;
+    }
+    try {
+      ws = new WebSocket(WS_URL);
+      ws.onopen = () => {
+        updateServerStatusUI(true, "Servidor Local");
+      };
+      ws.onclose = () => {
+        updateServerStatusUI(false, "Servidor Local");
+        setTimeout(connect, 2000);
+      };
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if      (msg.type === "queue_update")        renderQueue(msg.items);
+          else if (msg.type === "tiktok_status")       applyTikTokStatus(msg);
+          else if (msg.type === "settings_update")     applySettings(msg.settings);
+          else if (msg.type === "auto_settings_update") applyAutoSettings(msg.settings);
+          else if (msg.type === "live_status")         applyLiveStatus(msg);
+          else if (msg.type === "banned_list")         renderBanned(msg.nicks);
+          else if (msg.type === "speech_variations")   loadSpeechData(msg.data);
+          else if (msg.type === "variation_picked") {
+            if (msg.categoria === "Prova Fake") {
+              if (typeof triggerLiveProof === "function") triggerLiveProof(msg.source || "chat_detect");
+            } else {
+              const targetFala = (typeof falasList !== 'undefined') && falasList.find(f => f.name === msg.categoria || String(f.id) === String(msg.categoria));
+              if (targetFala) {
+                triggerFala(targetFala);
+              } else if (typeof triggerFalaByName === 'function') {
+                triggerFalaByName(msg.categoria, msg.text);
+              }
+            }
+          }
+          else if (msg.type === "automation_step")     updateAutomationStep(msg.step_index, msg.step_name, msg.status, msg.username, msg.reason);
+          else if (msg.type === "purchase_finished")   {
+            const nick = msg.username;
+            if (nick) {
+              const lower = nick.toLowerCase();
+              _currentQueueCache = _currentQueueCache.filter(i => (i.nick || "").toLowerCase() !== lower);
+              renderQueue(_currentQueueCache);
+            }
+            if (msg.status === "success") {
+              updateAutomationStep(6, "Concluído", "success", msg.username);
+              setTimeout(resetAutomationStepper, 3000);
+              if (typeof addDelivery === "function") addDelivery(msg.username);
+              addDeliveryToStats(msg.username);
+            } else {
+              updateAutomationStep(msg.step_index || 0, "Cancelado", "aborted", msg.username, msg.reason);
+              setTimeout(resetAutomationStepper, 3500);
+            }
+          }
+        } catch(e) {
+          console.warn("[WS] Error parsing message:", e);
+        }
+      };
+    } catch(e) {
+      console.warn("[WS] Init error:", e);
+    }
+  }
+
+  // ── TikTok Live Bar Control ───────────────────────────────────
+  let currentTikTokUser = localStorage.getItem("last_tiktok_user") || "";
+  let tiktokConnected = false;
+  let tiktokConnecting = false;
+
+  function toggleTikTokConnection() {
+    const input = document.getElementById("tiktok-username-input");
+
+    if (tiktokConnected || tiktokConnecting) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "disconnect_tiktok" }));
+      } else {
+        supabaseSyncOperation("POST", "bgl_config", {
+          key: "tiktok_status",
+          value: { connected: false, connecting: false, username: currentTikTokUser }
+        });
+        updateTikTokStatusUI(false, false, currentTikTokUser);
+      }
+      return;
+    }
+
+    let user = (input ? input.value : "").trim().replace(/^@/, "");
+    if (!user) {
+      alert("Por favor, digite o @ do perfil do TikTok!");
+      if (input) input.focus();
+      return;
+    }
+    currentTikTokUser = user;
+    localStorage.setItem("last_tiktok_user", user);
+
+    updateTikTokStatusUI(false, true, user);
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "connect_tiktok", username: user }));
+    } else {
+      supabaseSyncOperation("POST", "bgl_config", {
+        key: "tiktok_status",
+        value: { connected: false, connecting: true, username: user }
+      });
+    }
+  }
+
+  function updateTikTokStatusUI(connected, connecting, username) {
+    tiktokConnected = !!connected;
+    tiktokConnecting = !!connecting;
+    if (username) {
+      currentTikTokUser = username.replace(/^@/, "");
+      const input = document.getElementById("tiktok-username-input");
+      if (input && document.activeElement !== input) {
+        input.value = currentTikTokUser;
+      }
+    }
+
+    const pill = document.getElementById("tiktok-live-pill");
+    const pillText = document.getElementById("tiktok-pill-text");
+    const btn = document.getElementById("tiktok-connect-btn");
+    if (!pill || !btn) return;
+
+    if (tiktokConnecting) {
+      pill.className = "tiktok-pill connecting";
+      pillText.textContent = "Conectando...";
+      btn.className = "btn-secondary";
+      btn.textContent = "⏳ Conectando";
+      btn.disabled = true;
+    } else if (tiktokConnected) {
+      pill.className = "tiktok-pill online";
+      pillText.textContent = currentTikTokUser ? `● Ao Vivo (@${currentTikTokUser})` : "● Ao Vivo";
+      btn.className = "btn-danger";
+      btn.textContent = "Desconectar";
+      btn.disabled = false;
+    } else {
+      pill.className = "tiktok-pill offline";
+      pillText.textContent = "Desconectado";
+      btn.className = "btn-success";
+      btn.textContent = "Conectar";
+      btn.disabled = false;
+    }
+  }
+
+  function applyTikTokStatus(msg) {
+    updateTikTokStatusUI(msg.connected, msg.connecting, msg.username);
+  }
+
+  // ── Supabase Realtime & Cloud Sync ───────────────────────────
+  const SUPABASE_URL = "https://ojjfwxjirlttpxcjhlho.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU";
+  let supabaseClient = null;
+
+  async function supabaseSyncOperation(method, path, body) {
+    try {
+      const url = `${SUPABASE_URL}/rest/v1/${path}`;
+      const headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=minimal"
+      };
+      await fetch(url, {
+        method: method,
+        headers: headers,
+        body: body ? JSON.stringify(body) : undefined
+      });
+    } catch (e) {
+      console.warn("[Supabase] sync notice:", e);
+    }
+  }
+
+  function initSupabase() {
+    try {
+      if (window.supabase && typeof window.supabase.createClient === "function") {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("[Supabase] Inicializado com sucesso!");
+
+        setTimeout(() => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) {
+            loadFromSupabase();
+          }
+        }, 600);
+
+        supabaseClient
+          .channel("bgl_public_channel")
+          .on("postgres_changes", { event: "*", schema: "public", table: "bgl_queue" }, (payload) => {
+            if (payload.eventType === "INSERT") {
+              const item = {
+                id: payload.new.id,
+                nick: payload.new.nick,
+                sender: payload.new.sender || "cloud",
+                robux: payload.new.robux || 0,
+                ts: new Date(payload.new.created_at || Date.now()).getTime() / 1000
+              };
+              const idx = _currentQueueCache.findIndex(i => i.id === item.id || (i.nick && i.nick.toLowerCase() === item.nick.toLowerCase()));
+              if (idx >= 0) {
+                _currentQueueCache[idx] = item;
+              } else {
+                _currentQueueCache.push(item);
+              }
+              renderQueue(_currentQueueCache);
+            } else if (payload.eventType === "DELETE") {
+              const delId = payload.old ? payload.old.id : null;
+              if (delId) {
+                _currentQueueCache = _currentQueueCache.filter(i => i.id !== delId);
+                renderQueue(_currentQueueCache);
+              }
+              loadFromSupabase();
+            } else if (payload.eventType === "UPDATE") {
+              const upd = payload.new;
+              if (upd.status === "delivered" || upd.status === "removed") {
+                _currentQueueCache = _currentQueueCache.filter(i => i.id !== upd.id && (i.nick || "").toLowerCase() !== (upd.nick || "").toLowerCase());
+              } else {
+                const idx = _currentQueueCache.findIndex(i => i.id === upd.id);
+                if (idx >= 0) _currentQueueCache[idx].robux = upd.robux || _currentQueueCache[idx].robux;
+              }
+              renderQueue(_currentQueueCache);
+            }
+          })
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "bgl_deliveries" }, (payload) => {
+            if (payload.new) {
+              const nick = payload.new.nick || payload.new.username;
+              if (nick) {
+                const lower = nick.toLowerCase();
+                _currentQueueCache = _currentQueueCache.filter(i => (i.nick || "").toLowerCase() !== lower);
+                renderQueue(_currentQueueCache);
+                updateAutomationStep(6, "Concluído", "success", nick);
+                setTimeout(resetAutomationStepper, 3500);
+                if (typeof addDelivery === "function") addDelivery(nick);
+                addDeliveryToStats(nick);
+              }
+            }
+          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "bgl_config" }, (payload) => {
+            if (payload.new && payload.new.key === "tiktok_status") {
+              const val = payload.new.value;
+              if (val) updateTikTokStatusUI(val.connected, val.connecting, val.username);
+            }
+            if (payload.new && payload.new.key === "operation_mode") {
+              const val = payload.new.value;
+              if (val && val.operation_mode) {
+                currentMode = val.operation_mode;
+                localStorage.setItem('operationMode', currentMode);
+                applyOperationModeUI(currentMode);
+              }
+            }
+            if (payload.new && payload.new.key === "speech_settings") {
+              const val = payload.new.value;
+              if (val && typeof val === "object") {
+                speechSettings = Object.assign({}, speechSettings, val);
+                localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+                if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+              }
+            }
+          })
+          .subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              console.log("[Supabase Realtime] Conectado na nuvem!");
+              if (!IS_LOCAL) {
+                updateServerStatusUI(true, "Servidor Render");
+              }
+            }
+          });
+      }
+    } catch (e) {
+      console.warn("[Supabase] Falha realtime:", e);
+    }
+  }
+
+  async function loadFromSupabase() {
+    if (!supabaseClient) return;
+    try {
+      const { data: qData, error } = await supabaseClient
+        .from("bgl_queue")
+        .select("*")
+        .order("id", { ascending: true });
+      if (!error && Array.isArray(qData)) {
+        _currentQueueCache = qData.map(r => ({
+          id: r.id,
+          nick: r.nick,
+          sender: r.sender || "cloud",
+          robux: r.robux || 0,
+          ts: new Date(r.created_at || Date.now()).getTime() / 1000
+        }));
+        renderQueue(_currentQueueCache);
+      }
+
+      const { data: cData } = await supabaseClient
+        .from("bgl_config")
+        .select("*")
+        .eq("key", "tiktok_status")
+        .maybeSingle();
+      if (cData && cData.value) {
+        updateTikTokStatusUI(cData.value.connected, cData.value.connecting, cData.value.username);
+      }
+
+      const { data: cMode } = await supabaseClient
+        .from("bgl_config")
+        .select("*")
+        .eq("key", "operation_mode")
+        .maybeSingle();
+      if (cMode && cMode.value && cMode.value.operation_mode) {
+        currentMode = cMode.value.operation_mode;
+        localStorage.setItem('operationMode', currentMode);
+        applyOperationModeUI(currentMode);
+      }
+
+      const { data: cSpeech } = await supabaseClient
+        .from("bgl_config")
+        .select("*")
+        .eq("key", "speech_settings")
+        .maybeSingle();
+      if (cSpeech && cSpeech.value && typeof cSpeech.value === "object") {
+        speechSettings = Object.assign({}, speechSettings, cSpeech.value);
+        localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+        if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+      }
+    } catch (e) {
+      console.warn("[Supabase] Erro ao carregar estado inicial:", e);
+    }
+  }
+
+  // Sincronização periódica a cada 3.5 segundos para garantir atualização contínua com o banco
+  setInterval(loadFromSupabase, 3500);
+
+  // ── Queue Settings ───────────────────────────────────────────
+  function applySettings(s) {
+    if (!s) return;
+    if (typeof s.cooldown    === "number") document.getElementById("set-cooldown").value    = s.cooldown;
+    if (typeof s.max_queue   === "number") document.getElementById("set-max-queue").value   = s.max_queue;
+    if (typeof s.pickup_delay === "number") document.getElementById("set-pickup-delay").value = s.pickup_delay;
+    if (s.operation_mode && typeof applyOperationModeUI === "function") {
+      currentMode = s.operation_mode;
+      applyOperationModeUI(s.operation_mode);
+    }
+    if (s.speech_settings && typeof applySpeechThankUI === "function") {
+      speechSettings = Object.assign({}, speechSettings, s.speech_settings);
+      localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+      applySpeechThankUI();
+    }
+  }
+
+  function toggleSettings() {
+    const p = document.getElementById("settings-panel");
+    p.style.display = (p.style.display === "flex") ? "none" : "flex";
+  }
+
+  function saveSettings() {
+    ws.send(JSON.stringify({ type: "update_settings", settings: {
+      cooldown:      parseInt(document.getElementById("set-cooldown").value, 10),
+      max_queue:     parseInt(document.getElementById("set-max-queue").value, 10),
+      pickup_delay:  parseInt(document.getElementById("set-pickup-delay").value, 10),
+    }}));
+    const msg = document.getElementById("settings-saved-msg");
+    msg.style.display = "inline";
+    setTimeout(() => { msg.style.display = "none"; }, 1500);
+  }
+
+  // ── Auto Live Settings & Control ─────────────────────────────
+  function applyAutoSettings(s) {
+    if (!s) return;
+    if (s.live_duration_minutes       !== undefined) document.getElementById("auto-duration").value   = s.live_duration_minutes;
+    if (s.pause_between_lives_minutes !== undefined) document.getElementById("auto-pause").value      = s.pause_between_lives_minutes;
+    if (s.wait_after_open_seconds     !== undefined) document.getElementById("auto-wait-open").value  = s.wait_after_open_seconds;
+    if (s.repeat_times                !== undefined) document.getElementById("auto-repeat").value     = s.repeat_times;
+    if (s.live_url                    !== undefined) document.getElementById("auto-url").value        = s.live_url;
+    if (s.chrome_path                 !== undefined) document.getElementById("auto-chrome").value     = s.chrome_path;
+  }
+
+  function saveAutoSettings() {
+    ws.send(JSON.stringify({ type: "update_auto_settings", settings: {
+      live_duration_minutes:       parseInt(document.getElementById("auto-duration").value, 10),
+      pause_between_lives_minutes: parseInt(document.getElementById("auto-pause").value, 10),
+      wait_after_open_seconds:     parseInt(document.getElementById("auto-wait-open").value, 10),
+      repeat_times:                parseInt(document.getElementById("auto-repeat").value, 10),
+      live_url:                    document.getElementById("auto-url").value.trim(),
+      chrome_path:                 document.getElementById("auto-chrome").value.trim(),
+    }}));
+    const msg = document.getElementById("auto-saved-msg");
+    msg.style.display = "inline";
+    setTimeout(() => { msg.style.display = "none"; }, 1500);
+  }
+
+  function startAutoLive() { ws.send(JSON.stringify({ type: "start_auto_live" })); }
+  function stopAutoLive() {
+    if (confirm("Parar a automação? A live atual será encerrada.")) {
+      ws.send(JSON.stringify({ type: "stop_auto_live" }));
+    }
+  }
+
+  function applyLiveStatus(msg) {
+    const state = msg.state || "idle";
+    phaseEndTime = (msg.phase_end_time || 0) * 1000;
+    const cycle = msg.cycle || 0;
+
+    const indicator  = document.getElementById("live-indicator");
+    const stateLabel = document.getElementById("live-state-label");
+    const timer      = document.getElementById("live-timer");
+    const sub        = document.getElementById("live-sub");
+    const startBtn   = document.getElementById("start-btn");
+    const stopBtn    = document.getElementById("stop-btn");
+
+    if (!indicator || !stateLabel) return;
+
+    if (state === "live") {
+      indicator.textContent = "🔴";
+      stateLabel.textContent = `🔴 AO VIVO — Ciclo #${cycle}`;
+      stateLabel.style.color = "#f87171";
+      timer.style.color = "#f87171";
+      sub.textContent = "Live no ar! Janela de entrega ativa.";
+      if (startBtn) startBtn.disabled = true;
+      if (stopBtn) stopBtn.disabled = false;
+    } else if (state === "paused") {
+      indicator.textContent = "⏸";
+      stateLabel.textContent = `⏸ PAUSA — Após ciclo #${cycle}`;
+      stateLabel.style.color = "#fb923c";
+      timer.style.color = "#fb923c";
+      sub.textContent = "Aguardando para iniciar a próxima live...";
+      if (startBtn) startBtn.disabled = true;
+      if (stopBtn) stopBtn.disabled = false;
+    } else {
+      indicator.textContent = "📴";
+      stateLabel.textContent = "Offline";
+      stateLabel.style.color = "var(--text-muted)";
+      timer.textContent = "--:--:--";
+      timer.style.color = "var(--text-muted)";
+      sub.textContent = cycle > 0 ? `Automação encerrada após ${cycle} ciclo(s).` : "Clique em Iniciar para começar a automação.";
+      if (startBtn) startBtn.disabled = false;
+      if (stopBtn) stopBtn.disabled = true;
+    }
+
+    if (liveTimerInterval) clearInterval(liveTimerInterval);
+    if (state === "live" || state === "paused") {
+      updateTimer();
+      liveTimerInterval = setInterval(updateTimer, 1000);
+    }
+  }
+
+  function updateTimer() {
+    const remaining = Math.max(0, phaseEndTime - Date.now());
+    const h = Math.floor(remaining / 3600000);
+    const m = Math.floor((remaining % 3600000) / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    const el = document.getElementById("live-timer");
+    if (el) {
+      el.textContent = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+    }
+  }
+
+  // ── Renderização da Fila ─────────────────────────────────────
+  let _currentQueueIds = [];
+
+  function renderQueue(items) {
+    _currentQueueCache = items || [];
+    const list  = document.getElementById("list");
+    const empty = document.getElementById("empty");
+    const count = document.getElementById("count");
+    const sideCount = document.getElementById("sideQueueCount");
+
+    if (count) count.textContent = items.length + " na fila";
+    if (sideCount) sideCount.textContent = items.length;
+
+    const statsQ = document.getElementById("statsCurrentQueue");
+    if (statsQ) statsQ.innerText = items.length;
+
+    if (items.length === 0) {
+      if (list) list.innerHTML = "";
+      if (empty) empty.style.display = "block";
+      _currentQueueIds = [];
+      return;
+    }
+    if (empty) empty.style.display = "none";
+
+    const newItems = [...items].reverse();
+    const newIds   = newItems.map(i => i.id);
+
+    if (JSON.stringify(newIds) === JSON.stringify(_currentQueueIds)) return;
+    _currentQueueIds = newIds;
+
+    const frag = document.createDocumentFragment();
+    newItems.forEach(item => {
+      const el = document.createElement("div");
+      el.className = "queue-item-card";
+      el.dataset.id = item.id;
+      const initial = (item.nick || "?").charAt(0).toUpperCase();
+      el.innerHTML = `
+        <div class="queue-user-info">
+          <div class="avatar-pill">${initial}</div>
+          <div>
+            <div class="nick-name">${escapeHtml(item.nick)}</div>
+            <div class="nick-meta">enviado por @${escapeHtml(item.sender)}</div>
+          </div>
+        </div>
+        <div class="queue-item-actions">
+          <button class="btn-secondary" onclick="copyNick('${escapeJs(item.nick)}', this)">copiar</button>
+          <button class="btn-secondary" onclick="repeatNick('${escapeJs(item.nick)}')">repetir ↻</button>
+          <button class="btn-success" onclick="markDone(${item.id})">confirmado ✓</button>
+          <button class="btn-danger" onclick="banNick('${escapeJs(item.nick)}')">🚫 Banir</button>
+        </div>
+      `;
+      frag.appendChild(el);
+    });
+
+    if (list) {
+      list.textContent = "";
+      list.appendChild(frag);
+    }
+  }
+
+  function copyNick(nick, btn) {
+    navigator.clipboard.writeText(nick);
+    const old = btn.textContent;
+    btn.textContent = "copiado!";
+    setTimeout(() => { btn.textContent = old; }, 1000);
+  }
+
+  function markDone(id) {
+    const item = _currentQueueCache.find(i => i.id === id);
+    const nick = item ? item.nick : null;
+    if (nick) {
+      addDeliveryToStats(nick);
+    }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "remove", id: id }));
+    }
+    _currentQueueCache = _currentQueueCache.filter(i => i.id !== id && (!nick || (i.nick || "").toLowerCase() !== nick.toLowerCase()));
+    renderQueue(_currentQueueCache);
+
+    supabaseSyncOperation("DELETE", `bgl_queue?id=eq.${id}`);
+    if (nick) {
+      supabaseSyncOperation("DELETE", `bgl_queue?nick=ilike.${encodeURIComponent(nick)}`);
+    }
+    setTimeout(loadFromSupabase, 400);
+  }
+
+  async function repeatNick(n) {
+    const nick = (n || "").trim();
+    if (!nick) return;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "add", nick: nick, sender: "repetido" }));
+    }
+    try {
+      if (supabaseClient) {
+        const { data, error } = await supabaseClient
+          .from("bgl_queue")
+          .insert([{ nick: nick, sender: "repetido", sender_id: "repetido", status: "pending", robux: 0 }])
+          .select();
+        if (!error && data && data.length > 0) {
+          const item = {
+            id: data[0].id,
+            nick: data[0].nick,
+            sender: "repetido",
+            robux: 0,
+            ts: Date.now() / 1000
+          };
+          _currentQueueCache.push(item);
+          renderQueue(_currentQueueCache);
+          return;
+        }
+      }
+    } catch(e) {}
+    supabaseSyncOperation("POST", "bgl_queue", {
+      nick: nick,
+      sender: "repetido",
+      sender_id: "repetido",
+      status: "pending",
+      robux: 0
+    });
+    setTimeout(loadFromSupabase, 400);
+  }
+
+  function banNick(nick) {
+    if (confirm(`Banir "${nick}" PERMANENTEMENTE? Ele NUNCA mais vai entrar na fila.`)) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "ban_nick", nick: nick }));
+      }
+    }
+  }
+
+  async function addManual() {
+    const input = document.getElementById("manual-nick-input");
+    const nick = (input ? input.value : "").trim();
+    if (!nick) return;
+    if (input) { input.value = ""; input.focus(); }
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "add", nick: nick, sender: "manual" }));
+    }
+
+    try {
+      if (supabaseClient) {
+        const { data, error } = await supabaseClient
+          .from("bgl_queue")
+          .insert([{ nick: nick, sender: "manual", sender_id: "manual", status: "pending", robux: 0 }])
+          .select();
+        if (!error && data && data.length > 0) {
+          const inserted = data[0];
+          const item = {
+            id: inserted.id,
+            nick: inserted.nick,
+            sender: inserted.sender || "manual",
+            robux: inserted.robux || 0,
+            ts: new Date(inserted.created_at || Date.now()).getTime() / 1000
+          };
+          const existingIdx = _currentQueueCache.findIndex(i => i.id === item.id || (i.nick && i.nick.toLowerCase() === item.nick.toLowerCase()));
+          if (existingIdx >= 0) {
+            _currentQueueCache[existingIdx] = item;
+          } else {
+            _currentQueueCache.push(item);
+          }
+          renderQueue(_currentQueueCache);
+          return;
+        }
+      }
+    } catch(err) {
+      console.warn("[Supabase] Insert manual error:", err);
+    }
+
+    // Fallback REST
+    supabaseSyncOperation("POST", "bgl_queue", {
+      nick: nick,
+      sender: "manual",
+      sender_id: "manual",
+      status: "pending",
+      robux: 0
+    });
+    setTimeout(loadFromSupabase, 400);
+  }
+
+  document.getElementById("manual-nick-input")?.addEventListener("keydown", e => {
+    if (e.key === "Enter") addManual();
+  });
+
+  function clearQueue() {
+    if (confirm("Limpar a fila inteira?")) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "clear" }));
+      }
+      _currentQueueCache = [];
+      renderQueue([]);
+      supabaseSyncOperation("DELETE", "bgl_queue?id=gt.0");
+    }
+  }
+
+  // ── Renderização dos Banidos ──────────────────────────────────
+  function renderBanned(nicks) {
+    const list  = document.getElementById("banned-list");
+    const empty = document.getElementById("banned-empty");
+    const count = document.getElementById("banned-count");
+    const sideBanned = document.getElementById("sideBannedCount");
+
+    if (count) count.textContent = (nicks || []).length + " nick(s) banido(s)";
+    if (sideBanned) sideBanned.textContent = (nicks || []).length;
+
+    if (!nicks || nicks.length === 0) {
+      if (list) list.innerHTML = "";
+      if (empty) empty.style.display = "block";
+      return;
+    }
+    if (empty) empty.style.display = "none";
+
+    const frag = document.createDocumentFragment();
+    nicks.forEach(nick => {
+      const el = document.createElement("div");
+      el.className = "queue-item-card";
+      el.innerHTML = `
+        <div>
+          <div style="font-size: 15px; font-weight: 700; color: #f87171;">🚫 ${escapeHtml(nick)}</div>
+          <div style="font-size: 11.5px; color: var(--text-dim); margin-top: 2px;">Banido permanentemente — ignorado na live</div>
+        </div>
+        <button class="btn-secondary" onclick="unbanNick('${escapeJs(nick)}')">✅ Restaurar</button>
+      `;
+      frag.appendChild(el);
+    });
+
+    if (list) {
+      list.textContent = "";
+      list.appendChild(frag);
+    }
+  }
+
+  function unbanNick(nick) {
+    if (confirm(`Restaurar "${nick}"? Ele poderá entrar na fila novamente.`)) {
+      ws.send(JSON.stringify({ type: "unban_nick", nick: nick }));
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function escapeHtml(str) {
+    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+  function escapeJs(str) {
+    return String(str ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  }
+
+  // ── Stepper 6 Passos ─────────────────────────────────────────
+  function updateAutomationStep(stepIndex, stepName, status, username, reason) {
+    const userBadge = document.getElementById('stepper-user-badge');
+    if (username && userBadge) userBadge.innerText = '👤 ' + username;
+
+    const idx = parseInt(stepIndex) || 0;
+    if (idx >= 1 && idx <= 6) {
+      for (let i = 1; i <= 6; i++) {
+        const pill = document.getElementById('step-pill-' + i);
+        if (!pill) continue;
+        const badge = pill.querySelector('.step-status-badge');
+
+        if (i < idx) {
+          pill.className = 'step-pill step-done';
+          if (badge) badge.innerText = '✅ Concluído';
+        } else if (i === idx) {
+          if (status === 'aborted') {
+            pill.className = 'step-pill step-pending';
+            pill.style.borderColor = 'var(--accent-red)';
+            if (badge) badge.innerText = '⚠️ Erro';
+          } else if (status === 'success') {
+            pill.className = 'step-pill step-done';
+            if (badge) badge.innerText = '✅ Concluído';
+          } else {
+            pill.className = 'step-pill step-active';
+            if (badge) badge.innerText = '⏳ Em andamento';
+          }
+        } else {
+          pill.className = 'step-pill step-pending';
+          if (badge) badge.innerText = 'Pendente';
+        }
+      }
+    }
+  }
+
+  function resetAutomationStepper() {
+    const userBadge = document.getElementById('stepper-user-badge');
+    if (userBadge) userBadge.innerText = 'Aguardando fila...';
+    for (let i = 1; i <= 6; i++) {
+      const pill = document.getElementById('step-pill-' + i);
+      if (pill) {
+        pill.className = 'step-pill step-pending';
+        pill.style.borderColor = '';
+        const badge = pill.querySelector('.step-status-badge');
+        if (badge) badge.innerText = 'Pendente';
+      }
+    }
+  }
+
+  // ── Modos de Operação (FULL, FALA, ENTREGA, MINI, PAUSED) ────
+  const MODES = ['FULL', 'FALA', 'ENTREGA', 'MINI'];
+  let currentMode = localStorage.getItem('operationMode') || 'FULL';
+  let lastActiveMode = localStorage.getItem('lastActiveMode') || 'FULL';
+
+  function toggleOperationMode(mode) {
+    if (currentMode === mode) {
+      setOperationMode('PAUSED');
+    } else {
+      setOperationMode(mode);
+    }
+  }
+
+  function togglePauseQueue() {
+    if (currentMode === 'PAUSED') {
+      setOperationMode(lastActiveMode && lastActiveMode !== 'PAUSED' ? lastActiveMode : 'FULL');
+    } else {
+      setOperationMode('PAUSED');
+    }
+  }
+
+  function setOperationMode(mode) {
+    if (mode !== 'PAUSED' && !MODES.includes(mode)) return;
+    currentMode = mode;
+    localStorage.setItem('operationMode', mode);
+    if (mode !== 'PAUSED') {
+      lastActiveMode = mode;
+      localStorage.setItem('lastActiveMode', mode);
+    }
+    applyOperationModeUI(mode);
+
+    let auto_send = (mode === 'FULL' || mode === 'ENTREGA');
+    let muteAudio = (mode === 'ENTREGA' || mode === 'MINI');
+
+    updateMuteUI(muteAudio);
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'update_settings',
+        settings: { operation_mode: mode, auto_send: auto_send }
+      }));
+    }
+
+    supabaseSyncOperation("POST", "bgl_config", {
+      key: "operation_mode",
+      value: { operation_mode: mode, auto_send: auto_send, updated_at: Date.now() }
+    });
+  }
+
+  function applyOperationModeUI(mode) {
+    const isPaused = (mode === 'PAUSED');
+    MODES.forEach(m => {
+      const card = document.getElementById('mode-card-' + m);
+      if (card) card.classList.toggle('mode-active', !isPaused && m === mode);
+    });
+
+    const banner = document.getElementById('paused-banner');
+    if (banner) banner.style.display = isPaused ? 'flex' : 'none';
+
+    const dot = document.getElementById('pause-indicator-dot');
+    if (dot) dot.style.background = isPaused ? '#ef4444' : '#10b981';
+
+    const btnText = document.getElementById('pause-btn-text');
+    if (btnText) btnText.innerText = isPaused ? '▶ Retomar Fila' : '⏸️ Pausar Fila';
+
+    const pill = document.getElementById('quickModePill');
+    if (pill) {
+      pill.innerText = 'MODO: ' + (isPaused ? 'PAUSADO ⏸️' : mode);
+      pill.style.borderColor = isPaused ? 'rgba(239,68,68,0.4)' : 'rgba(59,130,246,0.4)';
+      pill.style.color = isPaused ? '#f87171' : '#60a5fa';
+    }
+  }
+
+  // ── Speech / Thank You Settings ──────────────────────────────
+  let speechSettings = JSON.parse(localStorage.getItem('speechSettings') || 'null') || {
+    thank_enabled: true,
+    thank_template: 'Obrigado {nick}!',
+    thank_timing: 'finish'
+  };
+
+  function applySpeechThankUI() {
+    const enabled = speechSettings.thank_enabled !== false;
+    const quickToggle = document.getElementById('quick-thank-toggle');
+    if (quickToggle) quickToggle.checked = enabled;
+
+    const quickLabel = document.getElementById('quick-thank-label');
+    if (quickLabel) {
+      quickLabel.innerText = enabled ? 'ATIVADO' : 'DESATIVADO';
+      quickLabel.style.color = enabled ? 'var(--primary)' : 'var(--text-muted)';
+    }
+
+    const tabToggle = document.getElementById('speech-thank-enabled');
+    if (tabToggle) tabToggle.checked = enabled;
+
+    const tabBadge = document.getElementById('speech-thank-badge');
+    if (tabBadge) {
+      tabBadge.innerText = enabled ? 'ATIVADO' : 'DESATIVADO';
+      tabBadge.style.background = enabled ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.05)';
+      tabBadge.style.borderColor = enabled ? 'var(--accent-purple)' : 'rgba(255,255,255,0.15)';
+      tabBadge.style.color = enabled ? '#c084fc' : 'var(--text-muted)';
+    }
+
+    const templateInput = document.getElementById('speech-thank-template');
+    if (templateInput && speechSettings.thank_template) {
+      templateInput.value = speechSettings.thank_template;
+    }
+
+    const timingSelect = document.getElementById('speech-thank-timing');
+    if (timingSelect && speechSettings.thank_timing) {
+      timingSelect.value = speechSettings.thank_timing;
+    }
+  }
+
+  function toggleThankNicksQuick(checked) {
+    speechSettings.thank_enabled = !!checked;
+    saveSpeechSettings();
+  }
+
+  function updateSpeechThankSettings() {
+    const tabToggle = document.getElementById('speech-thank-enabled');
+    const templateInput = document.getElementById('speech-thank-template');
+    const timingSelect = document.getElementById('speech-thank-timing');
+
+    if (tabToggle) speechSettings.thank_enabled = tabToggle.checked;
+    if (templateInput) speechSettings.thank_template = templateInput.value || 'Obrigado {nick}!';
+    if (timingSelect) speechSettings.thank_timing = timingSelect.value || 'finish';
+
+    saveSpeechSettings();
+  }
+
+  function saveSpeechSettings() {
+    localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+    applySpeechThankUI();
+
+    supabaseSyncOperation("POST", "bgl_config", {
+      key: "speech_settings",
+      value: {
+        thank_enabled: speechSettings.thank_enabled,
+        thank_template: speechSettings.thank_template,
+        thank_timing: speechSettings.thank_timing,
+        updated_at: Date.now()
+      }
+    });
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'update_settings',
+        settings: { speech_settings: speechSettings }
+      }));
+    }
+  }
+
+  function testThankSpeech() {
+    const template = (speechSettings.thank_template || 'Obrigado {nick}!').trim();
+    const text = template.replace(/{nick}/gi, 'Player123');
+    if (typeof playTTS === 'function') {
+      playTTS(text);
+    }
+  }
+
+  // ── Audio Engine & VB-Cable Dispositivos ─────────────────────
+  let deliveryCount = parseInt(localStorage.getItem('deliveryCount') || '0');
+  let isAudioPlaying = false;
+  let audioQueue = [];
+  let processingAudioQueue = false;
+  let currentAudioEl = null;
+  let resolveCurrentPlayback = null;
+  let currentlyPlayingFalaName = '';
+  let liveCloseTriggered = false;
+  let liveCloseBlocked = false;
+  let falasTimers = [];
+
+  let falasList = JSON.parse(localStorage.getItem('falasList') || 'null') || [
+    {
+      id: 1,
+      name: 'Agradecimento',
+      enabled: true,
+      src: 'tts',
+      triggerType: 'delivery',
+      triggerValue: 5,
+      versions: [
+        { id: 1, text: 'Obrigado pela entrega, tamo junto!' },
+        { id: 2, text: 'Mais um envio de Robux concluído com sucesso!' },
+        { id: 3, text: 'Valeu pela confiança, aproveite seus Robux!' }
+      ],
+      recentPlayed: []
+    }
+  ];
+
+  let falasGlobal = JSON.parse(localStorage.getItem('falasGlobal') || '{}');
+  let recordedBlobsMap = new Map();
+  let activeFalaVersionMap = {};
+
+  function isAudioMuted() {
+    const cb = document.getElementById('mute-all-audio');
+    if (cb && cb.checked) return true;
+    if (falasGlobal && falasGlobal.muteAllAudio === true) return true;
+    return false;
+  }
+
+  function updateMuteUI(muted) {
+    const valEl = document.getElementById('mute-status-badge');
+    const cbEl = document.getElementById('mute-all-audio');
+    if (muted) {
+      if (valEl) {
+        valEl.innerText = 'MUDO';
+        valEl.style.background = 'rgba(239,68,68,0.15)';
+        valEl.style.borderColor = 'var(--accent-red)';
+        valEl.style.color = 'var(--accent-red)';
+      }
+      if (cbEl) cbEl.checked = true;
+      clearFalasQueue();
+    } else {
+      if (valEl) {
+        valEl.innerText = 'ATIVADO';
+        valEl.style.background = 'rgba(16,185,129,0.15)';
+        valEl.style.borderColor = 'var(--accent-green)';
+        valEl.style.color = 'var(--accent-green)';
+      }
+      if (cbEl) cbEl.checked = false;
+      restartFalasTimers();
+    }
+  }
+
+  async function loadAudioDevices() {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const sel = document.getElementById('audio-output-device');
+      if (!sel) return;
+
+      const outputs = devices.filter(d => d.kind === 'audiooutput');
+      const statusBadge = document.getElementById('audio-device-status');
+      const thankOutputName = document.getElementById('speech-thank-output-name');
+
+      sel.innerHTML = '<option value="">🔊 Alto-falante padrão (Padrão do Sistema)</option>';
+      let vbCableId = null;
+      let hasRealLabels = false;
+
+      outputs.forEach(d => {
+        if (!d.deviceId || d.deviceId === 'default') return;
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        if (d.label && d.label.trim()) hasRealLabels = true;
+        const label = d.label || ('Dispositivo de Saída (' + d.deviceId.slice(0, 8) + '...)');
+        opt.textContent = label;
+        opt.dataset.label = label;
+        sel.appendChild(opt);
+
+        if (!vbCableId && /cable|vb-?cable|voicemeeter|virtual/i.test(label)) {
+          vbCableId = d.deviceId;
+        }
+      });
+
+      const targetId = falasGlobal.outputDevice || (speechSettings && speechSettings.output_device_id);
+      if (targetId && Array.from(sel.options).some(o => o.value === targetId)) {
+        sel.value = targetId;
+      } else if (vbCableId) {
+        sel.value = vbCableId;
+        falasGlobal.outputDevice = vbCableId;
+      }
+
+      const selectedOpt = sel.options[sel.selectedIndex];
+      const activeLabel = selectedOpt ? selectedOpt.textContent : '🔊 Alto-falante padrão';
+
+      if (thankOutputName) thankOutputName.textContent = activeLabel;
+
+      if (statusBadge) {
+        if (hasRealLabels) {
+          const isVirtual = /cable|vb-?cable|voicemeeter|virtual/i.test(activeLabel);
+          statusBadge.innerHTML = isVirtual
+            ? '✅ <span style="color:#4ade80;">VB-Cable Ativo</span>'
+            : '✅ <span style="color:#38bdf8;">' + (outputs.length || 1) + ' Saída(s) Detectada(s)</span>';
+        } else {
+          statusBadge.innerHTML = '⚠️ <span style="color:#fbbf24;">Nomes ocultos. Clique em "Liberar VB-Cable"</span>';
+        }
+      }
+    } catch(e) {
+      console.warn("Erro ao enumerar dispositivos de áudio:", e);
+    }
+  }
+
+  async function requestAudioDeviceAccess() {
+    const btn = document.getElementById('btn-detect-audio');
+    if (btn) btn.innerText = '⏳ Detectando...';
+
+    try {
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.selectAudioOutput === 'function') {
+        try {
+          const dev = await navigator.mediaDevices.selectAudioOutput();
+          if (dev && dev.deviceId) {
+            await loadAudioDevices();
+            const sel = document.getElementById('audio-output-device');
+            if (sel) {
+              sel.value = dev.deviceId;
+              onAudioDeviceChanged();
+            }
+            if (btn) btn.innerText = '✅ Dispositivo Selecionado';
+            setTimeout(() => { if (btn) btn.innerText = '🎙️ Liberar VB-Cable'; }, 3000);
+            return;
+          }
+        } catch(pickerErr) {}
+      }
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+      }
+
+      await loadAudioDevices();
+      onAudioDeviceChanged();
+
+      if (btn) btn.innerText = '✅ Dispositivos Liberados';
+      setTimeout(() => { if (btn) btn.innerText = '🎙️ Liberar VB-Cable'; }, 3000);
+    } catch (err) {
+      alert("Para exibir o VB-Cable ou microfone virtual, o Chrome precisa que você autorize a permissão de áudio da página.\n\nClique no ícone de opções ao lado do link e permita 'Microfone'.");
+      if (btn) btn.innerText = '❌ Permissão Necessária';
+      setTimeout(() => { if (btn) btn.innerText = '🎙️ Liberar VB-Cable'; }, 3000);
+    }
+  }
+
+  function onAudioDeviceChanged() {
+    const sel = document.getElementById('audio-output-device');
+    if (!sel) return;
+    const deviceId = sel.value;
+    const selectedOpt = sel.options[sel.selectedIndex];
+    const deviceLabel = selectedOpt ? selectedOpt.textContent : '🔊 Alto-falante padrão';
+
+    falasGlobal.outputDevice = deviceId;
+    falasGlobal.outputDeviceLabel = deviceLabel;
+    localStorage.setItem('falasGlobal', JSON.stringify(falasGlobal));
+
+    if (typeof speechSettings !== 'undefined') {
+      speechSettings.output_device_id = deviceId;
+      speechSettings.output_device_label = deviceLabel;
+      saveSpeechSettings();
+    }
+
+    const thankOutputName = document.getElementById('speech-thank-output-name');
+    if (thankOutputName) thankOutputName.textContent = deviceLabel;
+
+    const statusBadge = document.getElementById('audio-device-status');
+    if (statusBadge) {
+      const isVirtual = /cable|vb-?cable|voicemeeter|virtual/i.test(deviceLabel);
+      statusBadge.innerHTML = isVirtual
+        ? '✅ <span style="color:#4ade80;">VB-Cable Ativo</span>'
+        : '🔊 <span style="color:#38bdf8;">' + escapeHtml(deviceLabel) + '</span>';
+    }
+  }
+
+  async function testAudioOutput() {
+    const btn = document.getElementById('btn-test-audio');
+    if (btn) btn.innerText = '🔊 Tocando...';
+    try {
+      await playTTS('Teste de saída de áudio para o microfone virtual concluído com sucesso.');
+      if (btn) btn.innerText = '✅ Som Enviado';
+    } catch(err) {
+      if (btn) btn.innerText = '⚠️ Erro ao Tocar';
+    }
+    setTimeout(() => { if (btn) btn.innerText = '🔊 Testar Saída'; }, 3000);
+  }
+
+  function loadVoices() {
+    if (!window.speechSynthesis) return;
+    const voices = speechSynthesis.getVoices();
+    const sel = document.getElementById('global-tts-voice');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '';
+    voices.forEach((v, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = v.name + ' (' + v.lang + ')';
+      if (v.lang && v.lang.startsWith('pt')) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (cur) sel.value = cur;
+  }
+
+  if (window.speechSynthesis) {
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+
+  async function playTTS(text, voiceIdx, rate, pitch) {
+    if (isAudioMuted()) {
+      try { speechSynthesis.cancel(); } catch(e) {}
+      return;
+    }
+    try {
+      const lang = 'pt-BR';
+      const url = 'https://translate.google.com/translate_tts?ie=UTF-8&q=' + encodeURIComponent(text) + '&tl=' + lang + '&client=gtx&ttsspeed=' + Math.min(Math.max(rate || 1, 0.5), 1.5);
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('TTS API');
+      const blob = await resp.blob();
+      if (isAudioMuted()) return;
+      await playBlob(blob);
+    } catch(e) {
+      if (isAudioMuted()) return;
+      return new Promise(resolve => {
+        if (isAudioMuted()) { resolve(); return; }
+        const utter = new SpeechSynthesisUtterance(text);
+        const voices = speechSynthesis.getVoices();
+        if (voices[voiceIdx]) utter.voice = voices[voiceIdx];
+        utter.rate = rate || 1;
+        utter.pitch = pitch || 1;
+        utter.volume = parseFloat(document.getElementById('global-audio-volume')?.value || 1);
+        resolveCurrentPlayback = () => { resolveCurrentPlayback = null; resolve(); };
+        utter.onend = resolveCurrentPlayback;
+        utter.onerror = resolveCurrentPlayback;
+        speechSynthesis.speak(utter);
+      });
+    }
+  }
+
+  async function playBlob(blob) {
+    if (isAudioMuted() || !blob) return;
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.volume = parseFloat(document.getElementById('global-audio-volume')?.value || 1);
+    const sinkId = document.getElementById('audio-output-device')?.value;
+    if (sinkId && audio.setSinkId) {
+      try { await audio.setSinkId(sinkId); } catch(e) {}
+    }
+    currentAudioEl = audio;
+    return new Promise(resolve => {
+      resolveCurrentPlayback = () => {
+        resolveCurrentPlayback = null;
+        currentAudioEl = null;
+        resolve();
+      };
+      audio.onended = resolveCurrentPlayback;
+      audio.onerror = resolveCurrentPlayback;
+      audio.play().catch(() => {
+        resolveCurrentPlayback = null;
+        currentAudioEl = null;
+        resolve();
+      });
+    });
+  }
+
+  async function processAudioQueue() {
+    if (isAudioMuted()) {
+      clearFalasQueue();
+      return;
+    }
+    processingAudioQueue = true;
+    while (audioQueue.length > 0) {
+      if (isAudioMuted()) {
+        clearFalasQueue();
+        break;
+      }
+      const item = audioQueue.shift();
+      if (item.fala && (item.fala.enabled === false || item.fala.src === 'disabled')) continue;
+
+      isAudioPlaying = true;
+      const verTag = item.version?.id ? (' [V' + item.version.id + ']') : '';
+      currentlyPlayingFalaName = item.isLiveClose
+        ? 'Fala de Encerramento'
+        : (item.isLiveProof ? ('Prova Fake' + verTag) : (((item.fala && item.fala.name) || 'Fala') + verTag));
+      renderFalasQueue();
+
+      try {
+        if (item.isLiveProof && item.keyboard_sound) {
+          const kbAudio = new Audio('https://actions.google.com/sounds/v1/foley/keyboard_typing.ogg');
+          kbAudio.volume = 0.4;
+          kbAudio.play().catch(() => {});
+          setTimeout(() => { try { kbAudio.pause(); } catch(e){} }, 4000);
+        }
+
+        const voiceIdx = parseInt(document.getElementById('global-tts-voice')?.value) || 0;
+        const rate = parseFloat(document.getElementById('global-tts-rate')?.value) || 1;
+        const pitch = parseFloat(document.getElementById('global-tts-pitch')?.value) || 1;
+
+        const rawText = (item.version && item.version.text) || (item.fala && item.fala.text) || '';
+        let textToSpeak = rawText;
+        const lastUser = document.getElementById('stepper-user-badge')?.innerText?.replace(/^👤\s*/, '') || '';
+        if (lastUser && lastUser !== 'Aguardando fila...') {
+          textToSpeak = textToSpeak.replace(/{username}|{user}|{nick}/gi, lastUser);
+        }
+        textToSpeak = textToSpeak.replace(/{total}|{entregas}/gi, deliveryCount);
+
+        const src = item.src || (item.fala && item.fala.src) || 'tts';
+        if (src === 'tts' || !src) {
+          if (textToSpeak) await playTTS(textToSpeak, voiceIdx, rate, pitch);
+        } else if (src === 'recorded') {
+          let blob = item.blob;
+          if (!blob && item.fala && item.version) {
+            blob = recordedBlobsMap.get(item.fala.id + '_' + item.version.id);
+          }
+          if (!blob && item.isLiveClose) {
+            blob = recordedBlobsMap.get('live-close');
+          }
+          if (!blob && item.isLiveProof && item.version) {
+            blob = recordedBlobsMap.get('liveproof_' + item.version.id);
+          }
+          if (blob) {
+            await playBlob(blob);
+          } else if (textToSpeak) {
+            await playTTS(textToSpeak, voiceIdx, rate, pitch);
+          }
+        }
+      } catch(e) {
+        console.error('[AudioQueue] Erro:', e);
+      } finally {
+        isAudioPlaying = false;
+        currentlyPlayingFalaName = '';
+        renderFalasQueue();
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+    processingAudioQueue = false;
+  }
+
+  function renderFalasQueue() {
+    const el = document.getElementById('falas-queue-list');
+    if (!el) return;
+    if (audioQueue.length === 0 && !isAudioPlaying) {
+      el.innerHTML = '<div style="font-style: italic;">Fila de áudio vazia</div>';
+      return;
+    }
+    let html = '';
+    if (isAudioPlaying) {
+      html += '<div>▶️ Tocando agora: <strong style="color: var(--accent-cyan);">' + currentlyPlayingFalaName + '</strong></div>';
+    }
+    audioQueue.forEach((item, idx) => {
+      const verTag = item.version?.id ? (' [V' + item.version.id + ']') : '';
+      const name = item.isLiveClose
+        ? 'Fala de Encerramento'
+        : (item.isLiveProof ? ('Prova Fake' + verTag) : (((item.fala && item.fala.name) || 'Fala') + verTag));
+      html += '<div>' + (idx + 1) + '. ' + name + '</div>';
+    });
+    el.innerHTML = html;
+  }
+
+  function clearFalasQueue() {
+    audioQueue.length = 0;
+    if (currentAudioEl) {
+      try { currentAudioEl.pause(); } catch(e) {}
+      currentAudioEl = null;
+    }
+    try { speechSynthesis.cancel(); } catch(e) {}
+    if (resolveCurrentPlayback) resolveCurrentPlayback();
+    isAudioPlaying = false;
+    currentlyPlayingFalaName = '';
+    renderFalasQueue();
+  }
+
+  // ── Sistema de Falas ─────────────────────────────────────────
+  function ensureFalaVersions(fala) {
+    if (!fala) return fala;
+    if (fala.enabled === undefined) fala.enabled = true;
+    if (!fala.versions || !Array.isArray(fala.versions) || fala.versions.length === 0) {
+      fala.versions = [{ id: 1, text: fala.text || 'Obrigado pela entrega, tamo junto!' }];
+    }
+    if (!fala.recentPlayed || !Array.isArray(fala.recentPlayed)) fala.recentPlayed = [];
+    if (!fala.src) fala.src = 'tts';
+    if (!fala.triggerType) fala.triggerType = 'delivery';
+    if (fala.triggerValue === undefined) fala.triggerValue = 5;
+    return fala;
+  }
+
+  function pickSmartVersion(fala) {
+    ensureFalaVersions(fala);
+    const versions = fala.versions.filter(v => v && (v.text || recordedBlobsMap.has(fala.id + '_' + v.id)));
+    if (versions.length === 0) return { id: 1, text: fala.text || 'Obrigado!' };
+    if (versions.length === 1) {
+      fala.recentPlayed = [versions[0].id];
+      return versions[0];
+    }
+    const lastId = fala.recentPlayed[0];
+    const secondLastId = fala.recentPlayed[1];
+
+    let candidates = [];
+    if (versions.length === 2) {
+      candidates = versions.filter(v => v.id !== lastId);
+    } else {
+      candidates = versions.filter(v => v.id !== lastId && v.id !== secondLastId);
+    }
+    if (!candidates.length) candidates = versions.filter(v => v.id !== lastId);
+    if (!candidates.length) candidates = versions;
+
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    fala.recentPlayed = [chosen.id, lastId].filter(id => id !== undefined);
+    return chosen;
+  }
+
+  function triggerFala(fala, isLiveClose = false, specificVersion = null) {
+    if (isAudioMuted()) return;
+    if (fala && fala.enabled === false) return;
+    if (fala && (fala.src === 'disabled' || fala.src === 'none')) return;
+    if (liveCloseBlocked && !isLiveClose) return;
+
+    ensureFalaVersions(fala);
+    const chosen = isLiveClose ? { id: 'live-close', text: fala.text } : (specificVersion || pickSmartVersion(fala));
+    audioQueue.push({ fala, version: chosen, isLiveClose });
+    renderFalasQueue();
+    if (!processingAudioQueue) processAudioQueue();
+  }
+
+  function triggerFalaByName(catName, item) {
+    const text = typeof item === 'object' ? item.text : item;
+    const blob = typeof item === 'object' && item.audioBase64 ? item.audioBase64 : null;
+    audioQueue.push({
+      fala: { name: catName, src: blob ? 'recorded' : 'tts', text: text },
+      version: { id: 1, text: text },
+      blob: blob
+    });
+    renderFalasQueue();
+    if (!processingAudioQueue) processAudioQueue();
+  }
+
+  function selectFalaVersionTab(falaId, versionId) {
+    activeFalaVersionMap[falaId] = versionId;
+    renderFalasList();
+  }
+
+  function addFala() {
+    const newId = Date.now();
+    falasList.push({
+      id: newId,
+      name: 'Fala ' + (falasList.length + 1),
+      enabled: true,
+      src: 'tts',
+      triggerType: 'delivery',
+      triggerValue: 5,
+      versions: [
+        { id: 1, text: 'Obrigado pela entrega, tamo junto!' },
+        { id: 2, text: 'Mais um envio de Robux concluído com sucesso!' },
+        { id: 3, text: 'Valeu pela confiança, aproveite seus Robux!' }
+      ],
+      recentPlayed: []
+    });
+    activeFalaVersionMap[newId] = 1;
+    saveFalasAll();
+    renderFalasList();
+  }
+
+  function removeFala(falaId) {
+    if (!confirm('Deseja excluir esta fala permanentemente?')) return;
+    falasList = falasList.filter(f => f.id !== falaId);
+    delete activeFalaVersionMap[falaId];
+    saveFalasAll();
+    renderFalasList();
+  }
+
+  function addFalaVersion(falaId) {
+    const fala = falasList.find(f => f.id === falaId);
+    if (!fala) return;
+    ensureFalaVersions(fala);
+    const maxId = fala.versions.reduce((m, v) => Math.max(m, v.id || 0), 0);
+    const newId = maxId + 1;
+    fala.versions.push({ id: newId, text: '' });
+    activeFalaVersionMap[falaId] = newId;
+    saveFalasAll();
+    renderFalasList();
+  }
+
+  function removeFalaVersion(falaId, versionId) {
+    const fala = falasList.find(f => f.id === falaId);
+    if (!fala) return;
+    ensureFalaVersions(fala);
+    if (fala.versions.length <= 1) {
+      alert('A fala precisa ter pelo menos uma versão.');
+      return;
+    }
+    fala.versions = fala.versions.filter(v => v.id !== versionId);
+    deleteVersionRecording(falaId, versionId);
+    activeFalaVersionMap[falaId] = fala.versions[0].id;
+    saveFalasAll();
+    renderFalasList();
+  }
+
+  function testSmartFala(falaId) {
+    const fala = falasList.find(f => f.id === falaId);
+    if (fala) {
+      const picked = pickSmartVersion(fala);
+      triggerFala(fala, false, picked);
+    }
+  }
+
+  function testSpecificVersion(falaId, versionId) {
+    const fala = falasList.find(f => f.id === falaId);
+    if (fala) {
+      ensureFalaVersions(fala);
+      const ver = fala.versions.find(v => v.id === versionId) || { id: versionId, text: '' };
+      triggerFala(fala, false, ver);
+    }
+  }
+
+  let versionMediaRecorder = null;
+  let versionChunks = [];
+
+  async function startVersionRecording(falaId, versionId) {
+    const key = falaId + '_' + versionId;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 }
+      });
+      versionChunks = [];
+      const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 128000 }
+        : {};
+      versionMediaRecorder = new MediaRecorder(stream, opts);
+      versionMediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) versionChunks.push(e.data);
+      };
+      versionMediaRecorder.onstop = () => {
+        const blob = new Blob(versionChunks, { type: 'audio/webm' });
+        recordedBlobsMap.set(key, blob);
+        stream.getTracks().forEach(t => t.stop());
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const recs = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+          recs[key] = reader.result;
+          localStorage.setItem('falasRecordings', JSON.stringify(recs));
+          renderFalasList();
+          saveSpeechToServer();
+        };
+        reader.readAsDataURL(blob);
+      };
+      versionMediaRecorder.start(200);
+
+      const startBtn = document.getElementById('rec-start-' + falaId + '-' + versionId);
+      const stopBtn = document.getElementById('rec-stop-' + falaId + '-' + versionId);
+      if (startBtn) startBtn.style.display = 'none';
+      if (stopBtn) stopBtn.style.display = '';
+      const st = document.getElementById('rec-status-' + falaId + '-' + versionId);
+      if (st) st.innerText = '🔴 Gravando som...';
+    } catch(e) {
+      alert('Erro ao acessar microfone: ' + e.message);
+    }
+  }
+
+  function stopVersionRecording(falaId, versionId) {
+    if (versionMediaRecorder && versionMediaRecorder.state !== 'inactive') {
+      versionMediaRecorder.stop();
+    }
+    const startBtn = document.getElementById('rec-start-' + falaId + '-' + versionId);
+    const stopBtn = document.getElementById('rec-stop-' + falaId + '-' + versionId);
+    if (startBtn) startBtn.style.display = '';
+    if (stopBtn) stopBtn.style.display = 'none';
+  }
+
+  function deleteVersionRecording(falaId, versionId) {
+    const key = falaId + '_' + versionId;
+    recordedBlobsMap.delete(key);
+    const recs = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+    delete recs[key];
+    localStorage.setItem('falasRecordings', JSON.stringify(recs));
+    renderFalasList();
+    saveSpeechToServer();
+  }
+
+  function renderFalasList() {
+    const container = document.getElementById('falas-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    falasList.forEach(fala => {
+      ensureFalaVersions(fala);
+      const card = document.createElement('div');
+      card.style.cssText = 'background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 12px;';
+
+      if (!activeFalaVersionMap[fala.id] || !fala.versions.some(v => v.id === activeFalaVersionMap[fala.id])) {
+        activeFalaVersionMap[fala.id] = fala.versions[0]?.id || 1;
+      }
+      const activeVerId = activeFalaVersionMap[fala.id];
+      const activeVer = fala.versions.find(v => v.id === activeVerId) || fala.versions[0] || { id: 1, text: '' };
+
+      let versionTabsHtml = '';
+      fala.versions.forEach(ver => {
+        const isTabActive = ver.id === activeVerId;
+        const verKey = fala.id + '_' + ver.id;
+        const hasBlob = recordedBlobsMap.has(verKey);
+        versionTabsHtml += '<button type="button" onclick="selectFalaVersionTab(' + fala.id + ', ' + ver.id + ')" ' +
+          'style="padding: 5px 12px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; transition: all 0.2s; ' +
+          'background: ' + (isTabActive ? 'var(--primary)' : 'rgba(255,255,255,0.05)') + '; ' +
+          'color: ' + (isTabActive ? '#fff' : 'var(--text-muted)') + '; ' +
+          'border: 1px solid ' + (isTabActive ? 'var(--primary)' : 'var(--border)') + ';">' +
+          'V' + ver.id + (hasBlob ? ' 🎙️' : '') +
+          '</button>';
+      });
+
+      const activeVerKey = fala.id + '_' + activeVer.id;
+      const hasVerBlob = recordedBlobsMap.has(activeVerKey);
+
+      card.innerHTML =
+        '<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+          '<div style="display: flex; align-items: center; gap: 8px; flex: 1;">' +
+            '<input value="' + escapeHtml(fala.name || 'Fala') + '" data-fala-id="' + fala.id + '" data-field="name" ' +
+              'style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: #fff; font-weight: 700; font-size: 14px; flex: 1; max-width: 240px;">' +
+            '<span style="font-size: 11px; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px; font-weight: 700;">' +
+              '🎲 ' + fala.versions.length + (fala.versions.length === 1 ? ' Versão' : ' Versões') +
+            '</span>' +
+          '</div>' +
+          '<div style="display: flex; gap: 6px; align-items: center;">' +
+            '<button type="button" onclick="testSmartFala(' + fala.id + ')" class="btn-secondary" style="font-size: 12px;">' +
+              '🎲 Testar Sorteio' +
+            '</button>' +
+            '<button type="button" onclick="removeFala(' + fala.id + ')" class="btn-danger" style="font-size: 12px; padding: 6px 10px;">🗑</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 8px;">' +
+          '<label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; font-weight: 600;">' +
+            '<input type="checkbox" ' + (fala.enabled !== false ? 'checked' : '') + ' data-fala-id="' + fala.id + '" data-field="enabled" style="accent-color: var(--primary);"> Ativa' +
+          '</label>' +
+          '<div style="display: flex; gap: 8px; align-items: center;">' +
+            '<span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Fonte:</span>' +
+            '<label style="display: flex; align-items: center; gap: 4px; font-size: 12.5px; cursor: pointer;"><input type="radio" name="fala-src-' + fala.id + '" value="tts" ' + (fala.src==='tts'?'checked':'') + ' data-fala-id="' + fala.id + '" data-field="src" style="accent-color: var(--primary);"> TTS</label>' +
+            '<label style="display: flex; align-items: center; gap: 4px; font-size: 12.5px; cursor: pointer;"><input type="radio" name="fala-src-' + fala.id + '" value="recorded" ' + (fala.src==='recorded'?'checked':'') + ' data-fala-id="' + fala.id + '" data-field="src" style="accent-color: var(--primary);"> Gravado</label>' +
+            '<label style="display: flex; align-items: center; gap: 4px; font-size: 12.5px; cursor: pointer;"><input type="radio" name="fala-src-' + fala.id + '" value="disabled" ' + (fala.src==='disabled'?'checked':'') + ' data-fala-id="' + fala.id + '" data-field="src" style="accent-color: var(--accent-red);"> Desativada</label>' +
+          '</div>' +
+          '<div style="display: flex; gap: 6px; align-items: center; margin-left: auto;">' +
+            '<span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Disparar:</span>' +
+            '<select data-fala-id="' + fala.id + '" data-field="triggerType" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 12px;">' +
+              '<option value="delivery" ' + (fala.triggerType==='delivery'?'selected':'') + '>Entregas</option>' +
+              '<option value="seconds" ' + (fala.triggerType==='seconds'?'selected':'') + '>Tempo (segundos)</option>' +
+            '</select>' +
+            '<input type="number" min="1" value="' + (fala.triggerValue || 5) + '" data-fala-id="' + fala.id + '" data-field="triggerValue" style="width: 55px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; color: #fff; font-size: 12px;">' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">' +
+            '<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">' +
+              '<span style="font-size: 12px; color: var(--text-muted); font-weight: 700;">Versão:</span>' +
+              versionTabsHtml +
+              '<button type="button" onclick="addFalaVersion(' + fala.id + ')" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;">+ Nova</button>' +
+            '</div>' +
+            '<div style="display: flex; gap: 6px; align-items: center;">' +
+              '<button type="button" onclick="testSpecificVersion(' + fala.id + ', ' + activeVer.id + ')" class="btn-secondary" style="font-size: 11px; padding: 3px 10px;">▶ Ouvir V' + activeVer.id + '</button>' +
+              '<button type="button" onclick="removeFalaVersion(' + fala.id + ', ' + activeVer.id + ')" class="btn-danger" style="font-size: 11px; padding: 3px 8px; display: ' + (fala.versions.length > 1 ? '' : 'none') + ';">🗑</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<textarea rows="2" data-fala-id="' + fala.id + '" data-version-id="' + activeVer.id + '" class="fala-version-input" ' +
+            'placeholder="Texto da Versão ' + activeVer.id + '... (Suporta {username} e {total})" ' +
+            'style="background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 13.5px; resize: vertical;">' + escapeHtml(activeVer.text || '') + '</textarea>' +
+
+          '<div class="fala-rec-box-' + fala.id + '" style="display: ' + (fala.src === 'recorded' ? 'flex' : 'none') + '; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--border);">' +
+            '<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">' +
+              '<span style="font-size: 12px; color: var(--text-muted);">Áudio V' + activeVer.id + ':</span>' +
+              '<button type="button" onclick="startVersionRecording(' + fala.id + ', ' + activeVer.id + ')" id="rec-start-' + fala.id + '-' + activeVer.id + '" class="btn-danger" style="font-size: 11px; padding: 3px 10px;">⏺ Gravar</button>' +
+              '<button type="button" onclick="stopVersionRecording(' + fala.id + ', ' + activeVer.id + ')" id="rec-stop-' + fala.id + '-' + activeVer.id + '" class="btn-danger" style="font-size: 11px; padding: 3px 10px; display: none;">⏹ Parar</button>' +
+              '<button type="button" onclick="deleteVersionRecording(' + fala.id + ', ' + activeVer.id + ')" id="rec-del-' + fala.id + '-' + activeVer.id + '" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" ' + (hasVerBlob ? '' : 'disabled') + '>🗑 Excluir Áudio</button>' +
+              '<span id="rec-status-' + fala.id + '-' + activeVer.id + '" style="font-size: 12px; color: var(--text-muted);">' + (hasVerBlob ? '✅ Áudio gravado pronto' : 'Sem áudio gravado') + '</span>' +
+            '</div>' +
+            '<audio id="rec-audio-' + fala.id + '-' + activeVer.id + '" controls style="width: 100%; display: ' + (hasVerBlob ? 'block' : 'none') + '; margin-top: 4px;"></audio>' +
+          '</div>' +
+        '</div>';
+
+      card.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
+        const handler = () => {
+          const id = parseInt(el.dataset.falaId);
+          const field = el.dataset.field;
+          const target = falasList.find(f => f.id === id);
+          if (!target) return;
+          if (field === 'enabled') target.enabled = el.checked;
+          else if (field === 'triggerValue') target.triggerValue = parseInt(el.value) || 1;
+          else target[field] = el.value;
+
+          if (field === 'src') {
+            card.querySelectorAll('.fala-rec-box-' + id).forEach(b => {
+              b.style.display = el.value === 'recorded' ? 'flex' : 'none';
+            });
+          }
+          saveFalasAll();
+        };
+        el.addEventListener('change', handler);
+        el.addEventListener('input', handler);
+      });
+
+      card.querySelectorAll('.fala-version-input').forEach(el => {
+        const handler = () => {
+          const fId = parseInt(el.dataset.falaId);
+          const vId = parseInt(el.dataset.versionId);
+          const target = falasList.find(f => f.id === fId);
+          if (!target) return;
+          ensureFalaVersions(target);
+          const ver = target.versions.find(v => v.id === vId);
+          if (ver) {
+            ver.text = el.value;
+            saveFalasAll();
+          }
+        };
+        el.addEventListener('change', handler);
+        el.addEventListener('input', handler);
+      });
+
+      if (hasVerBlob) {
+        const audioEl = card.querySelector('#rec-audio-' + fala.id + '-' + activeVer.id);
+        if (audioEl) audioEl.src = URL.createObjectURL(recordedBlobsMap.get(activeVerKey));
+      }
+
+      container.appendChild(card);
+    });
+  }
+
+  function restartFalasTimers() {
+    falasTimers.forEach(t => clearInterval(t));
+    falasTimers = [];
+    if (isAudioMuted()) return;
+
+    falasList.forEach(fala => {
+      if (fala.enabled === false || fala.src === 'disabled') return;
+      ensureFalaVersions(fala);
+      if (fala.triggerType === 'seconds') {
+        const secs = Math.max(1, fala.triggerValue || 10);
+        falasTimers.push(setInterval(() => {
+          if (!isAudioMuted() && fala.enabled !== false && fala.src !== 'disabled') {
+            triggerFala(fala);
+          }
+        }, secs * 1000));
+      }
+    });
+  }
+
+  function addDelivery(nick) {
+    deliveryCount++;
+    localStorage.setItem('deliveryCount', String(deliveryCount));
+    checkFalasTriggers('delivery');
+  }
+
+  function checkFalasTriggers(type) {
+    if (isAudioMuted()) return;
+    falasList.forEach(fala => {
+      if (fala.enabled === false || fala.src === 'disabled') return;
+      ensureFalaVersions(fala);
+      if (fala.triggerType === type) {
+        if (type === 'delivery' && deliveryCount % (fala.triggerValue || 5) === 0) {
+          triggerFala(fala);
+        }
+      }
+    });
+
+    if (liveProofConfig && liveProofConfig.enabled && liveProofConfig.trigger_deliveries_enabled) {
+      const every = liveProofConfig.trigger_every_deliveries || 5;
+      if (deliveryCount % every === 0) {
+        triggerLiveProof('deliveries');
+      }
+    }
+  }
+
+  // Live Close Speech
+  let liveCloseMediaRecorder = null;
+  let liveCloseChunks = [];
+
+  function testLiveCloseFala() {
+    const text = document.getElementById('live-close-text')?.value || '';
+    const src = document.querySelector('input[name="live-close-src"]:checked')?.value || 'tts';
+    triggerFala({ id: 'live-close', text, src }, true);
+  }
+
+  async function startLiveCloseRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 } });
+      liveCloseChunks = [];
+      const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? { mimeType: 'audio/webm;codecs=opus' } : {};
+      liveCloseMediaRecorder = new MediaRecorder(stream, opts);
+      liveCloseMediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) liveCloseChunks.push(e.data); };
+      liveCloseMediaRecorder.onstop = () => {
+        const blob = new Blob(liveCloseChunks, { type: 'audio/webm' });
+        recordedBlobsMap.set('live-close', blob);
+        const a = document.getElementById('live-close-rec-audio');
+        if (a) { a.src = URL.createObjectURL(blob); a.style.display = 'block'; }
+        const st = document.getElementById('live-close-rec-status');
+        if (st) st.innerText = '✅ Som gravado pronto!';
+        stream.getTracks().forEach(t => t.stop());
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const recs = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+          recs['live-close'] = reader.result;
+          localStorage.setItem('falasRecordings', JSON.stringify(recs));
+          saveSpeechToServer();
+        };
+        reader.readAsDataURL(blob);
+      };
+      liveCloseMediaRecorder.start(200);
+      document.getElementById('live-close-rec-start').style.display = 'none';
+      document.getElementById('live-close-rec-stop').style.display = '';
+      document.getElementById('live-close-rec-status').innerText = '🔴 Gravando...';
+    } catch(e) {
+      alert('Erro microfone: ' + e.message);
+    }
+  }
+
+  function stopLiveCloseRecording() {
+    if (liveCloseMediaRecorder && liveCloseMediaRecorder.state !== 'inactive') liveCloseMediaRecorder.stop();
+    document.getElementById('live-close-rec-start').style.display = '';
+    document.getElementById('live-close-rec-stop').style.display = 'none';
+  }
+
+  // ── Prova Fake Engine ────────────────────────────────────────
+  let liveProofConfig = JSON.parse(localStorage.getItem('liveProofConfig') || 'null') || {
+    enabled: true,
+    duration: 4.0,
+    keyboard_sound: true,
+    src: 'tts',
+    trigger_deliveries_enabled: true,
+    trigger_every_deliveries: 5,
+    trigger_timer_enabled: true,
+    trigger_timer_seconds: 180,
+    trigger_chat_detect_enabled: true,
+    versions: [
+      { id: 1, text: 'Tô ao vivo rapaziada, não é gravado!' },
+      { id: 2, text: 'Olha eu aqui ao vivo no Roblox, tamo junto!' },
+      { id: 3, text: 'Gravado nada chat, tô respondendo vocês agora!' }
+    ],
+    recentPlayed: []
+  };
+  let activeLiveProofVersionId = 1;
+  let liveProofMediaRecorder = null;
+  let liveProofChunks = [];
+  let lastLiveProofTime = Date.now();
+
+  function ensureLiveProofVersions() {
+    if (!liveProofConfig.versions || !Array.isArray(liveProofConfig.versions) || !liveProofConfig.versions.length) {
+      liveProofConfig.versions = [{ id: 1, text: 'Tô ao vivo rapaziada, não é gravado!' }];
+    }
+    if (!liveProofConfig.recentPlayed || !Array.isArray(liveProofConfig.recentPlayed)) liveProofConfig.recentPlayed = [];
+    if (!activeLiveProofVersionId || !liveProofConfig.versions.some(v => v.id === activeLiveProofVersionId)) {
+      activeLiveProofVersionId = liveProofConfig.versions[0]?.id || 1;
+    }
+  }
+
+  function pickSmartLiveProofVersion() {
+    ensureLiveProofVersions();
+    const versions = liveProofConfig.versions.filter(v => v && (v.text || recordedBlobsMap.has('liveproof_' + v.id)));
+    if (!versions.length) return { id: 1, text: 'Tô ao vivo rapaziada, não é gravado!' };
+    if (versions.length === 1) return versions[0];
+    const lastId = liveProofConfig.recentPlayed[0];
+    const secondLastId = liveProofConfig.recentPlayed[1];
+
+    let candidates = [];
+    if (versions.length === 2) {
+      candidates = versions.filter(v => v.id !== lastId);
+    } else {
+      candidates = versions.filter(v => v.id !== lastId && v.id !== secondLastId);
+    }
+    if (!candidates.length) candidates = versions.filter(v => v.id !== lastId);
+    if (!candidates.length) candidates = versions;
+
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    liveProofConfig.recentPlayed = [chosen.id, lastId].filter(id => id !== undefined);
+    return chosen;
+  }
+
+  function triggerLiveProof(source = 'manual') {
+    if (isAudioMuted()) return;
+    if (!liveProofConfig.enabled && source !== 'manual') return;
+    const ver = pickSmartLiveProofVersion();
+    lastLiveProofTime = Date.now();
+
+    const badge = document.getElementById('liveproof-status-badge');
+    if (badge) {
+      badge.innerText = '🎭 Tocando Prova Fake...';
+      badge.style.borderColor = 'var(--accent-purple)';
+      badge.style.color = 'var(--accent-purple)';
+      badge.style.background = 'rgba(168,85,247,0.15)';
+      setTimeout(() => {
+        badge.innerText = 'Pronto';
+        badge.style.borderColor = 'var(--accent-green)';
+        badge.style.color = 'var(--accent-green)';
+        badge.style.background = 'rgba(16,185,129,0.15)';
+      }, (liveProofConfig.duration || 4.0) * 1000);
+    }
+
+    audioQueue.push({
+      isLiveProof: true,
+      version: ver,
+      src: liveProofConfig.src,
+      keyboard_sound: liveProofConfig.keyboard_sound,
+      delay: (liveProofConfig.duration || 4.0) * 1000
+    });
+    renderFalasQueue();
+    if (!processingAudioQueue) processAudioQueue();
+  }
+
+  function renderLiveProofUI() {
+    ensureLiveProofVersions();
+
+    const en = document.getElementById('liveproof-enabled');
+    if (en) en.checked = liveProofConfig.enabled !== false;
+
+    document.querySelectorAll('input[name="liveproof-src"]').forEach(r => {
+      r.checked = (r.value === (liveProofConfig.src || 'tts'));
+    });
+
+    const dur = document.getElementById('liveproof-duration');
+    if (dur) dur.value = liveProofConfig.duration || 4.0;
+
+    const kb = document.getElementById('liveproof-keyboard-sound');
+    if (kb) kb.checked = liveProofConfig.keyboard_sound !== false;
+
+    const trigDel = document.getElementById('liveproof-trigger-deliveries');
+    if (trigDel) trigDel.checked = liveProofConfig.trigger_deliveries_enabled !== false;
+
+    const trigDelNum = document.getElementById('liveproof-every-deliveries');
+    if (trigDelNum) trigDelNum.value = liveProofConfig.trigger_every_deliveries || 5;
+
+    const trigTim = document.getElementById('liveproof-trigger-timer');
+    if (trigTim) trigTim.checked = liveProofConfig.trigger_timer_enabled !== false;
+
+    const trigTimNum = document.getElementById('liveproof-timer-seconds');
+    if (trigTimNum) trigTimNum.value = liveProofConfig.trigger_timer_seconds || 180;
+
+    const trigChat = document.getElementById('liveproof-trigger-chat');
+    if (trigChat) trigChat.checked = liveProofConfig.trigger_chat_detect_enabled !== false;
+
+    const badge = document.getElementById('liveproof-version-count-badge');
+    if (badge) badge.innerText = '🎲 ' + liveProofConfig.versions.length + (liveProofConfig.versions.length === 1 ? ' Versão' : ' Versões');
+
+    const tabsCont = document.getElementById('liveproof-version-tabs');
+    if (tabsCont) {
+      tabsCont.innerHTML = '';
+      liveProofConfig.versions.forEach(ver => {
+        const isActive = ver.id === activeLiveProofVersionId;
+        const hasBlob = recordedBlobsMap.has('liveproof_' + ver.id);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText = 'padding: 5px 12px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; transition: all 0.2s; ' +
+          'background: ' + (isActive ? 'var(--accent-purple)' : 'rgba(255,255,255,0.05)') + '; ' +
+          'color: ' + (isActive ? '#fff' : 'var(--text-muted)') + '; ' +
+          'border: 1px solid ' + (isActive ? 'var(--accent-purple)' : 'var(--border)') + ';';
+        btn.innerHTML = 'V' + ver.id + (hasBlob ? ' 🎙️' : '');
+        btn.onclick = () => {
+          activeLiveProofVersionId = ver.id;
+          renderLiveProofUI();
+        };
+        tabsCont.appendChild(btn);
+      });
+    }
+
+    const curVer = liveProofConfig.versions.find(v => v.id === activeLiveProofVersionId) || liveProofConfig.versions[0] || { id: 1, text: '' };
+    const curTxt = document.getElementById('liveproof-current-text');
+    if (curTxt) {
+      curTxt.value = curVer.text || '';
+      curTxt.oninput = () => { curVer.text = curTxt.value; };
+    }
+
+    const hasBlob = recordedBlobsMap.has('liveproof_' + curVer.id);
+    const recAudio = document.getElementById('liveproof-rec-audio');
+    const recStatus = document.getElementById('liveproof-rec-status');
+    const recDelBtn = document.getElementById('liveproof-rec-del-btn');
+    if (recStatus) recStatus.innerText = hasBlob ? '✅ Áudio gravado pronto' : 'Sem áudio gravado';
+    if (recDelBtn) recDelBtn.disabled = !hasBlob;
+    if (recAudio) {
+      if (hasBlob) {
+        recAudio.src = URL.createObjectURL(recordedBlobsMap.get('liveproof_' + curVer.id));
+        recAudio.style.display = 'block';
+      } else {
+        recAudio.src = '';
+        recAudio.style.display = 'none';
+      }
+    }
+  }
+
+  function addLiveProofVersion() {
+    ensureLiveProofVersions();
+    const maxId = liveProofConfig.versions.reduce((m, v) => Math.max(m, v.id || 0), 0);
+    const newId = maxId + 1;
+    liveProofConfig.versions.push({ id: newId, text: 'Tô ao vivo rapaziada, não é gravado!' });
+    activeLiveProofVersionId = newId;
+    saveLiveProofSettings();
+    renderLiveProofUI();
+  }
+
+  function deleteLiveProofActiveVersion() {
+    ensureLiveProofVersions();
+    if (liveProofConfig.versions.length <= 1) {
+      alert('A Prova Fake precisa de pelo menos uma versão.');
+      return;
+    }
+    const verId = activeLiveProofVersionId;
+    liveProofConfig.versions = liveProofConfig.versions.filter(v => v.id !== verId);
+    deleteLiveProofRecording();
+    activeLiveProofVersionId = liveProofConfig.versions[0].id;
+    saveLiveProofSettings();
+    renderLiveProofUI();
+  }
+
+  function testLiveProofActiveVersion() {
+    ensureLiveProofVersions();
+    const ver = liveProofConfig.versions.find(v => v.id === activeLiveProofVersionId) || { id: activeLiveProofVersionId, text: '' };
+    audioQueue.push({
+      isLiveProof: true,
+      version: ver,
+      src: liveProofConfig.src,
+      keyboard_sound: liveProofConfig.keyboard_sound,
+      delay: 0
+    });
+    renderFalasQueue();
+    if (!processingAudioQueue) processAudioQueue();
+  }
+
+  function testSmartLiveProof() {
+    triggerLiveProof('manual');
+  }
+
+  async function startLiveProofRecording() {
+    ensureLiveProofVersions();
+    const verId = activeLiveProofVersionId;
+    const key = 'liveproof_' + verId;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+      });
+      liveProofChunks = [];
+      const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? { mimeType: 'audio/webm;codecs=opus' } : {};
+      liveProofMediaRecorder = new MediaRecorder(stream, opts);
+      liveProofMediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) liveProofChunks.push(e.data); };
+      liveProofMediaRecorder.onstop = () => {
+        const blob = new Blob(liveProofChunks, { type: 'audio/webm' });
+        recordedBlobsMap.set(key, blob);
+        stream.getTracks().forEach(t => t.stop());
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const recs = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+          recs[key] = reader.result;
+          localStorage.setItem('falasRecordings', JSON.stringify(recs));
+          renderLiveProofUI();
+          saveSpeechToServer();
+        };
+        reader.readAsDataURL(blob);
+      };
+      liveProofMediaRecorder.start(200);
+
+      document.getElementById('liveproof-rec-start-btn').style.display = 'none';
+      document.getElementById('liveproof-rec-stop-btn').style.display = '';
+      document.getElementById('liveproof-rec-status').innerText = '🔴 Gravando sua voz...';
+    } catch(e) {
+      alert('Erro microfone: ' + e.message);
+    }
+  }
+
+  function stopLiveProofRecording() {
+    if (liveProofMediaRecorder && liveProofMediaRecorder.state !== 'inactive') liveProofMediaRecorder.stop();
+    document.getElementById('liveproof-rec-start-btn').style.display = '';
+    document.getElementById('liveproof-rec-stop-btn').style.display = 'none';
+  }
+
+  function deleteLiveProofRecording() {
+    const key = 'liveproof_' + activeLiveProofVersionId;
+    recordedBlobsMap.delete(key);
+    const recs = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+    delete recs[key];
+    localStorage.setItem('falasRecordings', JSON.stringify(recs));
+    renderLiveProofUI();
+    saveSpeechToServer();
+  }
+
+  function runLiveProofTimerLoop() {
+    setInterval(() => {
+      if (isAudioMuted()) return;
+      if (!liveProofConfig.enabled || !liveProofConfig.trigger_timer_enabled) return;
+      const intervalSec = liveProofConfig.trigger_timer_seconds || 180;
+      if (intervalSec <= 0) return;
+      if ((Date.now() - lastLiveProofTime) >= intervalSec * 1000) {
+        triggerLiveProof('timer');
+      }
+    }, 5000);
+  }
+
+  // ── Persistência & Sync com Servidor ─────────────────────────
+  function saveFalasAll() {
+    localStorage.setItem('falasList', JSON.stringify(falasList));
+    falasGlobal = {
+      outputDevice: document.getElementById('audio-output-device')?.value || '',
+      globalVolume: document.getElementById('global-audio-volume')?.value || '1',
+      ttsVoice: document.getElementById('global-tts-voice')?.value || '0',
+      ttsRate: document.getElementById('global-tts-rate')?.value || '1',
+      ttsPitch: document.getElementById('global-tts-pitch')?.value || '1',
+      liveCloseText: document.getElementById('live-close-text')?.value || '',
+      liveCloseSrc: document.querySelector('input[name="live-close-src"]:checked')?.value || 'tts',
+      muteAllAudio: document.getElementById('mute-all-audio')?.checked || false,
+    };
+    localStorage.setItem('falasGlobal', JSON.stringify(falasGlobal));
+    restartFalasTimers();
+    saveSpeechToServer();
+
+    const st = document.getElementById('falas-save-status');
+    if (st) {
+      st.innerText = '✅ Todas as falas e configurações salvas com sucesso!';
+      setTimeout(() => st.innerText = '', 3000);
+    }
+  }
+
+  function saveLiveProofSettings() {
+    ensureLiveProofVersions();
+    liveProofConfig.enabled = document.getElementById('liveproof-enabled')?.checked ?? true;
+    liveProofConfig.src = document.querySelector('input[name="liveproof-src"]:checked')?.value || 'tts';
+    liveProofConfig.duration = parseFloat(document.getElementById('liveproof-duration')?.value) || 4.0;
+    liveProofConfig.keyboard_sound = document.getElementById('liveproof-keyboard-sound')?.checked ?? true;
+    liveProofConfig.trigger_deliveries_enabled = document.getElementById('liveproof-trigger-deliveries')?.checked ?? true;
+    liveProofConfig.trigger_every_deliveries = parseInt(document.getElementById('liveproof-every-deliveries')?.value) || 5;
+    liveProofConfig.trigger_timer_enabled = document.getElementById('liveproof-trigger-timer')?.checked ?? true;
+    liveProofConfig.trigger_timer_seconds = parseInt(document.getElementById('liveproof-timer-seconds')?.value) || 180;
+    liveProofConfig.trigger_chat_detect_enabled = document.getElementById('liveproof-trigger-chat')?.checked ?? true;
+
+    const curTxt = document.getElementById('liveproof-current-text');
+    const curVer = liveProofConfig.versions.find(v => v.id === activeLiveProofVersionId);
+    if (curTxt && curVer) curVer.text = curTxt.value;
+
+    localStorage.setItem('liveProofConfig', JSON.stringify(liveProofConfig));
+    saveSpeechToServer();
+    alert('✅ Configurações da Prova Fake salvas com sucesso!');
+  }
+
+  function saveSpeechToServer() {
+    const recs = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+    const payload = {
+      falasList: falasList,
+      falasGlobal: falasGlobal,
+      liveProofConfig: liveProofConfig,
+      recordings: recs
+    };
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'save_speech', data: payload }));
+    }
+  }
+
+  function loadSpeechData(data) {
+    if (!data) return;
+    if (data.falasList && Array.isArray(data.falasList)) {
+      falasList = data.falasList;
+      localStorage.setItem('falasList', JSON.stringify(falasList));
+    }
+    if (data.falasGlobal) {
+      falasGlobal = data.falasGlobal;
+      localStorage.setItem('falasGlobal', JSON.stringify(falasGlobal));
+    }
+    if (data.liveProofConfig) {
+      liveProofConfig = data.liveProofConfig;
+      localStorage.setItem('liveProofConfig', JSON.stringify(liveProofConfig));
+    }
+    if (data.recordings) {
+      const stored = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+      Object.assign(stored, data.recordings);
+      localStorage.setItem('falasRecordings', JSON.stringify(stored));
+      loadSavedRecordings();
+    }
+    renderFalasList();
+    renderLiveProofUI();
+    restartFalasTimers();
+  }
+
+  function loadSavedRecordings() {
+    const recs = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+    Object.entries(recs).forEach(([key, dataUrl]) => {
+      fetch(dataUrl).then(r => r.blob()).then(blob => {
+        recordedBlobsMap.set(key, blob);
+        if (key.startsWith('liveproof_')) {
+          renderLiveProofUI();
+        } else if (key === 'live-close') {
+          const a = document.getElementById('live-close-rec-audio');
+          if (a) { a.src = URL.createObjectURL(blob); a.style.display = 'block'; }
+          const st = document.getElementById('live-close-rec-status');
+          if (st) st.innerText = '✅ Som gravado pronto';
+        } else {
+          renderFalasList();
+        }
+      }).catch(() => {});
+    });
+  }
+
+  // ── Inicialização no Carregamento ────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    applyOperationModeUI(currentMode);
+    applySpeechThankUI();
+    loadAudioDevices();
+    loadVoices();
+    renderFalasList();
+    renderLiveProofUI();
+    loadSavedRecordings();
+    restartFalasTimers();
+    runLiveProofTimerLoop();
+    updateStatsUI();
+
+    const volSlider = document.getElementById('global-audio-volume');
+    const volVal = document.getElementById('global-audio-volume-val');
+    if (volSlider && volVal) {
+      volSlider.addEventListener('input', () => {
+        volVal.innerText = Math.round(volSlider.value * 100) + '%';
+        falasGlobal.globalVolume = volSlider.value;
+      });
+    }
+
+    const muteBox = document.getElementById('mute-status-badge');
+    const muteCb = document.getElementById('mute-all-audio');
+    if (muteBox) {
+      muteBox.onclick = () => {
+        const isMutedNow = !muteCb.checked;
+        updateMuteUI(isMutedNow);
+        falasGlobal.muteAllAudio = isMutedNow;
+        localStorage.setItem('falasGlobal', JSON.stringify(falasGlobal));
+      };
+    }
+    if (muteCb) {
+      muteCb.onchange = () => {
+        updateMuteUI(muteCb.checked);
+        falasGlobal.muteAllAudio = muteCb.checked;
+        localStorage.setItem('falasGlobal', JSON.stringify(falasGlobal));
+      };
+    }
+
+    document.querySelectorAll('input[name="liveproof-src"]').forEach(r => {
+      r.onchange = () => {
+        liveProofConfig.src = r.value;
+      };
+    });
+  });
+
+  // Conexão inicial
+  connect();
+  initSupabase();
+</script>
+</body>
+</html>
