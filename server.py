@@ -1981,12 +1981,12 @@ class QueueServer:
                                     })))
 
     async def supabase_config_loop(self):
-        """Monitora comandos de conectar/desconectar TikTok vindos do Supabase (Vercel)."""
+        """Monitora comandos de conectar/desconectar TikTok e modos vindos do Supabase (Vercel)."""
         while True:
             await asyncio.sleep(3)
             try:
                 def _fetch_cfg():
-                    url = f"{SUPABASE_URL}/rest/v1/bgl_config?key=eq.tiktok_status&select=*"
+                    url = f"{SUPABASE_URL}/rest/v1/bgl_config?select=*"
                     headers = {
                         "apikey": SUPABASE_KEY,
                         "Authorization": f"Bearer {SUPABASE_KEY}"
@@ -1997,25 +1997,43 @@ class QueueServer:
 
                 loop = asyncio.get_running_loop()
                 data = await loop.run_in_executor(None, _fetch_cfg)
-                if data and isinstance(data, list) and len(data) > 0:
-                    cfg_val = data[0].get("value")
-                    if isinstance(cfg_val, str):
-                        try:
-                            cfg_val = json.loads(cfg_val)
-                        except Exception:
-                            pass
-                    if isinstance(cfg_val, dict):
-                        is_connecting = cfg_val.get("connecting", False)
-                        is_connected = cfg_val.get("connected", False)
-                        target_user = (cfg_val.get("username") or "").strip().lstrip("@")
+                if data and isinstance(data, list):
+                    for item in data:
+                        k = item.get("key")
+                        cfg_val = item.get("value")
+                        if isinstance(cfg_val, str):
+                            try:
+                                cfg_val = json.loads(cfg_val)
+                            except Exception:
+                                pass
 
-                        if is_connecting and target_user:
-                            if not self.tiktok_connected or self.tiktok_username != target_user:
-                                log.info(f"[Supabase Cloud] Ordem remota para conectar TikTok: @{target_user}")
-                                await self.connect_tiktok(target_user)
-                        elif not is_connecting and not is_connected and self.tiktok_connected:
-                            log.info("[Supabase Cloud] Ordem remota para desconectar TikTok.")
-                            await self.disconnect_tiktok()
+                        if k == "tiktok_status" and isinstance(cfg_val, dict):
+                            is_connecting = cfg_val.get("connecting", False)
+                            is_connected = cfg_val.get("connected", False)
+                            target_user = (cfg_val.get("username") or "").strip().lstrip("@")
+
+                            if is_connecting and target_user:
+                                if not self.tiktok_connected or self.tiktok_username != target_user:
+                                    log.info(f"[Supabase Cloud] Ordem remota para conectar TikTok: @{target_user}")
+                                    await self.connect_tiktok(target_user)
+                            elif not is_connecting and not is_connected and self.tiktok_connected:
+                                log.info("[Supabase Cloud] Ordem remota para desconectar TikTok.")
+                                await self.disconnect_tiktok()
+
+                        elif k == "operation_mode" and isinstance(cfg_val, dict):
+                            mode = str(cfg_val.get("operation_mode", "")).upper()
+                            if mode in ["FULL", "FALA", "ENTREGA", "MINI"]:
+                                if self.settings.get("operation_mode") != mode:
+                                    log.info(f"[Supabase Cloud] Sincronizando modo de operação: {mode}")
+                                    self.settings["operation_mode"] = mode
+                                    if mode in ["FULL", "ENTREGA"]:
+                                        self.settings["auto_send"] = True
+                                    else:
+                                        self.settings["auto_send"] = False
+                                    await self.broadcast(json.dumps({
+                                        "type": "settings_update",
+                                        "settings": self.settings
+                                    }))
             except Exception as e:
                 log.debug(f"[Supabase Poller] erro transitório: {e}")
 
