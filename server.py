@@ -650,6 +650,11 @@ class QueueServer:
             "pickup_delay": args.pickup_delay,
             "operation_mode": "FULL",
             "auto_send": True,
+            "speech_settings": {
+                "thank_enabled": True,
+                "thank_template": "Obrigado {nick}!",
+                "thank_timing": "finish"
+            }
         }
         self.queue = deque()            # itens: {"id": int, "nick": str, "sender": str, "ts": float}
         self.last_seen = {}             # tiktok_user_id -> timestamp da ultima entrada aceita
@@ -947,7 +952,7 @@ class QueueServer:
 
         if "operation_mode" in new_settings:
             mode = str(new_settings["operation_mode"]).upper()
-            if mode in ["FULL", "FALA", "ENTREGA", "MINI"]:
+            if mode in ["FULL", "FALA", "ENTREGA", "MINI", "PAUSED"]:
                 if self.settings.get("operation_mode") != mode:
                     self.settings["operation_mode"] = mode
                     changed = True
@@ -955,6 +960,12 @@ class QueueServer:
                     self.settings["auto_send"] = True
                 else:
                     self.settings["auto_send"] = False
+
+        if "speech_settings" in new_settings and isinstance(new_settings["speech_settings"], dict):
+            current_speech = self.settings.get("speech_settings", {})
+            current_speech.update(new_settings["speech_settings"])
+            self.settings["speech_settings"] = current_speech
+            changed = True
 
         if "auto_send" in new_settings:
             val_bool = bool(new_settings["auto_send"])
@@ -2022,7 +2033,7 @@ class QueueServer:
 
                         elif k == "operation_mode" and isinstance(cfg_val, dict):
                             mode = str(cfg_val.get("operation_mode", "")).upper()
-                            if mode in ["FULL", "FALA", "ENTREGA", "MINI"]:
+                            if mode in ["FULL", "FALA", "ENTREGA", "MINI", "PAUSED"]:
                                 if self.settings.get("operation_mode") != mode:
                                     log.info(f"[Supabase Cloud] Sincronizando modo de operação: {mode}")
                                     self.settings["operation_mode"] = mode
@@ -2034,6 +2045,16 @@ class QueueServer:
                                         "type": "settings_update",
                                         "settings": self.settings
                                     }))
+
+                        elif k == "speech_settings" and isinstance(cfg_val, dict):
+                            current_speech = self.settings.get("speech_settings", {})
+                            if current_speech != cfg_val:
+                                current_speech.update(cfg_val)
+                                self.settings["speech_settings"] = current_speech
+                                await self.broadcast(json.dumps({
+                                    "type": "settings_update",
+                                    "settings": self.settings
+                                }))
             except Exception as e:
                 log.debug(f"[Supabase Poller] erro transitório: {e}")
 
