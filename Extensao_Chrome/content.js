@@ -2911,7 +2911,7 @@
             }
           });
         }
-        const res = await fetch('https://ojjfwxjirlttpxcjhlho.supabase.co/rest/v1/bgl_config?key=eq.keyboard_settings&select=value', {
+        const res = await fetch('https://ojjfwxjirlttpxcjhlho.supabase.co/rest/v1/bgl_config?select=key,value', {
           headers: {
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU',
             'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU'
@@ -2919,19 +2919,34 @@
         });
         if (res.ok) {
           const rows = await res.json();
-          if (rows && rows[0] && rows[0].value) {
-            const val = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
-            if (val) {
-              if (val.enabled !== undefined) {
-                keyboardSoundsEnabled = (val.enabled !== false && val.enabled !== 'false');
+          if (Array.isArray(rows)) {
+            rows.forEach(r => {
+              const key = r.key;
+              const val = (typeof r.value === 'string') ? JSON.parse(r.value) : r.value;
+              if (!val) return;
+              if (key === 'keyboard_settings') {
+                if (val.enabled !== undefined) {
+                  keyboardSoundsEnabled = (val.enabled !== false && val.enabled !== 'false');
+                }
+                if (val.volume !== undefined) {
+                  keyboardVolume = parseFloat(val.volume);
+                }
+                if (val.custom_sounds) {
+                  customKeySounds = val.custom_sounds;
+                }
+              } else if (key === 'operation_mode') {
+                if (val.operation_mode) {
+                  const m = String(val.operation_mode).toUpperCase();
+                  if (m && m !== currentOperationMode) {
+                    currentOperationMode = m;
+                    autoSendEnabled = (m === 'FULL' || m === 'ENTREGA');
+                    console.log('[Extensao] Modo de operação sincronizado do Supabase:', currentOperationMode, 'AutoSend:', autoSendEnabled);
+                  }
+                }
+              } else if (key === 'speech_settings') {
+                speechSettings = Object.assign({}, speechSettings, val);
               }
-              if (val.volume !== undefined) {
-                keyboardVolume = parseFloat(val.volume);
-              }
-              if (val.custom_sounds) {
-                customKeySounds = val.custom_sounds;
-              }
-            }
+            });
           }
         }
       } catch(e) {}

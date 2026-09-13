@@ -2284,6 +2284,14 @@
 
   async function supabaseSyncOperation(method, path, body) {
     try {
+      if (supabaseClient && path === "bgl_config" && body && body.key) {
+        try {
+          const { error } = await supabaseClient
+            .from("bgl_config")
+            .upsert({ key: body.key, value: body.value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+          if (!error) return;
+        } catch(e) {}
+      }
       const url = `${SUPABASE_URL}/rest/v1/${path}`;
       const headers = {
         "apikey": SUPABASE_ANON_KEY,
@@ -2371,9 +2379,15 @@
               updateTikTokStatusUI(val.connected, val.connecting, val.username);
             }
             if (k === "operation_mode" && val && val.operation_mode) {
-              currentMode = val.operation_mode;
-              localStorage.setItem('operationMode', currentMode);
-              applyOperationModeUI(currentMode);
+              const remoteTs = val.updated_at || 0;
+              const isRecent = (Date.now() - lastUserModeChangeTs) < 12000;
+              if (!isRecent || remoteTs >= lastUserModeChangeTs) {
+                if (currentMode !== val.operation_mode) {
+                  currentMode = val.operation_mode;
+                  localStorage.setItem('operationMode', currentMode);
+                  applyOperationModeUI(currentMode);
+                }
+              }
             }
             if (k === "speech_settings" && val && typeof val === "object") {
               const activeEl = document.activeElement;
@@ -2460,9 +2474,15 @@
         .eq("key", "operation_mode")
         .maybeSingle();
       if (cMode && cMode.value && cMode.value.operation_mode) {
-        currentMode = cMode.value.operation_mode;
-        localStorage.setItem('operationMode', currentMode);
-        applyOperationModeUI(currentMode);
+        const remoteTs = cMode.value.updated_at || 0;
+        const isRecent = (Date.now() - lastUserModeChangeTs) < 12000;
+        if (!isRecent || remoteTs >= lastUserModeChangeTs) {
+          if (currentMode !== cMode.value.operation_mode) {
+            currentMode = cMode.value.operation_mode;
+            localStorage.setItem('operationMode', currentMode);
+            applyOperationModeUI(currentMode);
+          }
+        }
       }
 
       const { data: cSpeech } = await supabaseClient
@@ -2961,6 +2981,7 @@
   const MODES = ['FULL', 'FALA', 'ENTREGA', 'MINI'];
   let currentMode = localStorage.getItem('operationMode') || 'FULL';
   let lastActiveMode = localStorage.getItem('lastActiveMode') || 'FULL';
+  let lastUserModeChangeTs = 0;
 
   function toggleOperationMode(mode) {
     if (currentMode === mode) {
@@ -2980,6 +3001,7 @@
 
   function setOperationMode(mode) {
     if (mode !== 'PAUSED' && !MODES.includes(mode)) return;
+    lastUserModeChangeTs = Date.now();
     currentMode = mode;
     localStorage.setItem('operationMode', mode);
     if (mode !== 'PAUSED') {
@@ -3000,9 +3022,18 @@
       }));
     }
 
+    const payload = { operation_mode: mode, auto_send: auto_send, updated_at: lastUserModeChangeTs };
+    if (supabaseClient) {
+      supabaseClient.from("bgl_config")
+        .upsert({ key: "operation_mode", value: payload }, { onConflict: "key" })
+        .then(({ error }) => {
+          if (error) console.warn("[Supabase] Upsert modo erro:", error);
+          else console.log("[Supabase] Modo salvo com sucesso no banco:", mode);
+        });
+    }
     supabaseSyncOperation("POST", "bgl_config", {
       key: "operation_mode",
-      value: { operation_mode: mode, auto_send: auto_send, updated_at: Date.now() }
+      value: payload
     });
   }
 
