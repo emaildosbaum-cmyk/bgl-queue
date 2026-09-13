@@ -626,10 +626,20 @@ function safeSendMessage(msg, callback) {
           spokenOnly: true
         });
         if (nextItem && nextItem.id && !String(nextItem.id).startsWith('fake_')) {
-          fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?id=eq.${nextItem.id}`, {
-            method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-          }).catch(() => {});
+          chrome.storage.local.get(['bglUserId'], (d) => {
+            const uId = d && d.bglUserId;
+            if (uId) {
+              fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?id=eq.${nextItem.id}&user_id=eq.${encodeURIComponent(uId)}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'delivered' })
+              }).catch(() => {});
+            }
+            fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?id=eq.${nextItem.id}`, {
+              method: 'DELETE',
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            }).catch(() => {});
+          });
         }
         liveQueueSnapshot = liveQueueSnapshot.filter(i => i.id !== nextItem.id);
         liveQueueProcessing = false;
@@ -646,12 +656,23 @@ function safeSendMessage(msg, callback) {
       clearQueueWatchdog();
       setTimeout(() => {
         if (liveQueueCurrentId != null) {
-          safeSendMessage({ type: 'removeQueueItem', id: liveQueueCurrentId });
-          if (!String(liveQueueCurrentId).startsWith('fake_')) {
-            fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?id=eq.${liveQueueCurrentId}`, {
-              method: 'DELETE',
-              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-            }).catch(() => {});
+          const finishedId = liveQueueCurrentId;
+          safeSendMessage({ type: 'removeQueueItem', id: finishedId });
+          if (!String(finishedId).startsWith('fake_')) {
+            chrome.storage.local.get(['bglUserId'], (d) => {
+              const uId = d && d.bglUserId;
+              if (uId) {
+                fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?id=eq.${finishedId}&user_id=eq.${encodeURIComponent(uId)}`, {
+                  method: 'PATCH',
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'delivered' })
+                }).catch(() => {});
+              }
+              fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?id=eq.${finishedId}`, {
+                method: 'DELETE',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+              }).catch(() => {});
+            });
           }
         }
         liveQueueSnapshot = liveQueueSnapshot.filter(item => item && item.id !== liveQueueCurrentId);
@@ -879,7 +900,12 @@ function safeSendMessage(msg, callback) {
     if (liveQueueProcessing) return;
     if (currentOperationMode === 'MINI' || currentOperationMode === 'PAUSED' || !currentOperationMode) return;
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?select=*&order=id.asc&limit=1`, {
+      const stored = await new Promise(r => chrome.storage.local.get(['bglUserId'], r));
+      const uId = stored && stored.bglUserId;
+      const endpoint = uId
+        ? `${SUPABASE_URL}/rest/v1/bgl_user_queues?user_id=eq.${encodeURIComponent(uId)}&status=eq.pending&order=id.asc&limit=1`
+        : `${SUPABASE_URL}/rest/v1/bgl_queue?select=*&order=id.asc&limit=1`;
+      const res = await fetch(endpoint, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       if (res.ok) {

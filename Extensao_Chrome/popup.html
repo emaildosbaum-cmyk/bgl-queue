@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AdBlock Pro</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#0a0a0c;
+  --bg-elevated:#131316;
+  --bg-card:#17171c;
+  --bg-card-hover:#1d1d23;
+  --border:#26262d;
+  --border-soft:#1f1f25;
+  --text:#f5f5f7;
+  --text-muted:#8b8b94;
+  --text-dim:#5a5a63;
+  --accent:#ff4d3d;
+  --accent-glow:rgba(255,77,61,.18);
+  --success:#3ddc84;
+  --success-glow:rgba(61,220,132,.12);
+  --warning:#ffb347;
+  --radius-sm:10px;
+  --radius:14px;
+  --radius-lg:18px;
+  --radius-xl:22px;
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+body{
+  width:360px;
+  min-height:480px;
+  font-family:'Geist',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  position:relative;
+}
+
+/* ambient glow background */
+body::before{
+  content:'';
+  position:absolute;
+  top:-120px;
+  left:50%;
+  transform:translateX(-50%);
+  width:400px;
+  height:300px;
+  background:radial-gradient(ellipse at center, var(--accent-glow), transparent 65%);
+  pointer-events:none;
+  z-index:0;
+  opacity:.6;
+  transition:opacity .3s;
+}
+
+body.protected::before{
+  background:radial-gradient(ellipse at center, var(--success-glow), transparent 65%);
+}
+
+/* grain overlay */
+body::after{
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  opacity:.025;
+  z-index:100;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============ HEADER ============ */
+.header{
+  position:relative;
+  z-index:2;
+  height:60px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 18px;
+  border-bottom:1px solid var(--border-soft);
+  backdrop-filter:blur(10px);
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:11px;
+}
+
+.logo{
+  width:32px;
+  height:32px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#ff6b5b 0%,#ff4d3d 50%,#e63946 100%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  box-shadow:0 4px 14px rgba(255,77,61,.35), inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+.logo svg{
+  width:18px;
+  height:18px;
+  color:#fff;
+}
+
+.brand-text{
+  display:flex;
+  flex-direction:column;
+  line-height:1;
+}
+
+.brand-name{
+  font-size:15px;
+  font-weight:700;
+  letter-spacing:-.02em;
+}
+
+.brand-tag{
+  font-family:'Instrument Serif',serif;
+  font-style:italic;
+  font-size:11px;
+  color:var(--text-muted);
+  margin-top:3px;
+  letter-spacing:.01em;
+}
+
+.top-buttons{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.top-btn{
+  width:30px;
+  height:30px;
+  border:1px solid var(--border-soft);
+  border-radius:9px;
+  background:transparent;
+  cursor:pointer;
+  color:var(--text-muted);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:all .18s ease;
+}
+
+.top-btn svg{ width:14px; height:14px; }
+
+.top-btn:hover{
+  background:var(--bg-card);
+  border-color:var(--border);
+  color:var(--text);
+  transform:translateY(-1px);
+}
+
+/* ============ LICENSE SCREEN ============ */
+#licenseScreen {
+  display: block;
+  padding: 18px;
+}
+
+.license-card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:22px;
+  padding:22px;
+  position:relative;
+  overflow:hidden;
+}
+
+.lock-icon{
+  width:46px;
+  height:46px;
+  border-radius:14px;
+  background:linear-gradient(135deg,#1f1f25,#17171c);
+  border:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--accent);
+  margin-bottom:16px;
+  animation:floatY 3.5s ease-in-out infinite;
+}
+
+.lock-icon svg{ width:22px; height:22px; }
+
+@keyframes floatY{
+  0%,100%{ transform:translateY(0); }
+  50%{ transform:translateY(-3px); }
+}
+
+.license-title{
+  font-size:20px;
+  font-weight:700;
+  letter-spacing:-.025em;
+  margin-bottom:6px;
+}
+
+.license-title em{
+  font-family:'Instrument Serif',serif;
+  font-style:italic;
+  font-weight:400;
+  color:var(--accent);
+}
+
+.license-sub{
+  font-size:13px;
+  color:var(--text-muted);
+  line-height:1.45;
+  margin-bottom:18px;
+}
+
+.input-wrap{
+  position:relative;
+}
+
+#keyInput{
+  width:100%;
+  height:48px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background:var(--bg-elevated);
+  color:var(--text);
+  padding:0 14px;
+  font-size:13px;
+  font-family:'Geist Mono',monospace;
+  letter-spacing:.05em;
+  outline:none;
+  transition:all .2s;
+}
+
+#keyInput::placeholder{
+  color:var(--text-dim);
+  letter-spacing:.15em;
+}
+
+#keyInput:focus{
+  border-color:var(--accent);
+  background:#1a1a20;
+  box-shadow:0 0 0 4px var(--accent-glow);
+}
+
+#activateBtn{
+  width:100%;
+  height:48px;
+  border:none;
+  border-radius:14px;
+  background:linear-gradient(135deg,#ff6b5b,#ff4d3d);
+  color:#fff;
+  font-size:14px;
+  font-weight:600;
+  margin-top:12px;
+  cursor:pointer;
+  transition:all .2s;
+  box-shadow:0 8px 20px -6px rgba(255,77,61,.5), inset 0 1px 0 rgba(255,255,255,.15);
+}
+
+#activateBtn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 24px -6px rgba(255,77,61,.6), inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+#activateBtn:active{ transform:translateY(0); }
+
+.trust-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  margin-top:16px;
+  padding-top:16px;
+  border-top:1px solid var(--border-soft);
+}
+
+.trust-item{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:11px;
+  color:var(--text-dim);
+}
+
+.trust-item svg{
+  width:11px;
+  height:11px;
+  color:var(--success);
+}
+
+/* ============ DASHBOARD ============ */
+#dashboard {
+  display: none;
+  padding: 18px;
+}
+
+.protection-card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:22px;
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+}
+
+.protection-card::before{
+  content:'';
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(61,220,132,.3),transparent);
+}
+
+.top-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.shield{
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  background:linear-gradient(135deg,#3ddc84,#2eb968);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  box-shadow:0 6px 16px rgba(61,220,132,.3), inset 0 1px 0 rgba(255,255,255,.2);
+  animation:shieldPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes shieldPulse{
+  0%,100%{ box-shadow:0 6px 16px rgba(61,220,132,.3), inset 0 1px 0 rgba(255,255,255,.2); }
+  50%{ box-shadow:0 6px 22px rgba(61,220,132,.5), inset 0 1px 0 rgba(255,255,255,.2); }
+}
+
+.shield svg{ width:22px; height:22px; }
+
+.protection-title{
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:-.02em;
+}
+
+.protection-sub{
+  font-size:12px;
+  color:var(--text-muted);
+  margin-top:2px;
+}
+
+.live{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 9px;
+  border-radius:999px;
+  background:var(--success-glow);
+  border:1px solid rgba(61,220,132,.25);
+  color:var(--success);
+  font-size:10px;
+  font-weight:700;
+  font-family:'Geist Mono',monospace;
+  letter-spacing:.08em;
+}
+
+.live-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--success);
+  box-shadow:0 0 8px var(--success);
+  animation:pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse{
+  0%,100%{ opacity:1; transform:scale(1); }
+  50%{ opacity:.5; transform:scale(.85); }
+}
+
+/* STATS */
+.stats{
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.stat-box{
+  background:var(--bg-elevated);
+  border:1px solid var(--border-soft);
+  border-radius:14px;
+  padding:14px 12px;
+  position:relative;
+  overflow:hidden;
+  transition:all .25s;
+}
+
+.stat-box:hover{
+  border-color:var(--border);
+  transform:translateY(-1px);
+}
+
+.stat-box::before{
+  content:'';
+  position:absolute;
+  top:0; left:0;
+  width:2px; height:100%;
+  background:var(--accent);
+  opacity:.6;
+}
+
+.stat-box:nth-child(2)::before{ background:var(--success); }
+
+.stat-label-top{
+  font-size:10px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--text-dim);
+  margin-bottom:8px;
+  font-family:'Geist Mono',monospace;
+}
+
+.stat-number{
+  font-size:26px;
+  font-weight:700;
+  letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;
+}
+
+.stat-trend{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  font-size:10px;
+  color:var(--success);
+  margin-top:4px;
+  font-weight:600;
+}
+
+.stat-trend svg{ width:10px; height:10px; }
+
+/* DATA ROW */
+.data-row{
+  margin-top:14px;
+  display:flex;
+  justify-content:space-between;
+  padding:12px 14px;
+  background:var(--bg-elevated);
+  border:1px solid var(--border-soft);
+  border-radius:14px;
+}
+
+.data-item{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  flex:1;
+  position:relative;
+}
+
+.data-item:not(:last-child)::after{
+  content:'';
+  position:absolute;
+  right:0;
+  top:15%;
+  height:70%;
+  width:1px;
+  background:var(--border-soft);
+}
+
+.data-value{
+  font-size:13px;
+  font-weight:700;
+  font-family:'Geist Mono',monospace;
+  letter-spacing:-.01em;
+}
+
+.data-value.accent{ color:var(--accent); }
+.data-value.success{ color:var(--success); }
+.data-value.warn{ color:var(--warning); }
+
+.data-label{
+  font-size:10px;
+  color:var(--text-dim);
+  margin-top:3px;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+/* SECTION TITLE */
+.section-title{
+  font-size:11px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+  color:var(--text-dim);
+  font-family:'Geist Mono',monospace;
+  margin-top:18px;
+  margin-bottom:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.section-title::after{
+  content:'';
+  flex:1;
+  height:1px;
+  background:var(--border-soft);
+}
+
+/* QUICK ACTIONS */
+.actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+.action-btn{
+  height:44px;
+  border:1px solid var(--border-soft);
+  border-radius:14px;
+  background:var(--bg-elevated);
+  color:var(--text);
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  transition:all .18s ease;
+}
+
+.action-btn svg{
+  width:14px;
+  height:14px;
+  color:var(--text-muted);
+  transition:color .18s;
+}
+
+.action-btn:hover{
+  background:var(--bg-card-hover);
+  border-color:var(--border);
+  transform:translateY(-1px);
+}
+
+.action-btn:hover svg{ color:var(--text); }
+
+.action-btn.red{
+  color:var(--accent);
+  border-color:rgba(255,77,61,.2);
+  background:rgba(255,77,61,.05);
+}
+
+.action-btn.red svg{ color:var(--accent); }
+
+.action-btn.red:hover{
+  background:rgba(255,77,61,.1);
+  border-color:rgba(255,77,61,.35);
+}
+
+/* FOOTER */
+.footer{
+  margin-top:16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding-top:14px;
+  border-top:1px solid var(--border-soft);
+}
+
+.footer-left{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:10px;
+  color:var(--text-dim);
+}
+
+.footer-left svg{
+  width:11px;
+  height:11px;
+  color:var(--success);
+}
+
+.version{
+  font-size:10px;
+  color:var(--text-dim);
+  font-family:'Geist Mono',monospace;
+}
+
+/* TOAST */
+.toast{
+  position:fixed;
+  bottom:16px;
+  left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px 14px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  box-shadow:0 14px 30px rgba(0,0,0,.5);
+  opacity:0;
+  transition:all .35s cubic-bezier(.2,.8,.2,1);
+  z-index:50;
+  min-width:260px;
+  pointer-events: none;
+}
+
+.toast.show{
+  transform:translateX(-50%) translateY(0);
+  opacity:1;
+}
+
+.toast-icon{
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+}
+
+.toast-icon.success{
+  background:var(--success-glow);
+  color:var(--success);
+}
+
+.toast-icon svg{ width:14px; height:14px; }
+
+.toast-label{
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:-.01em;
+}
+
+.toast-sub{
+  font-size:11px;
+  color:var(--text-muted);
+  margin-top:1px;
+}
+
+@keyframes numberBump{
+  0%{ transform:translateY(0); }
+  50%{ transform:translateY(-3px); color:var(--accent); }
+  100%{ transform:translateY(0); }
+}
+
+.bump{ animation:numberBump .35s ease; }
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="brand">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="M9 12l2 2 4-4"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-name">AdBlock <span style="color:var(--accent);">Pro</span></div>
+      <div class="brand-tag">private browsing, refined</div>
+    </div>
+  </div>
+  <div class="top-buttons">
+    <button class="top-btn" id="closeBtn" onclick="window.close()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- LICENSE SCREEN -->
+<div id="licenseScreen">
+  <div class="license-card">
+    <div class="lock-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    </div>
+    <div class="license-title">Activate <em>protection</em></div>
+    <div class="license-sub">Enter your license key below to unlock real-time ad blocking.</div>
+    <div class="input-wrap">
+      <input id="keyInput" type="text" placeholder="TSK_MODDED" spellcheck="false">
+    </div>
+    <button id="activateBtn">Activate Protection</button>
+
+    <!-- MULTI-TENANT PLAYER ID CONFIG -->
+    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); text-align: left;">
+      <div style="font-size: 10.5px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; font-family: 'Geist Mono', monospace;">ID / Token do Jogador (Multi-Tenant)</div>
+      <div style="display: flex; gap: 6px;">
+        <input id="tenantInputLic" type="text" placeholder="Discord ID ou Token" spellcheck="false" style="flex: 1; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text); padding: 0 10px; font-size: 11.5px; font-family: 'Geist Mono', monospace; outline: none;">
+        <button id="tenantSaveBtnLic" type="button" style="height: 36px; padding: 0 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap;">Salvar ID</button>
+      </div>
+      <div style="font-size: 10.5px; color: var(--text-dim); margin-top: 5px; display: flex; align-items: center; gap: 6px;">
+        <span id="tenantDotLic" style="width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); display: inline-block;"></span>
+        <span id="tenantStatusTextLic">Modo Geral (Fila Pública)</span>
+      </div>
+    </div>
+
+    <div class="trust-row">
+      <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Encrypted</span></div>
+      <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>No tracking</span></div>
+      <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Open source</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD (simulado) -->
+<div id="dashboard">
+  <div class="protection-card">
+    <div class="top-row">
+      <div class="left">
+        <div class="shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div><div class="protection-title">Protected</div><div class="protection-sub">All systems operational</div></div>
+      </div>
+      <div class="live"><span class="live-dot"></span><span>LIVE</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat-box"><div class="stat-label-top">This page</div><div class="stat-number" id="pageAds">0</div><div class="stat-trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="18 15 12 9 6 15"/></svg><span>+12% today</span></div></div>
+      <div class="stat-box"><div class="stat-label-top">Total blocked</div><div class="stat-number" id="totalAds">0</div><div class="stat-trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="18 15 12 9 6 15"/></svg><span>+8.4% week</span></div></div>
+    </div>
+    <div class="data-row">
+      <div class="data-item"><div class="data-value accent" id="trackers">0</div><div class="data-label">Trackers</div></div>
+      <div class="data-item"><div class="data-value success" id="bandwidth">0 MB</div><div class="data-label">Saved</div></div>
+      <div class="data-item"><div class="data-value warn" id="timeSaved">0s</div><div class="data-label">Faster</div></div>
+    </div>
+
+    <!-- MULTI-TENANT PLAYER ID CONFIG -->
+    <div class="section-title">Jogador Conectado (Multi-Tenant)</div>
+    <div style="background: var(--bg-elevated); border: 1px solid var(--border-soft); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">Fila vinculada ao seu <strong>Discord ID</strong> ou <strong>Script Token</strong>:</div>
+      <div style="display: flex; gap: 6px;">
+        <input id="tenantInputDash" type="text" placeholder="Discord ID ou Token" spellcheck="false" style="flex: 1; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); padding: 0 10px; font-size: 11.5px; font-family: 'Geist Mono', monospace; outline: none;">
+        <button id="tenantSaveBtnDash" type="button" style="height: 36px; padding: 0 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap;">Salvar ID</button>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 2px;">
+        <div style="font-size: 10.5px; color: var(--text-dim); display: flex; align-items: center; gap: 6px;">
+          <span id="tenantDotDash" style="width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); display: inline-block;"></span>
+          <span id="tenantStatusTextDash">Modo Geral (Fila Pública)</span>
+        </div>
+        <button id="tenantClearBtn" type="button" style="background: transparent; border: none; color: var(--accent); font-size: 10.5px; cursor: pointer; text-decoration: underline;">Desconectar</button>
+      </div>
+    </div>
+
+    <div class="section-title">Quick Actions</div>
+    <div class="actions">
+      <button class="action-btn" id="pauseOnce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Pause Once</span></button>
+      <button class="action-btn" id="pauseAlways"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Pause Site</span></button>
+      <button class="action-btn" id="whitelist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Whitelist</span></button>
+      <button class="action-btn red" id="removeLicense"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Remove</span></button>
+    </div>
+    <div class="footer"><div class="footer-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg><span>Filter lists updated</span></div><div class="version">v3.2.1</div></div>
+  </div>
+</div>
+
+<!-- Hidden elements for popup.js compatibility -->
+<div id="status" class="status bad" style="display: none;">No license activated</div>
+<div id="refreshHint" style="display: none;">Refresh any open Roblox tabs to apply.</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-icon success" id="toastIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+  <div><div class="toast-label" id="toastLabel">Protection enabled</div><div class="toast-sub" id="toastSub">License verified</div></div>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

@@ -19,11 +19,18 @@ let isSupabaseConnected = false;
 let queueSocket = null;
 let queueReconnectTimer = null;
 let currentQueue = [];
+let currentUserId = null;
+let currentRawToken = null;
+let supabaseQueueChannel = null;
+let supabaseConfigChannel = null;
+
 let currentSettings = { operation_mode: 'FULL', auto_send: true };
 try {
-  chrome.storage.local.get(['savedOperationMode', 'currentSettings'], (data) => {
+  chrome.storage.local.get(['savedOperationMode', 'currentSettings', 'bglUserId', 'bglRawToken'], (data) => {
     if (data && data.savedOperationMode) currentSettings.operation_mode = data.savedOperationMode;
     if (data && data.currentSettings) currentSettings = Object.assign({}, currentSettings, data.currentSettings);
+    if (data && data.bglUserId) currentUserId = data.bglUserId;
+    if (data && data.bglRawToken) currentRawToken = data.bglRawToken;
   });
 } catch(e) {}
 let currentSpeechSettings = {
@@ -101,7 +108,11 @@ function notifyQueueUpdate() {
 // ---------------------------------------------------------------------------
 async function fetchQueueFromSupabase() {
   try {
-    const res = await fetch(SUPABASE_URL + '/rest/v1/bgl_queue?select=*&order=id.asc', {
+    let url = SUPABASE_URL + '/rest/v1/bgl_queue?select=*&order=id.asc';
+    if (currentUserId) {
+      url = `${SUPABASE_URL}/rest/v1/bgl_user_queues?user_id=eq.${encodeURIComponent(currentUserId)}&status=eq.pending&order=id.asc`;
+    }
+    const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_ANON_KEY,
         'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
@@ -115,7 +126,8 @@ async function fetchQueueFromSupabase() {
           id: item.id,
           nick: item.nick,
           sender: item.sender || 'tiktok',
-          robux: item.robux || 0
+          robux: item.robux || 0,
+          user_id: item.user_id
         }));
         notifyQueueUpdate();
       }
@@ -127,6 +139,32 @@ async function fetchQueueFromSupabase() {
 
 async function fetchConfigFromSupabase() {
   try {
+    if (currentUserId) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_configs?discord_id=eq.${encodeURIComponent(currentUserId)}&select=*`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const ucfg = data[0];
+          if (ucfg.operation_mode) {
+            broadcastSettingsToTabs({
+              operation_mode: ucfg.operation_mode,
+              auto_send: ucfg.operation_mode === 'FULL' || ucfg.operation_mode === 'ENTREGA'
+            });
+          }
+          if (ucfg.thank_nicks_enabled !== undefined) {
+            currentSpeechSettings.thank_enabled = ucfg.thank_nicks_enabled;
+            broadcastSettingsToTabs({ speech_settings: currentSpeechSettings });
+          }
+          return;
+        }
+      }
+    }
+
     const res = await fetch(SUPABASE_URL + '/rest/v1/bgl_config?select=*', {
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -174,11 +212,42 @@ async function fetchConfigFromSupabase() {
   }
 }
 
-function initSupabase() {
-  if (typeof supabase !== 'undefined' && supabase.createClient) {
-    try {
-      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      supabaseClient
+function subscribeSupabaseRealtime() {
+  if (!supabaseClient) return;
+  try {
+    if (supabaseQueueChannel) {
+      try { supabaseClient.removeChannel(supabaseQueueChannel); } catch(e) {}
+      supabaseQueueChannel = null;
+    }
+    if (supabaseConfigChannel) {
+      try { supabaseClient.removeChannel(supabaseConfigChannel); } catch(e) {}
+      supabaseConfigChannel = null;
+    }
+
+    if (currentUserId) {
+      console.log('[Supabase] Assinando canais multi-tenant para:', currentUserId);
+      supabaseQueueChannel = supabaseClient
+        .channel('bgl_ext_user_q_' + currentUserId)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_user_queues' }, (p) => {
+          if (!p.new || String(p.new.user_id) === String(currentUserId)) {
+            fetchQueueFromSupabase();
+          }
+        })
+        .subscribe((status) => {
+          isSupabaseConnected = (status === 'SUBSCRIBED');
+        });
+
+      supabaseConfigChannel = supabaseClient
+        .channel('bgl_ext_user_c_' + currentUserId)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_user_configs' }, (p) => {
+          if (!p.new || String(p.new.discord_id) === String(currentUserId)) {
+            fetchConfigFromSupabase();
+          }
+        })
+        .subscribe();
+    } else {
+      console.log('[Supabase] Assinando canais públicos');
+      supabaseQueueChannel = supabaseClient
         .channel('bgl_queue_extension')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_queue' }, () => {
           fetchQueueFromSupabase();
@@ -187,12 +256,23 @@ function initSupabase() {
           isSupabaseConnected = (status === 'SUBSCRIBED');
         });
 
-      supabaseClient
+      supabaseConfigChannel = supabaseClient
         .channel('bgl_config_extension')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_config' }, () => {
           fetchConfigFromSupabase();
         })
         .subscribe();
+    }
+  } catch (e) {
+    console.warn('[Supabase] Falha ao assinar canais:', e);
+  }
+}
+
+function initSupabase() {
+  if (typeof supabase !== 'undefined' && supabase.createClient) {
+    try {
+      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      subscribeSupabaseRealtime();
     } catch (e) {
       console.warn('[Supabase] Falha ao iniciar client Realtime:', e);
     }
@@ -324,6 +404,17 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return false;
 
+  if (message.type === 'updateTenantConfig') {
+    currentUserId = message.userId || null;
+    currentRawToken = message.rawToken || null;
+    console.log('[Extensao] Tenant ID atualizado para:', currentUserId);
+    subscribeSupabaseRealtime();
+    fetchQueueFromSupabase();
+    fetchConfigFromSupabase();
+    sendResponse({ ok: true, userId: currentUserId });
+    return true;
+  }
+
   if (message.type === 'robloxApi' && message.url) {
     let host = '';
     try { host = new URL(message.url).hostname; } catch (e) {}
@@ -346,7 +437,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       connected: isWsConnected || isSupabaseConnected,
       settings: currentSettings,
       speech_settings: currentSpeechSettings,
-      keyboard_settings: currentKeyboardSettings
+      keyboard_settings: currentKeyboardSettings,
+      user_id: currentUserId
     });
     return true;
   }
@@ -354,6 +446,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'automation_step') {
     if (queueSocket && queueSocket.readyState === WebSocket.OPEN) {
       try { queueSocket.send(JSON.stringify(message)); } catch (e) {}
+    }
+    if (currentUserId) {
+      fetch(`${SUPABASE_URL}/rest/v1/bgl_user_steps?user_id=eq.${encodeURIComponent(currentUserId)}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          current_step: Number(message.step_index) || 0,
+          step_name: message.step_name || '',
+          target_nick: message.username || '',
+          status: message.status || 'in_progress',
+          updated_at: new Date().toISOString()
+        })
+      }).catch(() => {});
     }
     sendResponse({ ok: true });
     return true;
@@ -366,25 +475,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     const finishedNick = message.username;
     if (finishedNick) {
+      if (currentUserId) {
+        // 1. Marca bgl_user_queues como delivered
+        fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?user_id=eq.${encodeURIComponent(currentUserId)}&nick=eq.${encodeURIComponent(finishedNick)}&status=eq.processing`, {
+          method: 'PATCH',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'delivered' })
+        }).then(() => fetchQueueFromSupabase()).catch(() => {});
+
+        if (message.id) {
+          fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?id=eq.${message.id}&user_id=eq.${encodeURIComponent(currentUserId)}`, {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'delivered' })
+          }).then(() => fetchQueueFromSupabase()).catch(() => {});
+        }
+
+        // 2. Registra entrega em bgl_user_deliveries
+        if (message.mode !== 'FALA' && !message.spokenOnly && message.robux !== 0 && currentSettings.operation_mode !== 'FALA') {
+          fetch(`${SUPABASE_URL}/rest/v1/bgl_user_deliveries`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              user_id: currentUserId,
+              nick: finishedNick,
+              username: finishedNick,
+              amount: Number(message.robux) || 50,
+              delivered_at: new Date().toISOString()
+            })
+          }).catch(() => {});
+        }
+
+        // 3. Atualiza bgl_user_steps para concluído
+        fetch(`${SUPABASE_URL}/rest/v1/bgl_user_steps?user_id=eq.${encodeURIComponent(currentUserId)}`, {
+          method: 'PATCH',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            current_step: 6,
+            step_name: 'Concluiu',
+            status: 'done',
+            updated_at: new Date().toISOString()
+          })
+        }).catch(() => {});
+      }
+
+      // Compatibilidade legado: limpa bgl_queue geral também
       if (message.id) {
         fetch(SUPABASE_URL + '/rest/v1/bgl_queue?id=eq.' + message.id, {
           method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-          }
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
         }).then(() => fetchQueueFromSupabase()).catch(() => {});
       }
       fetch(SUPABASE_URL + '/rest/v1/bgl_queue?nick=ilike.' + encodeURIComponent(finishedNick), {
         method: 'DELETE',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-        }
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
       }).then(() => fetchQueueFromSupabase()).catch(() => {});
 
-      // SÓ salva em bgl_deliveries se realmente for modo de entrega e tiver robux
-      if (message.mode !== 'FALA' && !message.spokenOnly && message.robux !== 0 && currentSettings.operation_mode !== 'FALA') {
+      if (!currentUserId && message.mode !== 'FALA' && !message.spokenOnly && message.robux !== 0 && currentSettings.operation_mode !== 'FALA') {
         fetch(SUPABASE_URL + '/rest/v1/bgl_deliveries', {
           method: 'POST',
           headers: {
@@ -399,11 +551,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             amount: Number(message.robux) || 50,
             delivered_at: new Date().toISOString()
           })
-        }).then(() => {
-          console.log('[Supabase] Entrega confirmada para:', finishedNick);
-        }).catch((e) => {
-          console.warn('[Supabase] Erro ao salvar entrega:', e);
-        });
+        }).catch(() => {});
       }
     }
 
@@ -415,13 +563,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (queueSocket && queueSocket.readyState === WebSocket.OPEN) {
       try { queueSocket.send(JSON.stringify({ type: 'remove', id: message.id })); } catch (e) {}
     }
+    if (currentUserId && message.id) {
+      fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?id=eq.${message.id}&user_id=eq.${encodeURIComponent(currentUserId)}`, {
+        method: 'PATCH',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled' })
+      }).then(() => fetchQueueFromSupabase()).catch(() => {});
+    }
     if (message.id) {
       fetch(SUPABASE_URL + '/rest/v1/bgl_queue?id=eq.' + message.id, {
         method: 'DELETE',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-        }
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
       }).then(() => fetchQueueFromSupabase()).catch(() => {});
     }
     sendResponse({ ok: true });
@@ -443,7 +595,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({
       connected: isWsConnected || isSupabaseConnected,
       url: isWsConnected ? queueServerUrl : 'Supabase Cloud (Nuvem)',
-      enabled: queueServerEnabled
+      enabled: queueServerEnabled,
+      user_id: currentUserId
     });
     return true;
   }
