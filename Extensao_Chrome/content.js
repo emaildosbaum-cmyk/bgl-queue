@@ -33,6 +33,16 @@
 
   function speakThankYou(nick) {
     if (!speechSettings || speechSettings.thank_enabled === false) return;
+    const mode = speechSettings.mode || 'tts';
+    if (mode === 'disabled') return;
+    if (mode === 'recorded') {
+      const rec = speechSettings.audioBase64 || (ttsRecordings && ttsRecordings['thank_you']);
+      if (rec) {
+        playCustomVoice(rec);
+      }
+      // REGRA DE OURO: NUNCA lê TTS se estiver em modo Gravado!
+      return;
+    }
     const template = (speechSettings.thank_template || 'Obrigado {nick}!').trim();
     const text = template.replace(/{nick}/gi, nick);
     speakTTS(text);
@@ -883,8 +893,12 @@
       currentLivePhaseEndTime = message.phase_end_time || 0;
       return true;
     }
-    if (message && message.type === 'serverSpeak' && message.text) {
-      speakTTS(message.text);
+    if (message && message.type === 'serverSpeak') {
+      if (message.src === 'recorded' || ttsMode === 'myvoice') {
+        if (message.audioUrl) playCustomVoice(message.audioUrl);
+        return true;
+      }
+      if (message.text) speakTTS(message.text);
       return true;
     }
     if (message && message.type === 'serverPlayAudio' && message.audioUrl) {

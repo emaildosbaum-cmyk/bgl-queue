@@ -1298,9 +1298,34 @@
           Configure a fala executada pela extensão quando um jogador recebe Robux. Use a tag <code style="color: #c084fc; background: rgba(168,85,247,0.15); padding: 2px 6px; border-radius: 4px;">{nick}</code> para falar o nome do usuário.
         </div>
 
+        <!-- Seletor de Tipo: TTS vs Som Gravado -->
+        <div style="display: flex; gap: 16px; align-items: center; background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-wrap: wrap;">
+          <span style="font-size: 12.5px; color: var(--text-muted); font-weight: 700;">Tipo de Agradecimento:</span>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+            <input type="radio" name="speech-thank-mode" value="tts" checked onchange="updateSpeechThankSettings()" style="accent-color: var(--accent-purple);">
+            <span>🔊 Voz Sintética (TTS)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+            <input type="radio" name="speech-thank-mode" value="recorded" onchange="updateSpeechThankSettings()" style="accent-color: var(--accent-purple);">
+            <span>🎙️ Minha Voz Gravada</span>
+          </label>
+        </div>
+
+        <!-- Seção de Gravação do Agradecimento -->
+        <div id="speech-thank-rec-box" style="display: none; background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.3); border-radius: var(--radius-sm); padding: 12px 14px; flex-direction: column; gap: 8px;">
+          <div style="font-size: 12px; color: #c084fc; font-weight: 700;">🎙️ Gravação de Áudio do Agradecimento:</div>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button type="button" id="speech-thank-rec-btn" onclick="startThankRecording()" class="btn-danger" style="padding: 6px 14px; font-size: 12px;">⏺ Gravar Agradecimento</button>
+            <button type="button" id="speech-thank-stop-btn" onclick="stopThankRecording()" class="btn-danger" style="padding: 6px 14px; font-size: 12px; display: none; animation: pulse-red 1s infinite;">⏹ Parar Gravação</button>
+            <span id="speech-thank-rec-status" style="font-size: 12px; color: var(--text-muted);">Nenhum áudio gravado</span>
+            <audio id="speech-thank-rec-preview" controls style="display: none; height: 32px;"></audio>
+            <button type="button" id="speech-thank-del-btn" onclick="deleteThankRecording()" class="btn-secondary" style="display: none; font-size: 11px; padding: 4px 8px; color: var(--accent-orange);">🗑️ Remover Áudio</button>
+          </div>
+        </div>
+
         <div style="display: grid; grid-template-columns: 1fr 220px auto; gap: 12px; align-items: end;">
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Frase / Template de Agradecimento</label>
+          <div id="speech-thank-template-col" style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Frase / Template de Agradecimento (TTS)</label>
             <input type="text" id="speech-thank-template" value="Obrigado {nick}!" onchange="updateSpeechThankSettings()" placeholder="Ex: Obrigado {nick}!" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: #fff; font-size: 14px; width: 100%;">
           </div>
 
@@ -3197,6 +3222,34 @@
       tabBadge.style.color = enabled ? '#c084fc' : 'var(--text-muted)';
     }
 
+    const mode = speechSettings.mode || 'tts';
+    document.querySelectorAll('input[name="speech-thank-mode"]').forEach(r => {
+      r.checked = (r.value === mode);
+    });
+
+    const recBox = document.getElementById('speech-thank-rec-box');
+    const tplCol = document.getElementById('speech-thank-template-col');
+    if (recBox) recBox.style.display = (mode === 'recorded') ? 'flex' : 'none';
+    if (tplCol) tplCol.style.opacity = (mode === 'recorded') ? '0.5' : '1.0';
+
+    const audioPreview = document.getElementById('speech-thank-rec-preview');
+    const recStatus = document.getElementById('speech-thank-rec-status');
+    const delBtn = document.getElementById('speech-thank-del-btn');
+    const hasRec = !!(speechSettings.audioBase64 || (recordedBlobsMap && recordedBlobsMap.has('thank_you')));
+    if (recStatus) recStatus.innerText = hasRec ? '✅ Áudio gravado pronto!' : 'Nenhum áudio gravado';
+    if (audioPreview) {
+      if (speechSettings.audioBase64) {
+        audioPreview.src = speechSettings.audioBase64;
+        audioPreview.style.display = 'block';
+      } else if (recordedBlobsMap && recordedBlobsMap.has('thank_you')) {
+        audioPreview.src = URL.createObjectURL(recordedBlobsMap.get('thank_you'));
+        audioPreview.style.display = 'block';
+      } else {
+        audioPreview.style.display = 'none';
+      }
+    }
+    if (delBtn) delBtn.style.display = hasRec ? 'inline-block' : 'none';
+
     const templateInput = document.getElementById('speech-thank-template');
     if (templateInput && speechSettings.thank_template) {
       templateInput.value = speechSettings.thank_template;
@@ -3217,12 +3270,70 @@
     const tabToggle = document.getElementById('speech-thank-enabled');
     const templateInput = document.getElementById('speech-thank-template');
     const timingSelect = document.getElementById('speech-thank-timing');
+    const modeEl = document.querySelector('input[name="speech-thank-mode"]:checked');
 
     if (tabToggle) speechSettings.thank_enabled = tabToggle.checked;
     if (templateInput) speechSettings.thank_template = templateInput.value || 'Obrigado {nick}!';
     if (timingSelect) speechSettings.thank_timing = timingSelect.value || 'finish';
+    if (modeEl) speechSettings.mode = modeEl.value;
 
     saveSpeechSettings();
+  }
+
+  let thankMediaRecorder = null;
+  let thankChunks = [];
+
+  async function startThankRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      thankChunks = [];
+      thankMediaRecorder = new MediaRecorder(stream);
+      thankMediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) thankChunks.push(e.data); };
+      thankMediaRecorder.onstop = () => {
+        const blob = new Blob(thankChunks, { type: 'audio/webm' });
+        recordedBlobsMap.set('thank_you', blob);
+        stream.getTracks().forEach(t => t.stop());
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          speechSettings.audioBase64 = reader.result;
+          speechSettings.mode = 'recorded';
+          saveSpeechSettings();
+          applySpeechThankUI();
+          playBlob(blob);
+        };
+        reader.readAsDataURL(blob);
+      };
+      thankMediaRecorder.start();
+
+      const btn = document.getElementById('speech-thank-rec-btn');
+      const stopBtn = document.getElementById('speech-thank-stop-btn');
+      const st = document.getElementById('speech-thank-rec-status');
+      if (btn) btn.style.display = 'none';
+      if (stopBtn) stopBtn.style.display = 'inline-block';
+      if (st) st.innerText = '🔴 Gravando áudio...';
+    } catch(e) {
+      alert('Erro ao acessar microfone: ' + e.message);
+    }
+  }
+
+  function stopThankRecording() {
+    if (thankMediaRecorder && thankMediaRecorder.state !== 'inactive') {
+      thankMediaRecorder.stop();
+      const btn = document.getElementById('speech-thank-rec-btn');
+      const stopBtn = document.getElementById('speech-thank-stop-btn');
+      if (btn) btn.style.display = 'inline-block';
+      if (stopBtn) stopBtn.style.display = 'none';
+    }
+  }
+
+  function deleteThankRecording() {
+    if (confirm('Deseja remover o áudio gravado de agradecimento?')) {
+      speechSettings.audioBase64 = '';
+      recordedBlobsMap.delete('thank_you');
+      saveSpeechSettings();
+      applySpeechThankUI();
+    }
   }
 
   function saveSpeechSettings() {
@@ -3235,6 +3346,8 @@
         thank_enabled: speechSettings.thank_enabled,
         thank_template: speechSettings.thank_template,
         thank_timing: speechSettings.thank_timing,
+        mode: speechSettings.mode || 'tts',
+        audioBase64: speechSettings.audioBase64 || '',
         updated_at: Date.now()
       }
     });
@@ -3248,6 +3361,23 @@
   }
 
   function testThankSpeech() {
+    if (speechSettings.thank_enabled === false) {
+      alert('O Agradecimento está DESATIVADO!');
+      return;
+    }
+    const mode = speechSettings.mode || 'tts';
+    if (mode === 'recorded') {
+      const audioSource = speechSettings.audioBase64 || getRecordedAudio('thank_you');
+      if (audioSource) {
+        playBlob(audioSource);
+      } else {
+        alert('Você selecionou "Som Gravado", mas ainda não gravou o áudio!
+
+Clique no botão "⏺ Gravar Agradecimento".');
+      }
+      return; // NUNCA LÊ TTS NO MODO GRAVADO!
+    }
+
     const template = (speechSettings.thank_template || 'Obrigado {nick}!').trim();
     const text = template.replace(/{nick}/gi, 'Player123');
     if (typeof playTTS === 'function') {
@@ -3510,9 +3640,36 @@
     }
   }
 
-  async function playBlob(blob) {
-    if (isAudioMuted() || !blob) return;
-    const url = URL.createObjectURL(blob);
+  function getRecordedAudio(key) {
+    if (!key) return null;
+    if (recordedBlobsMap && recordedBlobsMap.has(key)) {
+      const b = recordedBlobsMap.get(key);
+      if (b) return b;
+    }
+    try {
+      const recs = JSON.parse(localStorage.getItem('falasRecordings') || '{}');
+      if (recs && recs[key]) return recs[key];
+    } catch(e) {}
+    return null;
+  }
+
+  function hasRecordedAudio(falaId, versionId) {
+    return !!getRecordedAudio(falaId + '_' + versionId);
+  }
+
+  async function playBlob(source) {
+    if (isAudioMuted() || !source) return;
+    let url;
+    let needRevoke = false;
+    if (typeof source === 'string') {
+      url = source;
+    } else if (source instanceof Blob || source instanceof File) {
+      url = URL.createObjectURL(source);
+      needRevoke = true;
+    } else {
+      return;
+    }
+
     const audio = new Audio(url);
     audio.volume = parseFloat(document.getElementById('global-audio-volume')?.value || 1);
     const sinkId = document.getElementById('audio-output-device')?.value;
@@ -3524,13 +3681,26 @@
       resolveCurrentPlayback = () => {
         resolveCurrentPlayback = null;
         currentAudioEl = null;
+        if (needRevoke) {
+          try { URL.revokeObjectURL(url); } catch(e) {}
+        }
         resolve();
       };
       audio.onended = resolveCurrentPlayback;
-      audio.onerror = resolveCurrentPlayback;
+      audio.onerror = () => {
+        resolveCurrentPlayback = null;
+        currentAudioEl = null;
+        if (needRevoke) {
+          try { URL.revokeObjectURL(url); } catch(e) {}
+        }
+        resolve();
+      };
       audio.play().catch(() => {
         resolveCurrentPlayback = null;
         currentAudioEl = null;
+        if (needRevoke) {
+          try { URL.revokeObjectURL(url); } catch(e) {}
+        }
         resolve();
       });
     });
@@ -3578,24 +3748,51 @@
         textToSpeak = textToSpeak.replace(/{total}|{entregas}/gi, deliveryCount);
 
         const src = item.src || (item.fala && item.fala.src) || 'tts';
-        if (src === 'tts' || !src) {
-          if (textToSpeak) await playTTS(textToSpeak, voiceIdx, rate, pitch);
-        } else if (src === 'recorded') {
-          let blob = item.blob;
-          if (!blob && item.fala && item.version) {
-            blob = recordedBlobsMap.get(item.fala.id + '_' + item.version.id);
+        if (src === 'disabled' || src === 'none') {
+          console.log('[AudioQueue] Fala configurada como DESATIVADA. Pulando reprodução.');
+          continue;
+        }
+
+        if (src === 'recorded') {
+          let audioSource = item.blob;
+          // Tenta pela versão específica
+          if (!audioSource && item.fala && item.version) {
+            audioSource = getRecordedAudio(item.fala.id + '_' + item.version.id);
           }
-          if (!blob && item.isLiveClose) {
-            blob = recordedBlobsMap.get('live-close');
+          // Se não encontrou na versão ativa, busca em qualquer outra versão da mesma fala que tenha som
+          if (!audioSource && item.fala && Array.isArray(item.fala.versions)) {
+            for (const v of item.fala.versions) {
+              audioSource = getRecordedAudio(item.fala.id + '_' + v.id);
+              if (audioSource) break;
+            }
           }
-          if (!blob && item.isLiveProof && item.version) {
-            blob = recordedBlobsMap.get('liveproof_' + item.version.id);
+          if (!audioSource && item.isLiveClose) {
+            audioSource = getRecordedAudio('live-close');
           }
-          if (blob) {
-            await playBlob(blob);
-          } else if (textToSpeak) {
-            await playTTS(textToSpeak, voiceIdx, rate, pitch);
+          if (!audioSource && item.isLiveProof && item.version) {
+            audioSource = getRecordedAudio('liveproof_' + item.version.id);
           }
+          if (!audioSource && item.isLiveProof && liveProofConfig && Array.isArray(liveProofConfig.versions)) {
+            for (const v of liveProofConfig.versions) {
+              audioSource = getRecordedAudio('liveproof_' + v.id);
+              if (audioSource) break;
+            }
+          }
+          if (!audioSource && item.isThankYou) {
+            audioSource = (speechSettings && speechSettings.audioBase64) || getRecordedAudio('thank_you');
+          }
+
+          if (audioSource) {
+            await playBlob(audioSource);
+          } else {
+            console.warn('[AudioQueue] Modo GRAVADO ativo, mas nenhum som foi gravado para esta fala. O TTS foi BLOQUEADO para não falar voz robótica indesejada.');
+          }
+          // REGRA DE OURO: NUNCA cai para o playTTS quando o modo for GRAVADO!
+          continue;
+        }
+
+        if (src === 'tts' && textToSpeak) {
+          await playTTS(textToSpeak, voiceIdx, rate, pitch);
         }
       } catch(e) {
         console.error('[AudioQueue] Erro:', e);
@@ -3659,25 +3856,30 @@
 
   function pickSmartVersion(fala) {
     ensureFalaVersions(fala);
-    const versions = fala.versions.filter(v => v && (v.text || recordedBlobsMap.has(fala.id + '_' + v.id)));
-    if (versions.length === 0) return { id: 1, text: fala.text || 'Obrigado!' };
-    if (versions.length === 1) {
-      fala.recentPlayed = [versions[0].id];
-      return versions[0];
+    let candidates = fala.versions || [];
+    // Se a fala estiver em modo GRAVADO, sorteia exclusivamente entre as versões que contêm áudio gravado!
+    if (fala.src === 'recorded') {
+      const recs = candidates.filter(v => v && hasRecordedAudio(fala.id, v.id));
+      if (recs.length > 0) candidates = recs;
+    }
+    if (candidates.length === 0) return { id: 1, text: fala.text || 'Obrigado!' };
+    if (candidates.length === 1) {
+      fala.recentPlayed = [candidates[0].id];
+      return candidates[0];
     }
     const lastId = fala.recentPlayed[0];
     const secondLastId = fala.recentPlayed[1];
 
-    let candidates = [];
-    if (versions.length === 2) {
-      candidates = versions.filter(v => v.id !== lastId);
+    let filtered = [];
+    if (candidates.length === 2) {
+      filtered = candidates.filter(v => v.id !== lastId);
     } else {
-      candidates = versions.filter(v => v.id !== lastId && v.id !== secondLastId);
+      filtered = candidates.filter(v => v.id !== lastId && v.id !== secondLastId);
     }
-    if (!candidates.length) candidates = versions.filter(v => v.id !== lastId);
-    if (!candidates.length) candidates = versions;
+    if (!filtered.length) filtered = candidates.filter(v => v.id !== lastId);
+    if (!filtered.length) filtered = candidates;
 
-    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    const chosen = filtered[Math.floor(Math.random() * filtered.length)];
     fala.recentPlayed = [chosen.id, lastId].filter(id => id !== undefined);
     return chosen;
   }
@@ -3770,19 +3972,43 @@
 
   function testSmartFala(falaId) {
     const fala = falasList.find(f => f.id === falaId);
-    if (fala) {
-      const picked = pickSmartVersion(fala);
-      triggerFala(fala, false, picked);
+    if (!fala) return;
+    if (fala.src === 'disabled') {
+      alert('Esta fala está configurada como DESATIVADA. Altere para TTS ou Gravado para testar.');
+      return;
     }
+    if (fala.src === 'recorded') {
+      const hasAny = (fala.versions || []).some(v => hasRecordedAudio(fala.id, v.id));
+      if (!hasAny) {
+        alert('Esta fala está em modo GRAVADO, mas nenhuma versão foi gravada ainda!
+
+Clique no botão "⏺ Gravar" em uma das versões abaixo para gravar seu áudio antes de testar.');
+        return;
+      }
+    }
+    const picked = pickSmartVersion(fala);
+    triggerFala(fala, false, picked);
   }
 
   function testSpecificVersion(falaId, versionId) {
     const fala = falasList.find(f => f.id === falaId);
-    if (fala) {
-      ensureFalaVersions(fala);
-      const ver = fala.versions.find(v => v.id === versionId) || { id: versionId, text: '' };
-      triggerFala(fala, false, ver);
+    if (!fala) return;
+    if (fala.src === 'disabled') {
+      alert('Esta fala está configurada como DESATIVADA.');
+      return;
     }
+    if (fala.src === 'recorded') {
+      const hasAudio = hasRecordedAudio(fala.id, versionId);
+      if (!hasAudio) {
+        alert('A versão V' + versionId + ' ainda não possui áudio gravado!
+
+Clique em "⏺ Gravar" para registrar sua voz nesta versão.');
+        return;
+      }
+    }
+    ensureFalaVersions(fala);
+    const ver = fala.versions.find(v => v.id === versionId) || { id: versionId, text: '' };
+    triggerFala(fala, false, ver);
   }
 
   let versionMediaRecorder = null;
@@ -3955,19 +4181,28 @@
           const field = el.dataset.field;
           const target = falasList.find(f => f.id === id);
           if (!target) return;
-          if (field === 'enabled') target.enabled = el.checked;
-          else if (field === 'triggerValue') target.triggerValue = parseInt(el.value) || 1;
-          else target[field] = el.value;
+          if (el.type === 'radio') {
+            if (!el.checked) return;
+            target[field] = el.value;
+          } else if (el.type === 'checkbox') {
+            target[field] = el.checked;
+          } else if (field === 'triggerValue') {
+            target.triggerValue = parseInt(el.value) || 1;
+          } else {
+            target[field] = el.value;
+          }
 
           if (field === 'src') {
             card.querySelectorAll('.fala-rec-box-' + id).forEach(b => {
-              b.style.display = el.value === 'recorded' ? 'flex' : 'none';
+              b.style.display = target.src === 'recorded' ? 'flex' : 'none';
             });
           }
           saveFalasAll();
         };
         el.addEventListener('change', handler);
-        el.addEventListener('input', handler);
+        if (el.type !== 'radio') {
+          el.addEventListener('input', handler);
+        }
       });
 
       card.querySelectorAll('.fala-version-input').forEach(el => {
@@ -4048,6 +4283,15 @@
   function testLiveCloseFala() {
     const text = document.getElementById('live-close-text')?.value || '';
     const src = document.querySelector('input[name="live-close-src"]:checked')?.value || 'tts';
+    if (src === 'recorded') {
+      const hasAudio = !!getRecordedAudio('live-close');
+      if (!hasAudio) {
+        alert('Você selecionou "Som Gravado" para o Encerramento, mas ainda não gravou o som!
+
+Clique no botão "⏺ Gravar Som" abaixo.');
+        return;
+      }
+    }
     triggerFala({ id: 'live-close', text, src }, true);
   }
 
@@ -4166,6 +4410,15 @@
       }, (liveProofConfig.duration || 4.0) * 1000);
     }
 
+    if (liveProofConfig.src === 'recorded') {
+      const hasAudio = !!getRecordedAudio('liveproof_' + ver.id);
+      if (!hasAudio && source === 'manual') {
+        alert('Prova Fake configurada como "Som Gravado", mas a versão V' + ver.id + ' ainda não tem gravação de voz!
+
+Clique em "⏺ Gravar" na Prova Fake.');
+        return;
+      }
+    }
     audioQueue.push({
       isLiveProof: true,
       version: ver,
