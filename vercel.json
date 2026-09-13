@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/next", "destination": "/api/script/next" },
+    { "source": "/game_settings", "destination": "/api/script/game_settings" },
+    { "source": "/automation_step", "destination": "/api/script/automation_step" },
+    { "source": "/purchase_finished", "destination": "/api/script/purchase_finished" }
+  ]
+}
