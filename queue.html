@@ -3050,6 +3050,7 @@
           amount: 1,
           delivered_at: new Date().toISOString()
         });
+        supabaseSyncOperation("DELETE", `bgl_queue?nick=ilike.${encodeURIComponent(nick)}`);
       }
     } else {
       supabaseSyncOperation("DELETE", `bgl_queue?id=eq.${id}`);
@@ -3170,6 +3171,13 @@
             } else {
               _currentQueueCache.push(item);
             }
+            supabaseSyncOperation("POST", "bgl_queue", {
+              nick: nick,
+              sender: "manual",
+              sender_id: "manual",
+              status: "pending",
+              robux: 0
+            });
             renderQueue(_currentQueueCache);
             return;
           }
@@ -3179,6 +3187,13 @@
       }
       supabaseSyncOperation("POST", "bgl_user_queues", {
         user_id: currentUser.uid,
+        nick: nick,
+        sender: "manual",
+        sender_id: "manual",
+        status: "pending",
+        robux: 0
+      });
+      supabaseSyncOperation("POST", "bgl_queue", {
         nick: nick,
         sender: "manual",
         sender_id: "manual",
