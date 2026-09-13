@@ -1,3 +1,16 @@
+const SUPABASE_URL = "https://ojjfwxjirlttpxcjhlho.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU";
+
+function safeSendMessage(msg, callback) {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+      chrome.runtime.sendMessage(msg, res => {
+        if (chrome.runtime.lastError) return;
+        if (typeof callback === 'function') callback(res);
+      });
+    }
+  } catch(e) {}
+}
 (function () {
   'use strict';
 
@@ -462,42 +475,38 @@
       return null;
     }
 
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 1;
     let lastError = null;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         closeAnySendPanel();
-        await randomDelay(100, 200);
+        await randomDelay(60, 120);
 
         panel = findSendPanel();
         if (!panel) {
           const btn = findSendButton();
           if (!btn) throw new Error('Botão de send nativo ausente');
           sendStepUpdate(2, 'Clicando no botão de send', 'running', nick);
-          await randomDelay(80, 160);
+          await randomDelay(50, 100);
           await humanClick(btn);
-          panel = await waitFor(findSendPanel, { timeout: 2000 });
+          panel = await waitFor(findSendPanel, { timeout: 1500 });
         }
 
         sendStepUpdate(3, 'Pesquisando o jogador', 'running', nick);
-        const input = await waitFor(() => findSearchInput(panel), { timeout: 4000 });
-        await randomDelay(100, 200);
+        const input = await waitFor(() => findSearchInput(panel), { timeout: 2000 });
+        await randomDelay(60, 120);
         await typeLikeHuman(input, nick);
-        await randomDelay(400, 700);
+        await randomDelay(250, 450);
 
         sendStepUpdate(4, 'Clicando no jogador', 'running', nick);
-        const firstResult = await waitFor(() => findFirstResultItem(panel), { timeout: 3000 });
-        await randomDelay(80, 180);
+        const firstResult = await waitFor(() => findFirstResultItem(panel), { timeout: 1800 });
+        await randomDelay(50, 100);
         await humanClick(firstResult);
 
         return { panel, input, firstResult };
       } catch (err) {
         lastError = err;
-        if (attempt < MAX_RETRIES) {
-          try { closeAnySendPanel(); } catch (e) { }
-          await randomDelay(400, 600);
-        }
       }
     }
     // Falhou a seleção nativa, mas continua para o modal simulado sem travar
@@ -604,8 +613,8 @@
       speakThankYou(nick);
       setTimeout(() => {
         clearQueueWatchdog();
-        chrome.runtime.sendMessage({ type: 'removeQueueItem', id: nextItem.id }, () => { });
-        chrome.runtime.sendMessage({
+        safeSendMessage({ type: 'removeQueueItem', id: nextItem.id });
+        safeSendMessage({
           type: 'purchase_finished',
           status: 'success',
           step_index: 6,
@@ -614,6 +623,12 @@
           robux: 0,
           fruit: ''
         });
+        if (nextItem && nextItem.id && !String(nextItem.id).startsWith('fake_')) {
+          fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?id=eq.${nextItem.id}`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          }).catch(() => {});
+        }
         liveQueueSnapshot = liveQueueSnapshot.filter(i => i.id !== nextItem.id);
         liveQueueProcessing = false;
         setTimeout(processLiveQueue, 400);
@@ -629,7 +644,13 @@
       clearQueueWatchdog();
       setTimeout(() => {
         if (liveQueueCurrentId != null) {
-          chrome.runtime.sendMessage({ type: 'removeQueueItem', id: liveQueueCurrentId }, () => { });
+          safeSendMessage({ type: 'removeQueueItem', id: liveQueueCurrentId });
+          if (!String(liveQueueCurrentId).startsWith('fake_')) {
+            fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?id=eq.${liveQueueCurrentId}`, {
+              method: 'DELETE',
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            }).catch(() => {});
+          }
         }
         liveQueueSnapshot = liveQueueSnapshot.filter(item => item && item.id !== liveQueueCurrentId);
         liveQueueCurrentId = null;
@@ -823,58 +844,57 @@
     processLiveQueue();
   }
 
-  function pollLiveQueue() {
+  async function pollLiveQueue() {
     if (liveQueueProcessing) return;
-    if (!chrome.runtime || !chrome.runtime.sendMessage) {
-      maybeFillWithFake();
-      return;
+    if (currentOperationMode === 'MINI' || currentOperationMode === 'PAUSED' || !currentOperationMode) return;
+
+    // 1. Tenta WebSocket local
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+      safeSendMessage({ type: 'getNextQueueItem' }, async response => {
+        if (response && response.settings) {
+          if (response.settings.operation_mode && response.settings.operation_mode !== currentOperationMode) {
+            currentOperationMode = response.settings.operation_mode;
+            autoSendEnabled = (currentOperationMode === 'FULL' || currentOperationMode === 'ENTREGA');
+          }
+        }
+        if (response && response.connected && response.item) {
+          const currentTop = (liveQueueSnapshot[0] && liveQueueSnapshot[0].id) || null;
+          if (currentTop === response.item.id) return;
+          liveQueueSnapshot = [response.item];
+          processLiveQueue();
+          return;
+        }
+
+        // 2. Se local não tiver conectado, consulta direto no Supabase (Nuvem / Vercel)!
+        await fetchCloudQueue();
+      });
+    } else {
+      await fetchCloudQueue();
     }
-    chrome.runtime.sendMessage({ type: 'getNextQueueItem' }, response => {
-      if (response && response.settings) {
-        if (response.settings.operation_mode && response.settings.operation_mode !== currentOperationMode) {
-          currentOperationMode = response.settings.operation_mode;
-          console.log('[Extensao] Modo sincronizado via poll:', currentOperationMode);
-        }
-        if (response.settings.auto_send !== undefined) {
-          autoSendEnabled = !!response.settings.auto_send;
-        }
-      }
-      if (response && response.speech_settings) {
-        speechSettings = Object.assign({}, speechSettings, response.speech_settings);
-      }
-      if (response && response.keyboard_settings) {
-        if (response.keyboard_settings.enabled !== undefined) {
-          keyboardSoundsEnabled = (response.keyboard_settings.enabled !== false && response.keyboard_settings.enabled !== 'false');
-        }
-        if (response.keyboard_settings.volume !== undefined) {
-          keyboardVolume = parseFloat(response.keyboard_settings.volume);
-        }
-        if (response.keyboard_settings.custom_sounds) {
-          customKeySounds = response.keyboard_settings.custom_sounds;
-        }
-      }
+  }
 
-      // No modo MINI ou PAUSED não processamos entregas no Roblox
-      if (currentOperationMode === 'MINI' || currentOperationMode === 'PAUSED' || !currentOperationMode) return;
+  async function fetchCloudQueue() {
+    if (liveQueueProcessing) return;
+    if (currentOperationMode === 'MINI' || currentOperationMode === 'PAUSED' || !currentOperationMode) return;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?select=*&order=id.asc&limit=1`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if (res.ok) {
+        const items = await res.json();
+        if (Array.isArray(items) && items.length > 0) {
+          const item = items[0];
+          const currentTop = (liveQueueSnapshot[0] && liveQueueSnapshot[0].id) || null;
+          if (currentTop === item.id) return;
+          liveQueueSnapshot = [item];
+          processLiveQueue();
+          return;
+        }
+      }
+    } catch(e) {}
 
-      if (!response || !response.connected) {
-        // Sem servidor — usa fakes se habilitado
-        maybeFillWithFake();
-        return;
-      }
-      if (!response.item) {
-        liveQueueSnapshot = [];
-        // Fila real vazia — tenta preencher com fake
-        maybeFillWithFake();
-        return;
-      }
-      // Tem item real — limpa qualquer fake e processa o real
-      const currentTop = (liveQueueSnapshot[0] && liveQueueSnapshot[0].id) || null;
-      const incomingId = response.item && response.item.id;
-      if (currentTop === incomingId) return;
-      liveQueueSnapshot = [response.item];
-      processLiveQueue();
-    });
+    // 3. Fila vazia na nuvem e local — usa fake se permitido
+    maybeFillWithFake();
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
