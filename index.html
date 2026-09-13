@@ -1434,6 +1434,77 @@
         <button id="falas-save-all-btn" class="btn-success" onclick="saveFalasAll()" style="width: 100%; padding: 14px; font-size: 15px;">💾 Salvar Todas as Configurações de Falas</button>
         <div id="falas-save-status" style="font-size: 13px; color: var(--accent-green); text-align: center; min-height: 18px;"></div>
       </div>
+
+      <!-- =========================================================
+           CARD: SONS DE TECLADO MECÂNICO (DIGITAÇÃO NO ROBLOX)
+           ========================================================= -->
+      <div class="card" style="border-color: rgba(59, 130, 246, 0.35); background: linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);">
+        <div class="card-header">
+          <div class="card-title" style="color: #60a5fa; display: flex; align-items: center; gap: 8px;">
+            ⌨️ Sons de Teclado Mecânico (Digitação Realista no Roblox)
+          </div>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="keyboard-enabled" checked onchange="toggleKeyboardSounds()" style="width: 18px; height: 18px; accent-color: var(--accent-blue); cursor: pointer;">
+            <span id="keyboard-enabled-badge" style="font-weight: 700; font-size: 0.82rem; padding: 4px 12px; border-radius: 999px; background: rgba(59, 130, 246, 0.15); border: 1px solid var(--accent-blue); color: #60a5fa;">ATIVADO</span>
+          </label>
+        </div>
+
+        <div class="card-desc">
+          Toca sons de teclas mecânicas a cada letra digitada pela extensão no Roblox (com micro-variações acústicas de pitch e volume, backspace em caso de erros simulados, espaço e enter).
+          Vem com <strong>14 sons de alta qualidade pré-instalados</strong> (10 variações de letras + espaço + enter + backspace + modificador) e você pode <strong>gravar seus próprios áudios de tecla pelo microfone</strong>!
+        </div>
+
+        <!-- Barra de Controles e Área de Teste -->
+        <div style="display: grid; grid-template-columns: 240px 1fr auto; gap: 14px; align-items: center; background: rgba(0,0,0,0.3); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Volume dos Cliques</label>
+              <span id="keyboard-volume-val" style="font-weight: 800; font-size: 13px; color: #60a5fa;">85%</span>
+            </div>
+            <input type="range" id="keyboard-volume" min="0" max="1" step="0.05" value="0.85" oninput="updateKeyboardVolume(this.value)" style="width: 100%; accent-color: var(--accent-blue);">
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Área de Teste Livre (Clique e digite qualquer coisa no seu teclado)</label>
+            <input type="text" id="keyboard-test-typing-input" placeholder="Digite aqui para ouvir as teclas mecânicas..." onkeydown="handleTestTypingKey(event)" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; color: #fff; font-size: 13px; outline: none;">
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: flex-end;">
+            <button type="button" id="keyboard-test-btn" onclick="runKeyboardTypingDemo()" class="btn-primary" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 10px 18px; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);">
+              ▶ Testar Digitação Rápida
+            </button>
+          </div>
+        </div>
+
+        <!-- Indicador da demonstração animada -->
+        <div id="keyboard-demo-preview" style="display: none; align-items: center; gap: 10px; background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(59, 130, 246, 0.4); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px;">
+          <span style="color: #60a5fa; font-weight: 700;">Simulando Extensão no Roblox:</span>
+          <code id="keyboard-demo-text" style="background: #0f172a; padding: 4px 10px; border-radius: 4px; font-family: monospace; font-size: 14px; color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3);"></code>
+          <span id="keyboard-demo-status" style="font-size: 12px; color: var(--text-muted);"></span>
+        </div>
+
+        <!-- Biblioteca das 14 Teclas -->
+        <div style="margin-top: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 13px; font-weight: 700; color: #e2e8f0; display: flex; align-items: center; gap: 6px;">
+              <span>🎛️ Biblioteca de Sons de Teclas (14 Variações)</span>
+              <span id="keyboard-custom-counter" style="font-size: 11px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 2px 8px; border-radius: 999px;">0 personalizados</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" onclick="testPlayAllKeysSequence()" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #60a5fa; border-color: rgba(59, 130, 246, 0.4);">
+                ▶ Ouvir Todas em Sequência
+              </button>
+              <button type="button" onclick="restoreAllDefaultSounds()" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: var(--accent-orange); border-color: rgba(249,115,22,0.4);">
+                🔄 Restaurar Todos os Padrões
+              </button>
+            </div>
+          </div>
+
+          <div id="keyboard-keys-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px;">
+            <!-- Renderizado dinamicamente via renderKeyboardKeysGrid() -->
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ═════════════════════════════════════════════════════════
@@ -1694,7 +1765,8 @@
 </div>
 
 <!-- SUPABASE CLIENT -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="audio/keyboard/keyboard_pack.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <!-- SCRIPTS DO APLICATIVO -->
 <script>
@@ -2184,6 +2256,15 @@
                 speechSettings = Object.assign({}, speechSettings, val);
                 localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
                 if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+    applyKeyboardSettingsUI();
+              }
+            }
+            if (payload.new && payload.new.key === "keyboard_settings") {
+              const val = payload.new.value;
+              if (val && typeof val === "object") {
+                keyboardSettings = Object.assign({}, keyboardSettings, val);
+                localStorage.setItem('bgl_keyboard_settings', JSON.stringify(keyboardSettings));
+                if (typeof applyKeyboardSettingsUI === "function") applyKeyboardSettingsUI();
               }
             }
           })
@@ -2248,6 +2329,17 @@
         speechSettings = Object.assign({}, speechSettings, cSpeech.value);
         localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
         if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+      }
+
+      const { data: cKb } = await supabaseClient
+        .from("bgl_config")
+        .select("*")
+        .eq("key", "keyboard_settings")
+        .maybeSingle();
+      if (cKb && cKb.value && typeof cKb.value === "object") {
+        keyboardSettings = Object.assign({}, keyboardSettings, cKb.value);
+        localStorage.setItem('bgl_keyboard_settings', JSON.stringify(keyboardSettings));
+        if (typeof applyKeyboardSettingsUI === "function") applyKeyboardSettingsUI();
       }
     } catch (e) {
       console.warn("[Supabase] Erro ao carregar estado inicial:", e);
@@ -2755,6 +2847,333 @@
     thank_template: 'Obrigado {nick}!',
     thank_timing: 'finish'
   };
+
+
+  /* ═════════════════════════════════════════════════════════════
+     SISTEMA DE SONS DE TECLADO MECÂNICO (14 VARIAÇÕES & GRAVAÇÃO)
+     ═════════════════════════════════════════════════════════════ */
+  const KEYBOARD_KEYS_LIST = [
+    { id: 'key_1', name: 'Tecla Alpha 01', desc: 'Variação linear padrão (45g)', type: 'letter' },
+    { id: 'key_2', name: 'Tecla Alpha 02', desc: 'Variação tátil leve (bottom-out 50g)', type: 'letter' },
+    { id: 'key_3', name: 'Tecla Alpha 03', desc: 'Batida com retorno ágil e ping sutil', type: 'letter' },
+    { id: 'key_4', name: 'Tecla Alpha 04', desc: 'Som seco de plástico PBT premium', type: 'letter' },
+    { id: 'key_5', name: 'Tecla Alpha 05', desc: 'Impacto suave em plate de alumínio', type: 'letter' },
+    { id: 'key_6', name: 'Tecla Alpha 06', desc: 'Cliquet tátil firme e ressonância baixa', type: 'letter' },
+    { id: 'key_7', name: 'Tecla Alpha 07', desc: 'Curso curto com batida amortecida', type: 'letter' },
+    { id: 'key_8', name: 'Tecla Alpha 08', desc: 'Ressonância mecânica de carcaça profunda', type: 'letter' },
+    { id: 'key_9', name: 'Tecla Alpha 09', desc: 'Toque rápido de digitação contínua', type: 'letter' },
+    { id: 'key_10', name: 'Tecla Alpha 10', desc: 'Variação micro-angular de tecla periférica', type: 'letter' },
+    { id: 'spacebar', name: 'Barra de Espaço', desc: 'Batida com estabilizador lubrificado (Thock)', type: 'special' },
+    { id: 'enter', name: 'Tecla Enter', desc: 'Batida pesada de confirmação', type: 'special' },
+    { id: 'backspace', name: 'Tecla Backspace', desc: 'Clique seco e rápido de apagamento', type: 'special' },
+    { id: 'modifier', name: 'Shift / Alt / Ctrl', desc: 'Toque de tecla modificadora auxiliar', type: 'special' }
+  ];
+
+  let keyboardSettings = JSON.parse(localStorage.getItem('bgl_keyboard_settings') || 'null') || {
+    enabled: true,
+    volume: 0.85,
+    custom_sounds: {}
+  };
+
+  let activeMediaRecorder = null;
+  let activeRecordingKeyId = null;
+  let recordingChunks = [];
+
+  function applyKeyboardSettingsUI() {
+    const isEnabled = keyboardSettings.enabled !== false;
+    const toggle = document.getElementById('keyboard-enabled');
+    const badge = document.getElementById('keyboard-enabled-badge');
+    if (toggle) toggle.checked = isEnabled;
+    if (badge) {
+      badge.innerText = isEnabled ? 'ATIVADO' : 'DESATIVADO';
+      badge.style.background = isEnabled ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 116, 139, 0.15)';
+      badge.style.borderColor = isEnabled ? 'var(--accent-blue)' : 'var(--border)';
+      badge.style.color = isEnabled ? '#60a5fa' : 'var(--text-muted)';
+    }
+
+    const volSlider = document.getElementById('keyboard-volume');
+    const volVal = document.getElementById('keyboard-volume-val');
+    const vol = keyboardSettings.volume !== undefined ? keyboardSettings.volume : 0.85;
+    if (volSlider) volSlider.value = vol;
+    if (volVal) volVal.innerText = Math.round(vol * 100) + '%';
+
+    renderKeyboardKeysGrid();
+  }
+
+  function toggleKeyboardSounds() {
+    const toggle = document.getElementById('keyboard-enabled');
+    if (toggle) {
+      keyboardSettings.enabled = toggle.checked;
+      saveKeyboardSettings();
+    }
+  }
+
+  function updateKeyboardVolume(val) {
+    const num = parseFloat(val);
+    if (!isNaN(num)) {
+      keyboardSettings.volume = num;
+      const volVal = document.getElementById('keyboard-volume-val');
+      if (volVal) volVal.innerText = Math.round(num * 100) + '%';
+      saveKeyboardSettings();
+    }
+  }
+
+  function getKeyAudioSrc(keyId) {
+    if (keyboardSettings.custom_sounds && keyboardSettings.custom_sounds[keyId]) {
+      return keyboardSettings.custom_sounds[keyId];
+    }
+    if (typeof KEYBOARD_SOUNDS_PACK !== 'undefined' && KEYBOARD_SOUNDS_PACK[keyId]) {
+      return KEYBOARD_SOUNDS_PACK[keyId];
+    }
+    return null;
+  }
+
+  function playKeySoundDashboard(keyId) {
+    if (keyboardSettings.enabled === false) return;
+    try {
+      const src = getKeyAudioSrc(keyId);
+      if (!src) return;
+      const audio = new Audio(src);
+      audio.playbackRate = 0.96 + Math.random() * 0.08;
+      const baseVol = keyboardSettings.volume !== undefined ? keyboardSettings.volume : 0.85;
+      audio.volume = Math.min(1.0, Math.max(0.1, baseVol * (0.88 + Math.random() * 0.12)));
+      audio.play().catch(() => {});
+    } catch(e) {}
+  }
+
+  function handleTestTypingKey(e) {
+    if (e.key === ' ' || e.code === 'Space') {
+      playKeySoundDashboard('spacebar');
+    } else if (e.key === 'Enter') {
+      playKeySoundDashboard('enter');
+    } else if (e.key === 'Backspace') {
+      playKeySoundDashboard('backspace');
+    } else if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'].includes(e.key)) {
+      playKeySoundDashboard('modifier');
+    } else {
+      const alphaKeys = ['key_1', 'key_2', 'key_3', 'key_4', 'key_5', 'key_6', 'key_7', 'key_8', 'key_9', 'key_10'];
+      const randomKey = alphaKeys[Math.floor(Math.random() * alphaKeys.length)];
+      playKeySoundDashboard(randomKey);
+    }
+  }
+
+  let demoRunning = false;
+  async function runKeyboardTypingDemo() {
+    if (demoRunning) return;
+    demoRunning = true;
+    const btn = document.getElementById('keyboard-test-btn');
+    const preview = document.getElementById('keyboard-demo-preview');
+    const demoText = document.getElementById('keyboard-demo-text');
+    const demoStatus = document.getElementById('keyboard-demo-status');
+
+    if (btn) btn.disabled = true;
+    if (preview) preview.style.display = 'flex';
+    if (demoText) demoText.innerText = '';
+    if (demoStatus) demoStatus.innerText = 'Iniciando simulação de digitação...';
+
+    const testNick = 'pedro_roblox2026';
+    let current = '';
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    for (let i = 0; i < testNick.length; i++) {
+      const char = testNick[i];
+
+      // Simula erro humano na letra 5 (digita 'k', percebe o erro, apaga com backspace e digita o correto)
+      if (i === 4) {
+        if (demoStatus) demoStatus.innerText = 'Simulando typo (erro de digitação humano)...';
+        demoText.innerText = current + 'k';
+        playKeySoundDashboard('key_3');
+        await sleep(150);
+
+        if (demoStatus) demoStatus.innerText = 'Corrigindo com Backspace...';
+        playKeySoundDashboard('backspace');
+        demoText.innerText = current;
+        await sleep(120);
+      }
+
+      current += char;
+      demoText.innerText = current;
+
+      if (char === '_') {
+        playKeySoundDashboard('key_8');
+      } else {
+        const alphaKeys = ['key_1', 'key_2', 'key_3', 'key_4', 'key_5', 'key_6', 'key_7', 'key_8', 'key_9', 'key_10'];
+        const rKey = alphaKeys[Math.floor(Math.random() * alphaKeys.length)];
+        playKeySoundDashboard(rKey);
+      }
+
+      // Intervalo humano variável
+      await sleep(95 + Math.floor(Math.random() * 60));
+    }
+
+    // Confirma com Enter
+    if (demoStatus) demoStatus.innerText = 'Confirmando com Enter...';
+    playKeySoundDashboard('enter');
+    await sleep(250);
+
+    if (demoStatus) demoStatus.innerText = '✅ Digitação concluída com sucesso!';
+    await sleep(1200);
+
+    if (preview) preview.style.display = 'none';
+    if (btn) btn.disabled = false;
+    demoRunning = false;
+  }
+
+  async function testPlayAllKeysSequence() {
+    for (const item of KEYBOARD_KEYS_LIST) {
+      playKeySoundDashboard(item.id);
+      await new Promise(r => setTimeout(r, 180));
+    }
+  }
+
+  function renderKeyboardKeysGrid() {
+    const grid = document.getElementById('keyboard-keys-grid');
+    if (!grid) return;
+
+    let customCount = 0;
+    const customSounds = keyboardSettings.custom_sounds || {};
+
+    grid.innerHTML = KEYBOARD_KEYS_LIST.map(item => {
+      const isCustom = !!customSounds[item.id];
+      if (isCustom) customCount++;
+      const isRecording = activeRecordingKeyId === item.id;
+
+      return `
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid ${isCustom ? 'rgba(59, 130, 246, 0.5)' : 'var(--border)'}; border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.2s;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-weight: 700; font-size: 13px; color: #fff; display: flex; align-items: center; gap: 6px;">
+              <span>${item.name}</span>
+              ${item.type === 'special' ? '<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(168, 85, 247, 0.2); color: #c084fc; font-weight: 700;">ESPECIAL</span>' : ''}
+            </div>
+            <span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; ${isCustom ? 'background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3);' : 'background: rgba(148, 163, 184, 0.12); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);'}">
+              ${isCustom ? '★ PERSONALIZADO' : 'ORIGINAL'}
+            </span>
+          </div>
+
+          <div style="font-size: 11px; color: var(--text-dim); line-height: 1.3;">
+            ${item.desc}
+          </div>
+
+          <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px;">
+            <button type="button" onclick="playKeySoundDashboard('${item.id}')" class="btn-secondary" style="flex: 1; font-size: 11.5px; padding: 5px 8px; color: #60a5fa; display: flex; align-items: center; justify-content: center; gap: 4px;">
+              ▶ Ouvir
+            </button>
+
+            ${!isRecording ? `
+              <button type="button" onclick="startRecordKey('${item.id}')" class="btn-secondary" style="flex: 1; font-size: 11.5px; padding: 5px 8px; color: #f87171; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                🎙️ Gravar
+              </button>
+            ` : `
+              <button type="button" onclick="stopRecordKey('${item.id}')" class="btn-danger" style="flex: 1; font-size: 11.5px; padding: 5px 8px; animation: pulse-red 1s infinite; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                ⏹ Parar
+              </button>
+            `}
+
+            ${isCustom ? `
+              <button type="button" onclick="restoreKeySound('${item.id}')" title="Restaurar som mecânico padrão" class="btn-secondary" style="font-size: 11.5px; padding: 5px 8px; color: var(--accent-orange);">
+                🗑️
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const counter = document.getElementById('keyboard-custom-counter');
+    if (counter) {
+      counter.innerText = customCount + ' de 14 personalizados';
+    }
+  }
+
+  async function startRecordKey(keyId) {
+    if (activeMediaRecorder && activeMediaRecorder.state === 'recording') {
+      activeMediaRecorder.stop();
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingChunks = [];
+      activeRecordingKeyId = keyId;
+
+      activeMediaRecorder = new MediaRecorder(stream);
+      activeMediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) recordingChunks.push(e.data);
+      };
+
+      activeMediaRecorder.onstop = async () => {
+        const blob = new Blob(recordingChunks, { type: activeMediaRecorder.mimeType || 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result;
+          if (!keyboardSettings.custom_sounds) keyboardSettings.custom_sounds = {};
+          keyboardSettings.custom_sounds[keyId] = base64Data;
+          saveKeyboardSettings();
+          activeRecordingKeyId = null;
+          renderKeyboardKeysGrid();
+          // Toca imediatamente para o usuário ouvir como ficou
+          playKeySoundDashboard(keyId);
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      activeMediaRecorder.start();
+      renderKeyboardKeysGrid();
+    } catch(err) {
+      console.warn("Erro ao acessar microfone para gravação de tecla:", err);
+      alert("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+      activeRecordingKeyId = null;
+      renderKeyboardKeysGrid();
+    }
+  }
+
+  function stopRecordKey(keyId) {
+    if (activeMediaRecorder && activeMediaRecorder.state === 'recording') {
+      activeMediaRecorder.stop();
+    }
+  }
+
+  function restoreKeySound(keyId) {
+    if (keyboardSettings.custom_sounds && keyboardSettings.custom_sounds[keyId]) {
+      delete keyboardSettings.custom_sounds[keyId];
+      saveKeyboardSettings();
+      renderKeyboardKeysGrid();
+    }
+  }
+
+  function restoreAllDefaultSounds() {
+    if (confirm("Deseja restaurar todos os 14 sons para os cliques mecânicos padrão?")) {
+      keyboardSettings.custom_sounds = {};
+      saveKeyboardSettings();
+      renderKeyboardKeysGrid();
+    }
+  }
+
+  function saveKeyboardSettings() {
+    localStorage.setItem('bgl_keyboard_settings', JSON.stringify(keyboardSettings));
+    applyKeyboardSettingsUI();
+
+    // Sincroniza no Supabase (bgl_config)
+    supabaseSyncOperation("POST", "bgl_config", {
+      key: "keyboard_settings",
+      value: {
+        enabled: keyboardSettings.enabled,
+        volume: keyboardSettings.volume,
+        custom_sounds: keyboardSettings.custom_sounds,
+        updated_at: Date.now()
+      }
+    });
+
+    // Envia via WebSocket local se conectado
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'update_settings',
+        settings: { keyboard_settings: keyboardSettings }
+      }));
+    }
+  }
 
   function applySpeechThankUI() {
     const enabled = speechSettings.thank_enabled !== false;

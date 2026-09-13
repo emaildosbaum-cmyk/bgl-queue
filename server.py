@@ -967,6 +967,12 @@ class QueueServer:
             self.settings["speech_settings"] = current_speech
             changed = True
 
+        if "keyboard_settings" in new_settings and isinstance(new_settings["keyboard_settings"], dict):
+            current_kb = self.settings.get("keyboard_settings", {})
+            current_kb.update(new_settings["keyboard_settings"])
+            self.settings["keyboard_settings"] = current_kb
+            changed = True
+
         if "auto_send" in new_settings:
             val_bool = bool(new_settings["auto_send"])
             if self.settings.get("auto_send") != val_bool:

