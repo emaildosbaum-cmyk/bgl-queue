@@ -742,48 +742,95 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU";
     let supabaseClient = null;
 
-    function initMobileSupabase() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let mobileUid = urlParams.get('uid') || null;
+    const mobileToken = urlParams.get('token') || null;
+
+    async function initMobileSupabase() {
       try {
         if (window.supabase && typeof window.supabase.createClient === 'function') {
           supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+          if (mobileToken && !mobileUid) {
+            try {
+              const { data: profs } = await supabaseClient.from('bgl_user_profiles').select('discord_id').eq('script_token', mobileToken).limit(1);
+              if (profs && profs.length > 0) mobileUid = profs[0].discord_id;
+            } catch(e) {}
+          }
+
           setTimeout(function() {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
-              supabaseClient.from('bgl_queue').select('*').eq('status', 'pending').order('id', { ascending: true })
-                .then(function(res) {
-                  if (res.data && res.data.length > 0) {
-                    currentQueue = res.data.map(function(r) {
-                      return { id: r.id, nick: r.nick, sender: r.sender || 'cloud', robux: r.robux || 0 };
-                    });
-                    renderQueue();
-                  }
-                });
+              if (mobileUid) {
+                supabaseClient.from('bgl_user_queues').select('*').eq('user_id', mobileUid).eq('status', 'pending').order('id', { ascending: true })
+                  .then(function(res) {
+                    if (res.data && res.data.length > 0) {
+                      currentQueue = res.data.map(function(r) {
+                        return { id: r.id, nick: r.nick, sender: r.sender || 'manual', robux: r.robux || 0 };
+                      });
+                      renderQueue();
+                    }
+                  });
+              } else {
+                supabaseClient.from('bgl_queue').select('*').eq('status', 'pending').order('id', { ascending: true })
+                  .then(function(res) {
+                    if (res.data && res.data.length > 0) {
+                      currentQueue = res.data.map(function(r) {
+                        return { id: r.id, nick: r.nick, sender: r.sender || 'cloud', robux: r.robux || 0 };
+                      });
+                      renderQueue();
+                    }
+                  });
+              }
             }
           }, 800);
 
-          supabaseClient.channel('bgl_mobile_sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_queue' }, function(p) {
-              if (p.eventType === 'INSERT') {
-                var it = { id: p.new.id, nick: p.new.nick, sender: p.new.sender || 'cloud', robux: p.new.robux || 0 };
-                if (!currentQueue.some(function(i) { return i.id === it.id; })) {
-                  currentQueue.push(it);
+          if (mobileUid) {
+            supabaseClient.channel('bgl_mobile_user_' + mobileUid)
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_user_queues' }, function(p) {
+                if (p.new && String(p.new.user_id) !== String(mobileUid)) return;
+                if (p.eventType === 'INSERT') {
+                  var it = { id: p.new.id, nick: p.new.nick, sender: p.new.sender || 'manual', robux: p.new.robux || 0 };
+                  if (!currentQueue.some(function(i) { return i.id === it.id; })) {
+                    currentQueue.push(it);
+                    renderQueue();
+                  }
+                } else if (p.eventType === 'DELETE') {
+                  currentQueue = currentQueue.filter(function(i) { return i.id !== p.old.id; });
+                  renderQueue();
+                } else if (p.eventType === 'UPDATE') {
+                  if (p.new.status === 'delivered' || p.new.status === 'removed' || p.new.status === 'cancelled') {
+                    currentQueue = currentQueue.filter(function(i) { return i.id !== p.new.id; });
+                  }
                   renderQueue();
                 }
-              } else if (p.eventType === 'DELETE') {
-                currentQueue = currentQueue.filter(function(i) { return i.id !== p.old.id; });
-                renderQueue();
-              } else if (p.eventType === 'UPDATE') {
-                if (p.new.status === 'delivered' || p.new.status === 'removed') {
-                  currentQueue = currentQueue.filter(function(i) { return i.id !== p.new.id; });
+              })
+              .subscribe();
+          } else {
+            supabaseClient.channel('bgl_mobile_sync')
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_queue' }, function(p) {
+                if (p.eventType === 'INSERT') {
+                  var it = { id: p.new.id, nick: p.new.nick, sender: p.new.sender || 'cloud', robux: p.new.robux || 0 };
+                  if (!currentQueue.some(function(i) { return i.id === it.id; })) {
+                    currentQueue.push(it);
+                    renderQueue();
+                  }
+                } else if (p.eventType === 'DELETE') {
+                  currentQueue = currentQueue.filter(function(i) { return i.id !== p.old.id; });
+                  renderQueue();
+                } else if (p.eventType === 'UPDATE') {
+                  if (p.new.status === 'delivered' || p.new.status === 'removed') {
+                    currentQueue = currentQueue.filter(function(i) { return i.id !== p.new.id; });
+                  }
+                  renderQueue();
                 }
-                renderQueue();
-              }
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_config' }, function(p) {
-              if (p.new && p.new.key === 'tiktok_status' && p.new.value) {
-                updateMobileTikTokUI(p.new.value.connected, p.new.value.connecting, p.new.value.username);
-              }
-            })
-            .subscribe();
+              })
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_config' }, function(p) {
+                if (p.new && p.new.key === 'tiktok_status' && p.new.value) {
+                  updateMobileTikTokUI(p.new.value.connected, p.new.value.connecting, p.new.value.username);
+                }
+              })
+              .subscribe();
+          }
         }
       } catch(e) {}
     }
@@ -868,11 +915,24 @@
       var nick = inp.value.trim();
       if (!nick) return;
       sendWS('add', { nick: nick, sender: 'mobile' });
+      if (mobileUid && supabaseClient) {
+        supabaseClient.from('bgl_user_queues').insert([{
+          user_id: mobileUid,
+          nick: nick,
+          sender: 'mobile',
+          sender_id: 'mobile',
+          status: 'pending',
+          robux: 0
+        }]).then(function() {});
+      }
       inp.value = '';
     }
 
     function removeItem(id) {
       sendWS('remove', { id: id });
+      if (mobileUid && supabaseClient) {
+        supabaseClient.from('bgl_user_queues').update({ status: 'removed' }).eq('id', id).eq('user_id', mobileUid).then(function() {});
+      }
     }
 
     function banItem(nick) {
@@ -882,7 +942,12 @@
     }
 
     function confirmClearQueue() {
-      if (confirm('Limpar TODA a fila?')) sendWS('clear', {});
+      if (confirm('Limpar TODA a fila?')) {
+        sendWS('clear', {});
+        if (mobileUid && supabaseClient) {
+          supabaseClient.from('bgl_user_queues').delete().eq('user_id', mobileUid).then(function() {});
+        }
+      }
     }
 
     // --- Modal Robux ---

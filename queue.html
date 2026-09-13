@@ -1023,28 +1023,34 @@
         BGL Queue
         <span class="badge-live">LIVE</span>
       </div>
-      <div class="login-subtitle">Painel de Automação e Entrega de Robux</div>
+      <div class="login-subtitle">Painel de Automação & Entregas Roblox</div>
     </div>
 
-    <div id="loginError" class="login-error">
-      Senha incorreta! Tente novamente.
+    <div id="loginError" class="login-error"></div>
+
+    <!-- BOTÃO OFICIAL DE LOGIN COM DISCORD -->
+    <a href="/api/auth/login" class="login-discord-btn" id="discordLoginBtn" style="display: flex; align-items: center; justify-content: center; gap: 12px; background: #5865F2; color: #ffffff; font-size: 15px; font-weight: 700; padding: 14px 20px; border-radius: var(--radius-md); border: none; cursor: pointer; text-decoration: none; box-shadow: 0 4px 18px rgba(88, 101, 242, 0.4); transition: all 0.2s ease;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+      </svg>
+      <span>Entrar com Discord</span>
+    </a>
+
+    <div style="display: flex; align-items: center; gap: 12px; margin: 4px 0; color: var(--text-dim); font-size: 11px; font-weight: 700; text-transform: uppercase;">
+      <div style="flex: 1; height: 1px; background: var(--border);"></div>
+      <span>ou senha de acesso</span>
+      <div style="flex: 1; height: 1px; background: var(--border);"></div>
     </div>
 
     <div class="login-input-group">
-      <label class="login-label" for="loginPass">Senha de Acesso</label>
       <div class="login-input-wrapper">
         <span class="login-icon">🔒</span>
-        <input type="password" id="loginPass" class="login-input" placeholder="Digite sua senha..." autocomplete="current-password" autofocus>
+        <input type="password" id="loginPass" class="login-input" placeholder="Digite sua senha..." autocomplete="current-password">
       </div>
     </div>
 
-    <label class="login-remember">
-      <input type="checkbox" id="rememberMe" checked>
-      <span>Lembrar login por 7 dias neste navegador</span>
-    </label>
-
-    <button type="button" class="login-btn" onclick="attemptLogin()">
-      Entrar no Painel ➜
+    <button type="button" class="login-btn" onclick="attemptLogin()" style="padding: 11px; font-size: 14px;">
+      Entrar como Convidado ➜
     </button>
   </div>
 </div>
@@ -1110,6 +1116,17 @@
     </nav>
 
     <div class="sidebar-footer">
+      <!-- PERFIL DO USUÁRIO DISCORD -->
+      <div class="sidebar-user-card" id="sidebarUserCard" style="display: none; padding: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img id="userAvatarImg" src="" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; border: 2px solid #5865F2; object-fit: cover;">
+          <div style="display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+            <span id="userNameLabel" style="font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Player</span>
+            <span style="font-size: 10px; color: #5865F2; font-weight: 700;">Discord Conectado</span>
+          </div>
+        </div>
+      </div>
+
       <div class="sidebar-ws-status">
         <span id="serverLabel" style="font-size: 11px; color: var(--text-muted);">Servidor Render</span>
         <div style="display: flex; align-items: center; gap: 6px;">
@@ -1153,6 +1170,24 @@
          ABA 1: FILA
          ═════════════════════════════════════════════════════════ -->
     <section id="tab-queue" class="tab-pane active">
+      <!-- Card: Token Exclusivo do Script Roblox (Multi-Tenant) -->
+      <div class="card" id="script-token-card" style="border-color: rgba(59, 130, 246, 0.4); background: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(15, 23, 42, 0.5) 100%);">
+        <div class="card-header">
+          <div class="card-title" style="color: #60a5fa; display: flex; align-items: center; gap: 8px;">
+            <span>🔑</span>
+            <span>Token de Conexão do Script Roblox (Player Único)</span>
+          </div>
+          <span style="font-size: 11px; font-weight: 700; color: #10b981; background: rgba(16, 185, 129, 0.15); padding: 3px 8px; border-radius: 999px;">Isolamento Ativo</span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <input type="text" id="scriptTokenDisplay" readonly value="bgl_default_master" style="flex: 1; min-width: 260px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; color: #60a5fa; font-family: monospace; font-size: 13px; font-weight: 700;">
+          <button type="button" onclick="copyScriptToken()" class="btn-primary" style="padding: 9px 16px; font-size: 13px; white-space: nowrap;">📋 Copiar Token</button>
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: -2px;">
+          Cole este token no início do seu script do Roblox (variável <code>SCRIPT_TOKEN</code>) para que sua conta não misture compras nem nicks com outros jogadores.
+        </div>
+      </div>
+
       <!-- Card: Links Rápidos do Sistema & Overlay para OBS / Live Studio -->
       <div class="card" style="border-color: rgba(6, 182, 212, 0.35); background: linear-gradient(180deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.5) 100%);">
         <div class="card-header">
@@ -1227,7 +1262,7 @@
           <span style="font-size: 12px; color: var(--text-muted);">Clique no modo ativo para pausar ou alternar</span>
         </div>
         <div class="mode-cards-grid">
-          <div class="mode-card mode-active" data-mode="FULL" id="mode-card-FULL" onclick="toggleOperationMode('FULL')">
+          <div class="mode-card" data-mode="FULL" id="mode-card-FULL" onclick="toggleOperationMode('FULL')">
             <div class="mode-active-indicator" style="color:#06b6d4;"></div>
             <div class="mode-card-icon" style="color:#06b6d4;">⚡</div>
             <div class="mode-card-title" style="color:#06b6d4;">FULL</div>
@@ -1239,7 +1274,7 @@
             <div class="mode-card-title" style="color:#a855f7;">FALA</div>
             <div class="mode-card-desc">Só falas</div>
           </div>
-          <div class="mode-card" data-mode="ENTREGA" id="mode-card-ENTREGA" onclick="toggleOperationMode('ENTREGA')">
+          <div class="mode-card mode-active" data-mode="ENTREGA" id="mode-card-ENTREGA" onclick="toggleOperationMode('ENTREGA')">
             <div class="mode-active-indicator" style="color:#f97316;"></div>
             <div class="mode-card-icon" style="color:#f97316;">📦</div>
             <div class="mode-card-title" style="color:#f97316;">ENTREGA</div>
@@ -1884,8 +1919,96 @@
     }
   }
 
+  let currentUser = null;
+
+  function copyScriptToken() {
+    const input = document.getElementById("scriptTokenDisplay");
+    if (!input) return;
+    const btn = event ? event.target : null;
+    navigator.clipboard.writeText(input.value).then(() => {
+      if (btn) {
+        const orig = btn.innerText;
+        btn.innerText = "✅ Copiado!";
+        btn.style.background = "#10b981";
+        setTimeout(() => {
+          btn.innerText = orig;
+          btn.style.background = "";
+        }, 2200);
+      }
+    }).catch(() => {
+      input.select();
+      document.execCommand("copy");
+    });
+  }
+
+  function setupDiscordUser(user) {
+    if (!user) return;
+    currentUser = user;
+    window.currentUser = user;
+
+    // Atualiza card do usuário na sidebar
+    const userCard = document.getElementById("sidebarUserCard");
+    const avatarImg = document.getElementById("userAvatarImg");
+    const nameLabel = document.getElementById("userNameLabel");
+    if (userCard) userCard.style.display = "block";
+    if (avatarImg && user.avatar) avatarImg.src = user.avatar;
+    if (nameLabel) nameLabel.innerText = user.name || "Player";
+
+    // Atualiza token de script do Roblox
+    const tokenDisplay = document.getElementById("scriptTokenDisplay");
+    if (tokenDisplay && user.token) tokenDisplay.value = user.token;
+
+    // Atualiza links rápidos com o token do jogador
+    const origin = window.location.origin;
+    const tokenParam = `token=${encodeURIComponent(user.token)}&uid=${encodeURIComponent(user.uid)}`;
+    const overlayUrl = `${origin}/overlay.html?${tokenParam}`;
+    const mobileUrl = `${origin}/mobile.html?${tokenParam}`;
+
+    const quickOverlay = document.getElementById("quick-link-overlay");
+    const quickMobile = document.getElementById("quick-link-mobile");
+    const modalOverlay = document.getElementById("link-overlay-cloud");
+    const modalMobile = document.getElementById("link-mobile-cloud");
+
+    if (quickOverlay) quickOverlay.value = overlayUrl;
+    if (quickMobile) quickMobile.value = mobileUrl;
+    if (modalOverlay) modalOverlay.value = overlayUrl;
+    if (modalMobile) modalMobile.value = mobileUrl;
+
+    console.log("[Auth] Jogador Discord autenticado:", user.name, "ID:", user.uid);
+  }
+
   function checkAuth() {
-    // 1. Verifica no localStorage (com expiração de 7 dias)
+    // 0. Verifica parâmetros de retorno do Discord OAuth2 (?auth=success&uid=...&token=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("auth") === "success" && urlParams.get("uid")) {
+      const user = {
+        uid: urlParams.get("uid"),
+        name: decodeURIComponent(urlParams.get("name") || "Player"),
+        avatar: decodeURIComponent(urlParams.get("avatar") || ""),
+        token: urlParams.get("token") || `bgl_${urlParams.get("uid")}`,
+        ts: Date.now()
+      };
+      localStorage.setItem("bgl_discord_user", JSON.stringify(user));
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setupDiscordUser(user);
+      grantAccess();
+      return;
+    }
+
+    // 1. Verifica login Discord prévio salvo no localStorage
+    const savedDiscord = localStorage.getItem("bgl_discord_user");
+    if (savedDiscord) {
+      try {
+        const user = JSON.parse(savedDiscord);
+        if (user && user.uid) {
+          setupDiscordUser(user);
+          grantAccess();
+          return;
+        }
+      } catch(e) {}
+    }
+
+    // 2. Verifica senha admin clássica no localStorage (com expiração de 7 dias)
     const stored = localStorage.getItem("bgl_auth");
     if (stored) {
       try {
@@ -1898,7 +2021,7 @@
       } catch(e) {}
     }
 
-    // 2. Verifica no sessionStorage
+    // 3. Verifica no sessionStorage
     const sessionAuth = sessionStorage.getItem("bgl_auth_session");
     if (sessionAuth === AUTH_HASH) {
       grantAccess();
@@ -1916,7 +2039,7 @@
     const errBox = document.getElementById("loginError");
 
     if (!pass) {
-      if (errBox) { errBox.style.display = "block"; errBox.innerText = "Por favor, digite sua senha."; }
+      if (errBox) { errBox.style.display = "block"; errBox.innerText = "Por favor, digite sua senha ou entre com Discord."; }
       if (card) { card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake"); }
       if (input) input.focus();
       return;
@@ -1937,14 +2060,14 @@
       }
       grantAccess();
     } else {
-      if (errBox) { errBox.style.display = "block"; errBox.innerText = "Senha incorreta! Tente novamente."; }
+      if (errBox) { errBox.style.display = "block"; errBox.innerText = "Senha incorreta! Tente novamente ou use o login do Discord."; }
       if (card) { card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake"); }
       if (input) { input.value = ""; input.focus(); }
     }
   }
 
   function grantAccess() {
-    console.log("[Auth] Senha correta, liberando acesso ao painel...");
+    console.log("[Auth] Acesso liberado ao painel!");
     const loginScreen = document.getElementById("login-screen");
     const app = document.getElementById("app");
     if (loginScreen) {
@@ -1955,6 +2078,9 @@
     if (app) {
       app.classList.add("authenticated");
       app.style.setProperty("display", "flex", "important");
+    }
+    if (typeof loadFromSupabase === "function") {
+      loadFromSupabase();
     }
   }
 
@@ -1971,8 +2097,10 @@
 
   function logout() {
     if (confirm("Deseja realmente sair do painel?")) {
+      localStorage.removeItem("bgl_discord_user");
       localStorage.removeItem("bgl_auth");
       sessionStorage.removeItem("bgl_auth_session");
+      document.cookie = "bgl_user_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
       location.reload();
     }
   }
@@ -2176,12 +2304,10 @@
               renderQueue(_currentQueueCache);
             }
             if (msg.status === "success") {
-              if (msg.mode !== 'FALA' && !msg.spokenOnly && msg.robux !== 0) {
-                updateAutomationStep(6, "Concluído", "success", msg.username);
-                setTimeout(resetAutomationStepper, 3000);
-                if (typeof addDelivery === "function") addDelivery(msg.username);
-                addDeliveryToStats(msg.username);
-              }
+              updateAutomationStep(6, "Concluído", "success", msg.username);
+              setTimeout(resetAutomationStepper, 3000);
+              if (typeof addDelivery === "function") addDelivery(msg.username);
+              addDeliveryToStats(msg.username);
             } else {
               updateAutomationStep(msg.step_index || 0, "Cancelado", "aborted", msg.username, msg.reason);
               setTimeout(resetAutomationStepper, 3500);
@@ -2208,6 +2334,11 @@
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "disconnect_tiktok" }));
       } else {
+        if (currentUser && currentUser.uid) {
+          supabaseSyncOperation("PATCH", `bgl_user_configs?discord_id=eq.${currentUser.uid}`, {
+            tiktok_connected: false
+          });
+        }
         supabaseSyncOperation("POST", "bgl_config", {
           key: "tiktok_status",
           value: { connected: false, connecting: false, username: currentTikTokUser }
@@ -2231,6 +2362,12 @@
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "connect_tiktok", username: user }));
     } else {
+      if (currentUser && currentUser.uid) {
+        supabaseSyncOperation("PATCH", `bgl_user_configs?discord_id=eq.${currentUser.uid}`, {
+          tiktok_username: user,
+          tiktok_connected: true
+        });
+      }
       supabaseSyncOperation("POST", "bgl_config", {
         key: "tiktok_status",
         value: { connected: false, connecting: true, username: user }
@@ -2323,9 +2460,88 @@
           }
         }, 600);
 
+        // Canal Multi-Tenant: Fila, Passos, Configurações e Entregas do Usuário
+        supabaseClient
+          .channel("bgl_multi_tenant_channel")
+          .on("postgres_changes", { event: "*", schema: "public", table: "bgl_user_queues" }, (payload) => {
+            if (!currentUser || !currentUser.uid) return;
+            const targetUid = payload.new ? payload.new.user_id : (payload.old ? payload.old.user_id : null);
+            if (targetUid && String(targetUid) !== String(currentUser.uid)) return;
+
+            if (payload.eventType === "INSERT") {
+              const item = {
+                id: payload.new.id,
+                nick: payload.new.nick,
+                sender: payload.new.sender || "cloud",
+                robux: payload.new.robux || 0,
+                ts: new Date(payload.new.created_at || Date.now()).getTime() / 1000
+              };
+              const idx = _currentQueueCache.findIndex(i => i.id === item.id || (i.nick && i.nick.toLowerCase() === item.nick.toLowerCase()));
+              if (idx >= 0) {
+                _currentQueueCache[idx] = item;
+              } else {
+                _currentQueueCache.push(item);
+              }
+              renderQueue(_currentQueueCache);
+            } else if (payload.eventType === "DELETE") {
+              const delId = payload.old ? payload.old.id : null;
+              if (delId) {
+                _currentQueueCache = _currentQueueCache.filter(i => i.id !== delId);
+                renderQueue(_currentQueueCache);
+              }
+              loadFromSupabase();
+            } else if (payload.eventType === "UPDATE") {
+              const upd = payload.new;
+              if (upd.status === "delivered" || upd.status === "cancelled" || upd.status === "removed") {
+                _currentQueueCache = _currentQueueCache.filter(i => i.id !== upd.id && (i.nick || "").toLowerCase() !== (upd.nick || "").toLowerCase());
+              } else {
+                const idx = _currentQueueCache.findIndex(i => i.id === upd.id);
+                if (idx >= 0) _currentQueueCache[idx].robux = upd.robux || _currentQueueCache[idx].robux;
+              }
+              renderQueue(_currentQueueCache);
+            }
+          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "bgl_user_steps" }, (payload) => {
+            if (!currentUser || !currentUser.uid) return;
+            if (payload.new && String(payload.new.user_id) === String(currentUser.uid)) {
+              updateAutomationStep(payload.new.current_step, payload.new.step_name, payload.new.status, payload.new.target_nick);
+            }
+          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "bgl_user_configs" }, (payload) => {
+            if (!currentUser || !currentUser.uid) return;
+            if (payload.new && String(payload.new.discord_id) === String(currentUser.uid)) {
+              const val = payload.new;
+              if (val.operation_mode && currentMode !== val.operation_mode) {
+                currentMode = val.operation_mode;
+                localStorage.setItem("operationMode", currentMode);
+                applyOperationModeUI(currentMode);
+              }
+              if (val.tiktok_username) {
+                updateTikTokStatusUI(val.tiktok_connected, false, val.tiktok_username);
+              }
+            }
+          })
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "bgl_user_deliveries" }, (payload) => {
+            if (!currentUser || !currentUser.uid) return;
+            if (payload.new && String(payload.new.user_id) === String(currentUser.uid)) {
+              const nick = payload.new.nick || payload.new.username;
+              if (nick) {
+                _currentQueueCache = _currentQueueCache.filter(i => (i.nick || "").toLowerCase() !== nick.toLowerCase());
+                renderQueue(_currentQueueCache);
+                updateAutomationStep(6, "Concluído", "success", nick);
+                setTimeout(resetAutomationStepper, 3500);
+                if (typeof addDelivery === "function") addDelivery(nick);
+                addDeliveryToStats(nick);
+              }
+            }
+          })
+          .subscribe();
+
+        // Canal Público (compatibilidade / modo guest)
         supabaseClient
           .channel("bgl_public_channel")
           .on("postgres_changes", { event: "*", schema: "public", table: "bgl_queue" }, (payload) => {
+            if (currentUser && currentUser.uid) return; // Jogador logado usa bgl_user_queues
             if (payload.eventType === "INSERT") {
               const item = {
                 id: payload.new.id,
@@ -2360,56 +2576,45 @@
             }
           })
           .on("postgres_changes", { event: "INSERT", schema: "public", table: "bgl_deliveries" }, (payload) => {
+            if (currentUser && currentUser.uid) return;
             if (payload.new) {
               const nick = payload.new.nick || payload.new.username;
               if (nick) {
                 const lower = nick.toLowerCase();
                 _currentQueueCache = _currentQueueCache.filter(i => (i.nick || "").toLowerCase() !== lower);
                 renderQueue(_currentQueueCache);
-                if (payload.new.mode !== 'FALA' && payload.new.robux !== 0 && !payload.new.spokenOnly) {
-                  updateAutomationStep(6, "Concluído", "success", nick);
-                  setTimeout(resetAutomationStepper, 3500);
-                  if (typeof addDelivery === "function") addDelivery(nick);
-                  addDeliveryToStats(nick);
-                }
+                updateAutomationStep(6, "Concluído", "success", nick);
+                setTimeout(resetAutomationStepper, 3500);
+                if (typeof addDelivery === "function") addDelivery(nick);
+                addDeliveryToStats(nick);
               }
             }
           })
           .on("postgres_changes", { event: "*", schema: "public", table: "bgl_config" }, (payload) => {
+            if (currentUser && currentUser.uid) return;
             if (!payload.new) return;
             const k = payload.new.key;
             const val = payload.new.value;
             if (k === "tiktok_status" && val) {
               updateTikTokStatusUI(val.connected, val.connecting, val.username);
             }
-            if (k === "operation_mode" && val) {
-              let mVal = (typeof val === "string") ? (JSON.parse(val) || {}) : val;
-              if (mVal && mVal.operation_mode) {
-                const remoteTs = mVal.updated_at || 0;
-                const localTs = lastUserModeChangeTs || parseInt(localStorage.getItem('operationMode_ts') || '0');
-                if (remoteTs > localTs) {
-                  if (currentMode !== mVal.operation_mode) {
-                    currentMode = mVal.operation_mode;
-                    lastUserModeChangeTs = remoteTs;
-                    localStorage.setItem('operationMode', currentMode);
-                    localStorage.setItem('operationMode_ts', String(remoteTs));
-                    applyOperationModeUI(currentMode);
-                  }
+            if (k === "operation_mode" && val && val.operation_mode) {
+              const remoteTs = val.updated_at || 0;
+              const isRecent = (Date.now() - lastUserModeChangeTs) < 12000;
+              if (!isRecent || remoteTs >= lastUserModeChangeTs) {
+                if (currentMode !== val.operation_mode) {
+                  currentMode = val.operation_mode;
+                  localStorage.setItem('operationMode', currentMode);
+                  applyOperationModeUI(currentMode);
                 }
               }
             }
             if (k === "speech_settings" && val && typeof val === "object") {
-              const remoteTs = val.updated_at || 0;
-              const localTs = lastUserSpeechChangeTs || parseInt(localStorage.getItem('speechSettings_ts') || '0');
-              if (remoteTs > localTs) {
-                const activeEl = document.activeElement;
-                if (!activeEl || (activeEl.id !== 'speech-thank-template' && activeEl.id !== 'speech-thank-timing')) {
-                  speechSettings = Object.assign({}, speechSettings, val);
-                  lastUserSpeechChangeTs = remoteTs;
-                  localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
-                  localStorage.setItem('speechSettings_ts', String(remoteTs));
-                  if (typeof applySpeechThankUI === "function") applySpeechThankUI();
-                }
+              const activeEl = document.activeElement;
+              if (!activeEl || (activeEl.id !== 'speech-thank-template' && activeEl.id !== 'speech-thank-timing')) {
+                speechSettings = Object.assign({}, speechSettings, val);
+                localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+                if (typeof applySpeechThankUI === "function") applySpeechThankUI();
               }
             }
             if (k === "keyboard_settings" && val && typeof val === "object") {
@@ -2459,6 +2664,65 @@
   async function loadFromSupabase() {
     if (!supabaseClient) return;
     try {
+      if (currentUser && currentUser.uid) {
+        // Multi-tenant: carrega exclusivamente a fila deste usuário
+        const { data: qData, error } = await supabaseClient
+          .from("bgl_user_queues")
+          .select("*")
+          .eq("user_id", currentUser.uid)
+          .eq("status", "pending")
+          .order("id", { ascending: true });
+        if (!error && Array.isArray(qData)) {
+          _currentQueueCache = qData.map(r => ({
+            id: r.id,
+            nick: r.nick,
+            sender: r.sender || "manual",
+            robux: r.robux || 0,
+            ts: new Date(r.created_at || Date.now()).getTime() / 1000
+          }));
+          renderQueue(_currentQueueCache);
+        }
+
+        // Multi-tenant: configurações isoladas do usuário
+        const { data: userCfg } = await supabaseClient
+          .from("bgl_user_configs")
+          .select("*")
+          .eq("discord_id", currentUser.uid)
+          .maybeSingle();
+        if (userCfg) {
+          if (userCfg.operation_mode) {
+            const remoteTs = new Date(userCfg.updated_at || 0).getTime();
+            if ((Date.now() - lastUserModeChangeTs) > 8000 || remoteTs >= lastUserModeChangeTs) {
+              if (currentMode !== userCfg.operation_mode) {
+                currentMode = userCfg.operation_mode;
+                localStorage.setItem("operationMode", currentMode);
+                applyOperationModeUI(currentMode);
+              }
+            }
+          }
+          if (userCfg.tiktok_username) {
+            updateTikTokStatusUI(userCfg.tiktok_connected, false, userCfg.tiktok_username);
+          }
+          if (userCfg.thank_nicks_enabled !== undefined) {
+            const thankToggle = document.getElementById("quick-thank-toggle");
+            const thankLabel = document.getElementById("quick-thank-label");
+            if (thankToggle) thankToggle.checked = userCfg.thank_nicks_enabled;
+            if (thankLabel) thankLabel.innerText = userCfg.thank_nicks_enabled ? "ATIVADO" : "DESATIVADO";
+          }
+        }
+
+        // Multi-tenant: progresso dos 6 passos da automação do usuário
+        const { data: stepData } = await supabaseClient
+          .from("bgl_user_steps")
+          .select("*")
+          .eq("user_id", currentUser.uid)
+          .maybeSingle();
+        if (stepData && stepData.current_step !== undefined) {
+          updateAutomationStep(stepData.current_step, stepData.step_name, stepData.status, stepData.target_nick);
+        }
+        return;
+      }
+
       const { data: qData, error } = await supabaseClient
         .from("bgl_queue")
         .select("*")
@@ -2488,19 +2752,14 @@
         .select("*")
         .eq("key", "operation_mode")
         .maybeSingle();
-      if (cMode && cMode.value) {
-        let mVal = (typeof cMode.value === "string") ? (JSON.parse(cMode.value) || {}) : cMode.value;
-        if (mVal && mVal.operation_mode) {
-          const remoteTs = mVal.updated_at || 0;
-          const localTs = lastUserModeChangeTs || parseInt(localStorage.getItem('operationMode_ts') || '0');
-          if (remoteTs > localTs) {
-            if (currentMode !== mVal.operation_mode) {
-              currentMode = mVal.operation_mode;
-              lastUserModeChangeTs = remoteTs;
-              localStorage.setItem('operationMode', currentMode);
-              localStorage.setItem('operationMode_ts', String(remoteTs));
-              applyOperationModeUI(currentMode);
-            }
+      if (cMode && cMode.value && cMode.value.operation_mode) {
+        const remoteTs = cMode.value.updated_at || 0;
+        const isRecent = (Date.now() - lastUserModeChangeTs) < 12000;
+        if (!isRecent || remoteTs >= lastUserModeChangeTs) {
+          if (currentMode !== cMode.value.operation_mode) {
+            currentMode = cMode.value.operation_mode;
+            localStorage.setItem('operationMode', currentMode);
+            applyOperationModeUI(currentMode);
           }
         }
       }
@@ -2511,18 +2770,12 @@
         .eq("key", "speech_settings")
         .maybeSingle();
       if (cSpeech && cSpeech.value && typeof cSpeech.value === "object") {
-        const remoteTs = cSpeech.value.updated_at || 0;
-        const localTs = lastUserSpeechChangeTs || parseInt(localStorage.getItem('speechSettings_ts') || '0');
-        if (remoteTs > localTs) {
-          const activeEl = document.activeElement;
-          const isEditingSpeech = activeEl && (activeEl.id === 'speech-thank-template' || activeEl.id === 'speech-thank-timing');
-          if (!isEditingSpeech) {
-            speechSettings = Object.assign({}, speechSettings, cSpeech.value);
-            lastUserSpeechChangeTs = remoteTs;
-            localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
-            localStorage.setItem('speechSettings_ts', String(remoteTs));
-            if (typeof applySpeechThankUI === "function") applySpeechThankUI();
-          }
+        const activeEl = document.activeElement;
+        const isEditingSpeech = activeEl && (activeEl.id === 'speech-thank-template' || activeEl.id === 'speech-thank-timing');
+        if (!isEditingSpeech) {
+          speechSettings = Object.assign({}, speechSettings, cSpeech.value);
+          localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+          if (typeof applySpeechThankUI === "function") applySpeechThankUI();
         }
       }
 
@@ -2787,9 +3040,22 @@
     _currentQueueCache = _currentQueueCache.filter(i => i.id !== id && (!nick || (i.nick || "").toLowerCase() !== nick.toLowerCase()));
     renderQueue(_currentQueueCache);
 
-    supabaseSyncOperation("DELETE", `bgl_queue?id=eq.${id}`);
-    if (nick) {
-      supabaseSyncOperation("DELETE", `bgl_queue?nick=ilike.${encodeURIComponent(nick)}`);
+    if (currentUser && currentUser.uid) {
+      supabaseSyncOperation("PATCH", `bgl_user_queues?id=eq.${id}&user_id=eq.${currentUser.uid}`, { status: "delivered" });
+      if (nick) {
+        supabaseSyncOperation("POST", "bgl_user_deliveries", {
+          user_id: currentUser.uid,
+          username: nick,
+          nick: nick,
+          amount: 1,
+          delivered_at: new Date().toISOString()
+        });
+      }
+    } else {
+      supabaseSyncOperation("DELETE", `bgl_queue?id=eq.${id}`);
+      if (nick) {
+        supabaseSyncOperation("DELETE", `bgl_queue?nick=ilike.${encodeURIComponent(nick)}`);
+      }
     }
     setTimeout(loadFromSupabase, 400);
   }
@@ -2800,6 +3066,40 @@
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "add", nick: nick, sender: "repetido" }));
     }
+
+    if (currentUser && currentUser.uid) {
+      try {
+        if (supabaseClient) {
+          const { data, error } = await supabaseClient
+            .from("bgl_user_queues")
+            .insert([{ user_id: currentUser.uid, nick: nick, sender: "repetido", sender_id: "repetido", status: "pending", robux: 0 }])
+            .select();
+          if (!error && data && data.length > 0) {
+            const item = {
+              id: data[0].id,
+              nick: data[0].nick,
+              sender: "repetido",
+              robux: 0,
+              ts: Date.now() / 1000
+            };
+            _currentQueueCache.push(item);
+            renderQueue(_currentQueueCache);
+            return;
+          }
+        }
+      } catch(e) {}
+      supabaseSyncOperation("POST", "bgl_user_queues", {
+        user_id: currentUser.uid,
+        nick: nick,
+        sender: "repetido",
+        sender_id: "repetido",
+        status: "pending",
+        robux: 0
+      });
+      setTimeout(loadFromSupabase, 400);
+      return;
+    }
+
     try {
       if (supabaseClient) {
         const { data, error } = await supabaseClient
@@ -2846,6 +3146,47 @@
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "add", nick: nick, sender: "manual" }));
+    }
+
+    if (currentUser && currentUser.uid) {
+      try {
+        if (supabaseClient) {
+          const { data, error } = await supabaseClient
+            .from("bgl_user_queues")
+            .insert([{ user_id: currentUser.uid, nick: nick, sender: "manual", sender_id: "manual", status: "pending", robux: 0 }])
+            .select();
+          if (!error && data && data.length > 0) {
+            const inserted = data[0];
+            const item = {
+              id: inserted.id,
+              nick: inserted.nick,
+              sender: inserted.sender || "manual",
+              robux: inserted.robux || 0,
+              ts: new Date(inserted.created_at || Date.now()).getTime() / 1000
+            };
+            const existingIdx = _currentQueueCache.findIndex(i => i.id === item.id || (i.nick && i.nick.toLowerCase() === item.nick.toLowerCase()));
+            if (existingIdx >= 0) {
+              _currentQueueCache[existingIdx] = item;
+            } else {
+              _currentQueueCache.push(item);
+            }
+            renderQueue(_currentQueueCache);
+            return;
+          }
+        }
+      } catch(err) {
+        console.warn("[Supabase Multi-Tenant] Insert manual error:", err);
+      }
+      supabaseSyncOperation("POST", "bgl_user_queues", {
+        user_id: currentUser.uid,
+        nick: nick,
+        sender: "manual",
+        sender_id: "manual",
+        status: "pending",
+        robux: 0
+      });
+      setTimeout(loadFromSupabase, 400);
+      return;
     }
 
     try {
@@ -2899,7 +3240,11 @@
       }
       _currentQueueCache = [];
       renderQueue([]);
-      supabaseSyncOperation("DELETE", "bgl_queue?id=gt.0");
+      if (currentUser && currentUser.uid) {
+        supabaseSyncOperation("DELETE", `bgl_user_queues?user_id=eq.${currentUser.uid}`);
+      } else {
+        supabaseSyncOperation("DELETE", "bgl_queue?id=gt.0");
+      }
     }
   }
 
@@ -3010,7 +3355,11 @@
   let lastUserModeChangeTs = 0;
 
   function toggleOperationMode(mode) {
-    setOperationMode(mode);
+    if (currentMode === mode) {
+      setOperationMode('PAUSED');
+    } else {
+      setOperationMode(mode);
+    }
   }
 
   function togglePauseQueue() {
@@ -3026,7 +3375,6 @@
     lastUserModeChangeTs = Date.now();
     currentMode = mode;
     localStorage.setItem('operationMode', mode);
-    localStorage.setItem('operationMode_ts', String(lastUserModeChangeTs));
     if (mode !== 'PAUSED') {
       lastActiveMode = mode;
       localStorage.setItem('lastActiveMode', mode);
@@ -3046,18 +3394,40 @@
     }
 
     const payload = { operation_mode: mode, auto_send: auto_send, updated_at: lastUserModeChangeTs };
-    if (supabaseClient) {
-      supabaseClient.from("bgl_config")
-        .upsert({ key: "operation_mode", value: payload }, { onConflict: "key" })
-        .then(({ error }) => {
-          if (error) console.warn("[Supabase] Upsert modo erro:", error);
-          else console.log("[Supabase] Modo salvo com sucesso no banco:", mode);
-        });
+    if (currentUser && currentUser.uid) {
+      if (supabaseClient) {
+        supabaseClient.from("bgl_user_configs")
+          .upsert({
+            discord_id: currentUser.uid,
+            operation_mode: mode,
+            queue_paused: (mode === 'PAUSED'),
+            updated_at: new Date().toISOString()
+          }, { onConflict: "discord_id" })
+          .then(({ error }) => {
+            if (error) console.warn("[Supabase Multi-Tenant] Upsert modo erro:", error);
+            else console.log("[Supabase Multi-Tenant] Modo salvo para jogador:", currentUser.name, mode);
+          });
+      }
+      supabaseSyncOperation("POST", "bgl_user_configs", {
+        discord_id: currentUser.uid,
+        operation_mode: mode,
+        queue_paused: (mode === 'PAUSED'),
+        updated_at: new Date().toISOString()
+      });
+    } else {
+      if (supabaseClient) {
+        supabaseClient.from("bgl_config")
+          .upsert({ key: "operation_mode", value: payload }, { onConflict: "key" })
+          .then(({ error }) => {
+            if (error) console.warn("[Supabase] Upsert modo erro:", error);
+            else console.log("[Supabase] Modo salvo com sucesso no banco:", mode);
+          });
+      }
+      supabaseSyncOperation("POST", "bgl_config", {
+        key: "operation_mode",
+        value: payload
+      });
     }
-    supabaseSyncOperation("POST", "bgl_config", {
-      key: "operation_mode",
-      value: payload
-    });
   }
 
   function applyOperationModeUI(mode) {
@@ -3082,27 +3452,9 @@
       pill.style.borderColor = isPaused ? 'rgba(239,68,68,0.4)' : 'rgba(59,130,246,0.4)';
       pill.style.color = isPaused ? '#f87171' : '#60a5fa';
     }
-
-    const stepperBox = document.getElementById('live-stepper-box');
-    const stepperUserBadge = document.getElementById('stepper-user-badge');
-    if (stepperBox) {
-      if (mode === 'FALA') {
-        stepperBox.style.opacity = '0.6';
-        if (stepperUserBadge) stepperUserBadge.innerText = '🎙️ Modo FALA Ativo (Entrega de Robux desligada)';
-      } else if (mode === 'MINI' || mode === 'PAUSED') {
-        stepperBox.style.opacity = '0.5';
-        if (stepperUserBadge) stepperUserBadge.innerText = isPaused ? '⏸️ Fila Pausada' : '🪄 Modo MINI';
-      } else {
-        stepperBox.style.opacity = '1.0';
-        if (stepperUserBadge && stepperUserBadge.innerText.includes('desligada')) {
-          stepperUserBadge.innerText = 'Aguardando fila...';
-        }
-      }
-    }
   }
 
   // ── Speech / Thank You Settings ──────────────────────────────
-  let lastUserSpeechChangeTs = parseInt(localStorage.getItem('speechSettings_ts') || '0');
   let speechSettings = JSON.parse(localStorage.getItem('speechSettings') || 'null') || {
     thank_enabled: true,
     thank_template: 'Obrigado {nick}!',
@@ -3591,9 +3943,7 @@
   }
 
   function saveSpeechSettings() {
-    lastUserSpeechChangeTs = Date.now();
     localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
-    localStorage.setItem('speechSettings_ts', String(lastUserSpeechChangeTs));
     applySpeechThankUI();
 
     supabaseSyncOperation("POST", "bgl_config", {
@@ -3604,7 +3954,7 @@
         thank_timing: speechSettings.thank_timing,
         mode: speechSettings.mode || 'tts',
         audioBase64: speechSettings.audioBase64 || '',
-        updated_at: lastUserSpeechChangeTs
+        updated_at: Date.now()
       }
     });
 

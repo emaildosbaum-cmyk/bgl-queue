@@ -341,6 +341,47 @@ class AuthHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def _fetch_supabase_json(self, path: str):
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/{path}"
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            }
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            log.warning(f"[Supabase REST Fetch] erro em {path}: {e}")
+            return None
+
+    def _mutate_supabase_json(self, method: str, path: str, data=None):
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/{path}"
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates,return=minimal"
+            }
+            body = json.dumps(data).encode("utf-8") if data is not None else None
+            req = urllib.request.Request(url, data=body, headers=headers, method=method)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                pass
+            return True
+        except Exception as e:
+            log.warning(f"[Supabase REST Mutate] erro em {method} {path}: {e}")
+            return False
+
+    def _get_user_by_token(self, token: str):
+        if not token:
+            return None
+        data = self._fetch_supabase_json(f"bgl_user_profiles?script_token=eq.{urllib.parse.quote(token)}&select=discord_id,username")
+        if data and isinstance(data, list) and len(data) > 0:
+            return data[0]
+        return None
+
     def _handle_api_login_method_not_allowed(self) -> bool:
         parsed = urllib.parse.urlsplit(self.path)
         clean_path = urllib.parse.unquote(parsed.path).rstrip("/")
@@ -362,7 +403,12 @@ class AuthHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         if self._handle_api_login_method_not_allowed():
             return
-        self.send_error(501, f"Unsupported method ({self.command})")
+        # Permite CORS para requests de executores Roblox ou scripts
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.end_headers()
 
     def do_PUT(self):
         if self._handle_api_login_method_not_allowed():
@@ -385,6 +431,77 @@ class AuthHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         # 0. Método não permitido para /api/login em GET / HEAD (HTTP 405)
         if self._handle_api_login_method_not_allowed():
+            return
+
+        # Rota de Health Check (Render e monitoramento)
+        if clean_path == "/health":
+            self._send_json(200, {"status": "ok", "service": "bgl-queue-server", "timestamp": time.time()})
+            return
+
+        # Rota Roblox: /next ou /api/script/next
+        if clean_path in ("/next", "/api/script/next"):
+            query = urllib.parse.parse_qs(parsed.query)
+            token = query.get("token", [""])[0] or self.headers.get("Authorization", "").replace("Bearer ", "").strip()
+            if token:
+                user = self._get_user_by_token(token)
+                if not user:
+                    self._send_json(401, {"error": "Token de script inválido."})
+                    return
+                user_id = user["discord_id"]
+                cfgs = self._fetch_supabase_json(f"bgl_user_configs?discord_id=eq.{urllib.parse.quote(user_id)}&select=operation_mode,queue_paused")
+                if cfgs and isinstance(cfgs, list) and len(cfgs) > 0:
+                    cfg = cfgs[0]
+                    if cfg.get("queue_paused") or cfg.get("operation_mode") in ("PAUSED", "FALA", "MINI"):
+                        self.send_response(204)
+                        self.end_headers()
+                        return
+                q_items = self._fetch_supabase_json(f"bgl_user_queues?user_id=eq.{urllib.parse.quote(user_id)}&status=eq.pending&order=id.asc&limit=1")
+                if q_items and isinstance(q_items, list) and len(q_items) > 0:
+                    item = q_items[0]
+                    self._mutate_supabase_json("PATCH", f"bgl_user_queues?id=eq.{item['id']}", {"status": "processing"})
+                    self._mutate_supabase_json("PATCH", f"bgl_user_steps?user_id=eq.{urllib.parse.quote(user_id)}", {
+                        "current_step": 1, "step_name": "Recebeu nick", "target_nick": item["nick"], "status": "in_progress"
+                    })
+                    self._send_json(200, {
+                        "username": item["nick"],
+                        "fruit": "Random",
+                        "source": item.get("sender_id") or "queue",
+                        "id": item["id"]
+                    })
+                    return
+                else:
+                    self.send_response(204)
+                    self.end_headers()
+                    return
+
+            self.send_response(204)
+            self.end_headers()
+            return
+
+        # Rota Roblox: /game_settings ou /api/script/game_settings
+        if clean_path in ("/game_settings", "/api/script/game_settings"):
+            query = urllib.parse.parse_qs(parsed.query)
+            token = query.get("token", [""])[0] or self.headers.get("Authorization", "").replace("Bearer ", "").strip()
+            user_cfg = {}
+            if token:
+                user = self._get_user_by_token(token)
+                if user:
+                    cfgs = self._fetch_supabase_json(f"bgl_user_configs?discord_id=eq.{urllib.parse.quote(user['discord_id'])}&select=*")
+                    if cfgs and isinstance(cfgs, list) and len(cfgs) > 0:
+                        user_cfg = cfgs[0]
+
+            mode = user_cfg.get("operation_mode", "FULL")
+            step_timeouts = user_cfg.get("step_timeouts") or {"step1": 5, "step2": 5, "step3": 5, "step4": 6, "step5": 7, "step6": 5}
+            self._send_json(200, {
+                "operation_mode": mode,
+                "auto_send": (mode in ("FULL", "ENTREGA")),
+                "step_timeouts": step_timeouts,
+                "mock_balance": "5,420",
+                "item_name": "Sword of Destiny",
+                "item_price": "1,250",
+                "post_delivery_delay": 2.0,
+                "live_proof": user_cfg.get("live_proof") or {"enabled": True, "duration": 4.0, "message": "Ao vivo!"}
+            })
             return
 
         # 1. Rota raiz: redireciona para /queue.html (que exige login se não autenticado)
@@ -535,6 +652,83 @@ class AuthHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, {"success": True}, cookie_header)
             else:
                 self._send_redirect("/login", cookie_header)
+        # Rotas da Automação Roblox
+        if clean_path in ("/automation_step", "/api/script/automation_step"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            raw_body = self.rfile.read(content_length).decode("utf-8", errors="replace")
+            try:
+                body = json.loads(raw_body)
+            except Exception:
+                body = {}
+            query = urllib.parse.parse_qs(parsed.query)
+            token = body.get("token") or query.get("token", [""])[0] or self.headers.get("Authorization", "").replace("Bearer ", "").strip()
+            if token:
+                user = self._get_user_by_token(token)
+                if user:
+                    step_name = body.get("step") or body.get("step_name") or "Em andamento"
+                    step_num = 0
+                    sn = step_name.lower()
+                    if "1" in sn or "recebeu" in sn: step_num = 1
+                    elif "2" in sn or "clicou" in sn and "bot" in sn: step_num = 2
+                    elif "3" in sn or "pesquis" in sn: step_num = 3
+                    elif "4" in sn or "player" in sn: step_num = 4
+                    elif "5" in sn or "gui" in sn: step_num = 5
+                    elif "6" in sn or "conclu" in sn: step_num = 6
+                    self._mutate_supabase_json("PATCH", f"bgl_user_steps?user_id=eq.{urllib.parse.quote(user['discord_id'])}", {
+                        "current_step": step_num,
+                        "step_name": step_name,
+                        "status": "done" if step_num == 6 else "in_progress",
+                        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                    })
+            self._send_json(200, {"success": True})
+            return
+
+        if clean_path in ("/purchase_finished", "/api/script/purchase_finished"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            raw_body = self.rfile.read(content_length).decode("utf-8", errors="replace")
+            try:
+                body = json.loads(raw_body)
+            except Exception:
+                body = {}
+            query = urllib.parse.parse_qs(parsed.query)
+            token = body.get("token") or query.get("token", [""])[0] or self.headers.get("Authorization", "").replace("Bearer ", "").strip()
+            if token:
+                user = self._get_user_by_token(token)
+                if user:
+                    u_id = user["discord_id"]
+                    status = body.get("status", "delivered")
+                    nick = body.get("username") or body.get("nick") or ""
+                    if status == "delivered":
+                        self._mutate_supabase_json("POST", "bgl_user_deliveries", {
+                            "user_id": u_id,
+                            "username": nick,
+                            "nick": nick,
+                            "amount": int(body.get("amount", 1)),
+                            "delivered_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        })
+                        if nick:
+                            self._mutate_supabase_json("PATCH", f"bgl_user_queues?user_id=eq.{urllib.parse.quote(u_id)}&nick=eq.{urllib.parse.quote(nick)}&status=eq.processing", {
+                                "status": "delivered"
+                            })
+                        self._mutate_supabase_json("PATCH", f"bgl_user_steps?user_id=eq.{urllib.parse.quote(u_id)}", {
+                            "current_step": 6,
+                            "step_name": "Concluiu",
+                            "status": "done",
+                            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        })
+                    else:
+                        if nick:
+                            self._mutate_supabase_json("PATCH", f"bgl_user_queues?user_id=eq.{urllib.parse.quote(u_id)}&nick=eq.{urllib.parse.quote(nick)}&status=eq.processing", {
+                                "status": "cancelled"
+                            })
+                        self._mutate_supabase_json("PATCH", f"bgl_user_steps?user_id=eq.{urllib.parse.quote(u_id)}", {
+                            "current_step": 0,
+                            "step_name": "Aguardando fila...",
+                            "target_nick": "",
+                            "status": "idle",
+                            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        })
+            self._send_json(200, {"success": True})
             return
 
         self.send_error(404, "Endpoint não encontrado.")
@@ -1946,14 +2140,15 @@ class QueueServer:
         # Exibe link e QR Code do app mobile
         print_mobile_url(mobile_url)
 
-        # Inicia Roblox, Overlay e Dashboard no Google Chrome
-        try:
-            chrome_exe = self._encontrar_chrome()
-            subprocess.Popen([chrome_exe, "--new-window", "https://www.roblox.com/upgrades/robux?ctx=navpopover"])
-            subprocess.Popen([chrome_exe, "--new-window", queue_url, overlay_url])
-            log.info("Chrome iniciado com Roblox, Overlay e Dashboard.")
-        except Exception as e:
-            log.warning(f"Erro ao abrir Chrome: {e}")
+        # Inicia Roblox, Overlay e Dashboard no Google Chrome apenas em ambiente local com GUI (Windows)
+        if os.name == "nt" and not os.environ.get("RENDER"):
+            try:
+                chrome_exe = self._encontrar_chrome()
+                subprocess.Popen([chrome_exe, "--new-window", "https://www.roblox.com/upgrades/robux?ctx=navpopover"])
+                subprocess.Popen([chrome_exe, "--new-window", queue_url, overlay_url])
+                log.info("Chrome iniciado com Roblox, Overlay e Dashboard.")
+            except Exception as e:
+                log.warning(f"Erro ao abrir Chrome: {e}")
         httpd.serve_forever()
 
     async def run_ws_server(self):

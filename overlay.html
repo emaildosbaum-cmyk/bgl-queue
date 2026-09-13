@@ -603,12 +603,83 @@
         // Supabase Realtime para Overlay
         const SUPABASE_URL = "https://ojjfwxjirlttpxcjhlho.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU";
-        function initOverlaySupabase() {
+        const urlParams = new URLSearchParams(window.location.search);
+        let overlayUid = urlParams.get('uid') || null;
+        const overlayToken = urlParams.get('token') || null;
+
+        async function initOverlaySupabase() {
             try {
                 if (window.supabase && typeof window.supabase.createClient === 'function') {
                     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-                    // Carrega entregas recentes e contador inicial da nuvem
+                    // Se passou token e não uid, resolve o discord_id
+                    if (overlayToken && !overlayUid) {
+                        try {
+                            const { data: profs } = await sb.from('bgl_user_profiles').select('discord_id').eq('script_token', overlayToken).limit(1);
+                            if (profs && profs.length > 0) overlayUid = profs[0].discord_id;
+                        } catch(e) {}
+                    }
+
+                    if (overlayUid) {
+                        console.log("[Overlay] Carregando entregas do jogador Discord:", overlayUid);
+                        // Multi-tenant: carrega entregas exclusivas deste usuário
+                        sb.from('bgl_user_deliveries')
+                          .select('*', { count: 'exact' })
+                          .eq('user_id', overlayUid)
+                          .order('id', { ascending: false })
+                          .limit(5)
+                          .then(({ data, count, error }) => {
+                              if (!error) {
+                                  if (count !== null && count !== undefined) {
+                                      totalDeliveries = count;
+                                      const counterVal = document.getElementById('counter-val');
+                                      if (counterVal) counterVal.innerText = totalDeliveries;
+                                  }
+                                  if (Array.isArray(data) && data.length > 0) {
+                                      const historyList = document.getElementById('history-list');
+                                      if (historyList) {
+                                          historyList.innerHTML = '';
+                                          data.forEach(d => {
+                                              const item = document.createElement('div');
+                                              item.className = 'history-item';
+                                              const u = d.nick || d.username || 'Player';
+                                              const fruit = (d.amount ? d.amount + ' Robux' : '50x Monster Egg');
+                                              item.innerHTML = `
+                                                  <div class="avatar-container">
+                                                      <img class="avatar-img" src="${FALLBACK_IMG}" alt="Avatar" id="hist-av-${d.id}">
+                                                  </div>
+                                                  <div class="user-details">
+                                                      <span class="username">${u}</span>
+                                                      <span class="fruit-delivered">🥚 ${fruit}</span>
+                                                  </div>
+                                              `;
+                                              historyList.appendChild(item);
+                                              fetchRobloxAvatar(u).then(av => {
+                                                  const img = document.getElementById('hist-av-' + d.id);
+                                                  if (img && av) img.src = av;
+                                              });
+                                          });
+                                      }
+                                  }
+                              }
+                          }).catch(() => {});
+
+                        // Realtime multi-tenant
+                        sb.channel('bgl_overlay_user_' + overlayUid)
+                          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bgl_user_deliveries' }, (payload) => {
+                              const d = payload.new;
+                              if (d && String(d.user_id) === String(overlayUid)) {
+                                  const u = d.nick || d.username;
+                                  if (u) {
+                                      handleNewDelivery(u, (d.amount ? d.amount + ' Robux' : '50x Monster Egg'), null, null);
+                                  }
+                              }
+                          })
+                          .subscribe();
+                        return;
+                    }
+
+                    // Modo Padrão / Legado (sem token)
                     sb.from('bgl_deliveries')
                       .select('*', { count: 'exact' })
                       .order('id', { ascending: false })
