@@ -617,11 +617,13 @@ function safeSendMessage(msg, callback) {
         safeSendMessage({
           type: 'purchase_finished',
           status: 'success',
-          step_index: 6,
+          step_index: 0,
           username: nick,
           id: nextItem.id,
           robux: 0,
-          fruit: ''
+          fruit: '',
+          mode: 'FALA',
+          spokenOnly: true
         });
         if (nextItem && nextItem.id && !String(nextItem.id).startsWith('fake_')) {
           fetch(`${SUPABASE_URL}/rest/v1/bgl_queue?id=eq.${nextItem.id}`, {

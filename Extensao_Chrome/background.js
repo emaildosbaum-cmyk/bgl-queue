@@ -20,6 +20,12 @@ let queueSocket = null;
 let queueReconnectTimer = null;
 let currentQueue = [];
 let currentSettings = { operation_mode: 'FULL', auto_send: true };
+try {
+  chrome.storage.local.get(['savedOperationMode', 'currentSettings'], (data) => {
+    if (data && data.savedOperationMode) currentSettings.operation_mode = data.savedOperationMode;
+    if (data && data.currentSettings) currentSettings = Object.assign({}, currentSettings, data.currentSettings);
+  });
+} catch(e) {}
 let currentSpeechSettings = {
   thank_enabled: true,
   thank_template: 'Obrigado {nick}!',
@@ -53,6 +59,11 @@ function broadcastSettingsToTabs(settings) {
     } catch (e) {}
   }
   currentSettings = Object.assign({}, currentSettings, settings);
+  if (currentSettings.operation_mode) {
+    try {
+      chrome.storage.local.set({ savedOperationMode: currentSettings.operation_mode, currentSettings });
+    } catch(e) {}
+  }
   try {
     chrome.tabs.query({}, (tabs) => {
       (tabs || []).forEach(tab => {
@@ -372,25 +383,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }).then(() => fetchQueueFromSupabase()).catch(() => {});
 
-      fetch(SUPABASE_URL + '/rest/v1/bgl_deliveries', {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          nick: finishedNick,
-          username: finishedNick,
-          amount: Number(message.robux) || 50,
-          delivered_at: new Date().toISOString()
-        })
-      }).then(() => {
-        console.log('[Supabase] Entrega confirmada para:', finishedNick);
-      }).catch((e) => {
-        console.warn('[Supabase] Erro ao salvar entrega:', e);
-      });
+      // SÓ salva em bgl_deliveries se realmente for modo de entrega e tiver robux
+      if (message.mode !== 'FALA' && !message.spokenOnly && message.robux !== 0 && currentSettings.operation_mode !== 'FALA') {
+        fetch(SUPABASE_URL + '/rest/v1/bgl_deliveries', {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            nick: finishedNick,
+            username: finishedNick,
+            amount: Number(message.robux) || 50,
+            delivered_at: new Date().toISOString()
+          })
+        }).then(() => {
+          console.log('[Supabase] Entrega confirmada para:', finishedNick);
+        }).catch((e) => {
+          console.warn('[Supabase] Erro ao salvar entrega:', e);
+        });
+      }
     }
 
     sendResponse({ ok: true });

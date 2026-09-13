@@ -2176,10 +2176,12 @@
               renderQueue(_currentQueueCache);
             }
             if (msg.status === "success") {
-              updateAutomationStep(6, "Concluído", "success", msg.username);
-              setTimeout(resetAutomationStepper, 3000);
-              if (typeof addDelivery === "function") addDelivery(msg.username);
-              addDeliveryToStats(msg.username);
+              if (msg.mode !== 'FALA' && !msg.spokenOnly && msg.robux !== 0) {
+                updateAutomationStep(6, "Concluído", "success", msg.username);
+                setTimeout(resetAutomationStepper, 3000);
+                if (typeof addDelivery === "function") addDelivery(msg.username);
+                addDeliveryToStats(msg.username);
+              }
             } else {
               updateAutomationStep(msg.step_index || 0, "Cancelado", "aborted", msg.username, msg.reason);
               setTimeout(resetAutomationStepper, 3500);
@@ -2364,10 +2366,12 @@
                 const lower = nick.toLowerCase();
                 _currentQueueCache = _currentQueueCache.filter(i => (i.nick || "").toLowerCase() !== lower);
                 renderQueue(_currentQueueCache);
-                updateAutomationStep(6, "Concluído", "success", nick);
-                setTimeout(resetAutomationStepper, 3500);
-                if (typeof addDelivery === "function") addDelivery(nick);
-                addDeliveryToStats(nick);
+                if (payload.new.mode !== 'FALA' && payload.new.robux !== 0 && !payload.new.spokenOnly) {
+                  updateAutomationStep(6, "Concluído", "success", nick);
+                  setTimeout(resetAutomationStepper, 3500);
+                  if (typeof addDelivery === "function") addDelivery(nick);
+                  addDeliveryToStats(nick);
+                }
               }
             }
           })
@@ -2378,23 +2382,34 @@
             if (k === "tiktok_status" && val) {
               updateTikTokStatusUI(val.connected, val.connecting, val.username);
             }
-            if (k === "operation_mode" && val && val.operation_mode) {
-              const remoteTs = val.updated_at || 0;
-              const isRecent = (Date.now() - lastUserModeChangeTs) < 12000;
-              if (!isRecent || remoteTs >= lastUserModeChangeTs) {
-                if (currentMode !== val.operation_mode) {
-                  currentMode = val.operation_mode;
-                  localStorage.setItem('operationMode', currentMode);
-                  applyOperationModeUI(currentMode);
+            if (k === "operation_mode" && val) {
+              let mVal = (typeof val === "string") ? (JSON.parse(val) || {}) : val;
+              if (mVal && mVal.operation_mode) {
+                const remoteTs = mVal.updated_at || 0;
+                const localTs = lastUserModeChangeTs || parseInt(localStorage.getItem('operationMode_ts') || '0');
+                if (remoteTs > localTs) {
+                  if (currentMode !== mVal.operation_mode) {
+                    currentMode = mVal.operation_mode;
+                    lastUserModeChangeTs = remoteTs;
+                    localStorage.setItem('operationMode', currentMode);
+                    localStorage.setItem('operationMode_ts', String(remoteTs));
+                    applyOperationModeUI(currentMode);
+                  }
                 }
               }
             }
             if (k === "speech_settings" && val && typeof val === "object") {
-              const activeEl = document.activeElement;
-              if (!activeEl || (activeEl.id !== 'speech-thank-template' && activeEl.id !== 'speech-thank-timing')) {
-                speechSettings = Object.assign({}, speechSettings, val);
-                localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
-                if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+              const remoteTs = val.updated_at || 0;
+              const localTs = lastUserSpeechChangeTs || parseInt(localStorage.getItem('speechSettings_ts') || '0');
+              if (remoteTs > localTs) {
+                const activeEl = document.activeElement;
+                if (!activeEl || (activeEl.id !== 'speech-thank-template' && activeEl.id !== 'speech-thank-timing')) {
+                  speechSettings = Object.assign({}, speechSettings, val);
+                  lastUserSpeechChangeTs = remoteTs;
+                  localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+                  localStorage.setItem('speechSettings_ts', String(remoteTs));
+                  if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+                }
               }
             }
             if (k === "keyboard_settings" && val && typeof val === "object") {
@@ -2473,14 +2488,19 @@
         .select("*")
         .eq("key", "operation_mode")
         .maybeSingle();
-      if (cMode && cMode.value && cMode.value.operation_mode) {
-        const remoteTs = cMode.value.updated_at || 0;
-        const isRecent = (Date.now() - lastUserModeChangeTs) < 12000;
-        if (!isRecent || remoteTs >= lastUserModeChangeTs) {
-          if (currentMode !== cMode.value.operation_mode) {
-            currentMode = cMode.value.operation_mode;
-            localStorage.setItem('operationMode', currentMode);
-            applyOperationModeUI(currentMode);
+      if (cMode && cMode.value) {
+        let mVal = (typeof cMode.value === "string") ? (JSON.parse(cMode.value) || {}) : cMode.value;
+        if (mVal && mVal.operation_mode) {
+          const remoteTs = mVal.updated_at || 0;
+          const localTs = lastUserModeChangeTs || parseInt(localStorage.getItem('operationMode_ts') || '0');
+          if (remoteTs > localTs) {
+            if (currentMode !== mVal.operation_mode) {
+              currentMode = mVal.operation_mode;
+              lastUserModeChangeTs = remoteTs;
+              localStorage.setItem('operationMode', currentMode);
+              localStorage.setItem('operationMode_ts', String(remoteTs));
+              applyOperationModeUI(currentMode);
+            }
           }
         }
       }
@@ -2491,12 +2511,18 @@
         .eq("key", "speech_settings")
         .maybeSingle();
       if (cSpeech && cSpeech.value && typeof cSpeech.value === "object") {
-        const activeEl = document.activeElement;
-        const isEditingSpeech = activeEl && (activeEl.id === 'speech-thank-template' || activeEl.id === 'speech-thank-timing');
-        if (!isEditingSpeech) {
-          speechSettings = Object.assign({}, speechSettings, cSpeech.value);
-          localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
-          if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+        const remoteTs = cSpeech.value.updated_at || 0;
+        const localTs = lastUserSpeechChangeTs || parseInt(localStorage.getItem('speechSettings_ts') || '0');
+        if (remoteTs > localTs) {
+          const activeEl = document.activeElement;
+          const isEditingSpeech = activeEl && (activeEl.id === 'speech-thank-template' || activeEl.id === 'speech-thank-timing');
+          if (!isEditingSpeech) {
+            speechSettings = Object.assign({}, speechSettings, cSpeech.value);
+            lastUserSpeechChangeTs = remoteTs;
+            localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+            localStorage.setItem('speechSettings_ts', String(remoteTs));
+            if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+          }
         }
       }
 
@@ -2984,11 +3010,7 @@
   let lastUserModeChangeTs = 0;
 
   function toggleOperationMode(mode) {
-    if (currentMode === mode) {
-      setOperationMode('PAUSED');
-    } else {
-      setOperationMode(mode);
-    }
+    setOperationMode(mode);
   }
 
   function togglePauseQueue() {
@@ -3004,6 +3026,7 @@
     lastUserModeChangeTs = Date.now();
     currentMode = mode;
     localStorage.setItem('operationMode', mode);
+    localStorage.setItem('operationMode_ts', String(lastUserModeChangeTs));
     if (mode !== 'PAUSED') {
       lastActiveMode = mode;
       localStorage.setItem('lastActiveMode', mode);
@@ -3059,9 +3082,27 @@
       pill.style.borderColor = isPaused ? 'rgba(239,68,68,0.4)' : 'rgba(59,130,246,0.4)';
       pill.style.color = isPaused ? '#f87171' : '#60a5fa';
     }
+
+    const stepperBox = document.getElementById('live-stepper-box');
+    const stepperUserBadge = document.getElementById('stepper-user-badge');
+    if (stepperBox) {
+      if (mode === 'FALA') {
+        stepperBox.style.opacity = '0.6';
+        if (stepperUserBadge) stepperUserBadge.innerText = '🎙️ Modo FALA Ativo (Entrega de Robux desligada)';
+      } else if (mode === 'MINI' || mode === 'PAUSED') {
+        stepperBox.style.opacity = '0.5';
+        if (stepperUserBadge) stepperUserBadge.innerText = isPaused ? '⏸️ Fila Pausada' : '🪄 Modo MINI';
+      } else {
+        stepperBox.style.opacity = '1.0';
+        if (stepperUserBadge && stepperUserBadge.innerText.includes('desligada')) {
+          stepperUserBadge.innerText = 'Aguardando fila...';
+        }
+      }
+    }
   }
 
   // ── Speech / Thank You Settings ──────────────────────────────
+  let lastUserSpeechChangeTs = parseInt(localStorage.getItem('speechSettings_ts') || '0');
   let speechSettings = JSON.parse(localStorage.getItem('speechSettings') || 'null') || {
     thank_enabled: true,
     thank_template: 'Obrigado {nick}!',
@@ -3550,7 +3591,9 @@
   }
 
   function saveSpeechSettings() {
+    lastUserSpeechChangeTs = Date.now();
     localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+    localStorage.setItem('speechSettings_ts', String(lastUserSpeechChangeTs));
     applySpeechThankUI();
 
     supabaseSyncOperation("POST", "bgl_config", {
@@ -3561,7 +3604,7 @@
         thank_timing: speechSettings.thank_timing,
         mode: speechSettings.mode || 'tts',
         audioBase64: speechSettings.audioBase64 || '',
-        updated_at: Date.now()
+        updated_at: lastUserSpeechChangeTs
       }
     });
 
