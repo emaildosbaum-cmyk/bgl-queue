@@ -1,0 +1,18 @@
+{
+  "short_name": "BGL Queue",
+  "name": "BGL Queue - Painel Mobile",
+  "icons": [
+    {
+      "src": "icons/app-icon.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./mobile.html",
+  "scope": "./",
+  "background_color": "#121316",
+  "theme_color": "#1c1d22",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

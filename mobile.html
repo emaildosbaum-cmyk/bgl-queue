@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>BGL Queue Mobile</title>
+  <link rel="icon" type="image/jpeg" href="icons/app-icon.jpg">
+  <link rel="manifest" href="manifest_mobile.json">
+  <meta name="theme-color" content="#08090f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    :root {
+      --bg: #08090f;
+      --glass-bg-base: rgba(14, 16, 26, 0.70);
+      --glass-bg-card: rgba(18, 21, 34, 0.62);
+      --glass-bg-hover: rgba(26, 30, 48, 0.75);
+      --glass-bg-input: rgba(10, 12, 18, 0.65);
+      --glass-bg-modal: rgba(14, 17, 28, 0.92);
+      --glass-border: 1px solid rgba(255, 255, 255, 0.10);
+      --glass-border-subtle: 1px solid rgba(255, 255, 255, 0.08);
+      --glass-border-cyan: 1px solid rgba(6, 182, 212, 0.45);
+      --glass-shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+      --glass-shadow-card: 0 8px 28px rgba(0, 0, 0, 0.38), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+      --surface: rgba(18, 21, 34, 0.62);
+      --surface2: rgba(16, 19, 32, 0.60);
+      --border: rgba(255, 255, 255, 0.10);
+      --border2: rgba(255, 255, 255, 0.08);
+      --text: #ffffff;
+      --muted: #94a3b8;
+      --blue: #06b6d4;
+      --green: #10b981;
+      --red: #ef4444;
+      --gray: #334155;
+      --online: #4ade80;
+      --offline: #f87171;
+    }
+    html, body {
+      height: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    body {
+      background-color: #08090f;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient Gaming / Roblox Backdrop */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: #08090f url('icons/roblox_bg.jpg') center/cover no-repeat fixed;
+      opacity: 0.35;
+      filter: brightness(0.65) contrast(1.15);
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(6, 182, 212, 0.18) 0%, transparent 40%),
+        radial-gradient(circle at 85% 75%, rgba(168, 85, 247, 0.16) 0%, transparent 45%),
+        linear-gradient(180deg, rgba(8, 9, 15, 0.82) 0%, rgba(12, 14, 24, 0.94) 100%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* HEADER */
+    header {
+      background: rgba(14, 17, 28, 0.70);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+    .brand {
+      font-size: 17px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: -0.01em;
+    }
+    .brand-badge {
+      background: linear-gradient(135deg, #06b6d4, #2563eb);
+      color: #fff;
+      font-size: 9px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    .ws-pill {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .ws-pill.online {
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--online);
+      border: 1px solid rgba(74, 222, 128, 0.35);
+      box-shadow: 0 0 12px rgba(74, 222, 128, 0.2);
+    }
+    .ws-pill.offline {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--offline);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+    }
+    .ws-dot { font-size: 8px; }
+
+    /* ALERT BANNER */
+    .alert-banner {
+      background: rgba(185, 28, 28, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 2px solid #ef4444;
+      padding: 12px 16px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
+      animation: pulse-bg 1s infinite alternate;
+      z-index: 99;
+    }
+    .alert-banner.visible { display: flex; }
+    @keyframes pulse-bg { from { background: rgba(185, 28, 28, 0.88); } to { background: rgba(220, 38, 38, 0.95); } }
+    .alert-text { font-size: 14px; font-weight: 700; color: #fecaca; }
+    .alert-dismiss {
+      background: #ef4444;
+      border: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+
+    /* MAIN CONTENT */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding-bottom: 84px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* CARDS */
+    .card {
+      background: var(--surface);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border-radius: 16px;
+      border: var(--glass-border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--glass-shadow-card);
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .badge {
+      background: rgba(6, 182, 212, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+
+    /* STATUS GRID */
+    .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .status-item {
+      background: rgba(10, 12, 18, 0.55);
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .status-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .status-value { font-size: 16px; font-weight: 700; color: #fff; }
+    .status-value.ok { color: var(--online); }
+    .status-value.err { color: var(--offline); }
+    .status-value.warn { color: #fbbf24; }
+
+    /* INPUT ROW */
+    .input-row { display: flex; gap: 8px; }
+    .input-row input {
+      flex: 1;
+      background: rgba(10, 12, 18, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      min-height: 44px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-row input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.25);
+    }
+
+    /* BUTTONS */
+    .btn {
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 44px;
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); filter: brightness(0.9); }
+    .btn.blue {
+      background: linear-gradient(135deg, #06b6d4, #2563eb);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(6, 182, 212, 0.3);
+    }
+    .btn.green {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+    .btn.red {
+      background: rgba(239, 68, 68, 0.16);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+    .btn.gray {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+    }
+    .btn.sm { padding: 8px 14px; font-size: 12px; min-height: 38px; }
+    .btn.md { padding: 11px 18px; }
+    .btn.full { width: 100%; padding: 13px; }
+    .btn-row { display: flex; gap: 8px; }
+
+    /* QUEUE CARDS */
+    .queue-list { display: flex; flex-direction: column; gap: 10px; }
+    .queue-item {
+      background: var(--surface2);
+      backdrop-filter: blur(14px) saturate(170%);
+      -webkit-backdrop-filter: blur(14px) saturate(170%);
+      border: var(--border2);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    }
+    .queue-item-header { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #06b6d4, #7c3aed);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .item-nick { font-size: 16px; font-weight: 700; color: #fff; }
+    .item-sender { font-size: 11px; color: var(--muted); }
+    .item-actions { display: flex; gap: 8px; }
+
+    /* EMPTY STATE */
+    .empty { text-align: center; color: var(--muted); padding: 32px 0; font-size: 14px; }
+
+    /* TAB CONTENTS */
+    .tab { display: none; flex-direction: column; gap: 14px; }
+    .tab.active { display: flex; }
+
+    /* BOTTOM NAV */
+    nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(14, 17, 28, 0.78);
+      backdrop-filter: blur(20px) saturate(190%);
+      -webkit-backdrop-filter: blur(20px) saturate(190%);
+      border-top: 1px solid rgba(255, 255, 255, 0.10);
+      display: flex;
+      height: 64px;
+      z-index: 200;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+      gap: 4px;
+      cursor: pointer;
+      min-height: 44px;
+      transition: color 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-btn.active { color: #38bdf8; }
+    .nav-btn svg { width: 22px; height: 22px; fill: currentColor; }
+
+    /* MODAL BOTTOM-SHEET */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 300;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: rgba(14, 17, 28, 0.92);
+      backdrop-filter: blur(24px) saturate(190%);
+      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      border-left: 1px solid rgba(255, 255, 255, 0.10);
+      border-right: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 24px 24px 0 0;
+      padding: 20px 20px 36px;
+      width: 100%;
+      max-width: 480px;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.18);
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-handle {
+      width: 40px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      margin: 0 auto 18px;
+    }
+    .modal-title { font-size: 17px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+    .modal-nick { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+    .robux-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .robux-opt {
+      background: rgba(10, 12, 18, 0.65);
+      border: 2px solid rgba(255, 255, 255, 0.10);
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+      cursor: pointer;
+      min-height: 52px;
+      transition: all 0.15s ease;
+    }
+    .robux-opt:active { transform: scale(0.95); }
+    .robux-opt.selected {
+      border-color: var(--blue);
+      background: rgba(6, 182, 212, 0.16);
+      box-shadow: 0 0 16px rgba(6, 182, 212, 0.3);
+    }
+    .robux-opt .amount { font-size: 18px; font-weight: 800; color: #fff; }
+    .robux-opt .label { font-size: 10px; color: var(--muted); margin-top: 2px; font-weight: 600; }
+    .modal-custom { display: flex; gap: 8px; margin-bottom: 18px; }
+    .modal-custom input {
+      flex: 1;
+      background: rgba(10, 12, 18, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      min-height: 44px;
+    }
+    .modal-custom input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.25);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <span>BGL Queue</span>
+      <span class="brand-badge">PWA</span>
+    </div>
+    <div id="wsPill" class="ws-pill offline">
+      <span class="ws-dot">●</span>
+      <span id="wsText">Offline</span>
+    </div>
+  </header>
+
+  <!-- ALERT BANNER (Roblox caiu) -->
+  <div id="alertBanner" class="alert-banner">
+    <div class="alert-text" id="alertMsg">⚠️ ROBLOX DESCONECTOU!</div>
+    <button class="alert-dismiss" onclick="dismissAlert()">Dispensar</button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main>
+
+    <!-- ABA FILA -->
+    <div id="tabFila" class="tab active">
+      <div class="card">
+        <div class="card-title">
+          Adicionar Nick Manual
+        </div>
+        <div class="input-row">
+          <input type="text" id="manualNick" placeholder="Nick do Roblox..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <button class="btn blue md" onclick="addManual()">+ Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>Fila em Tempo Real</span>
+          <span class="badge" id="queueCount">0</span>
+        </div>
+        <div id="queueList" class="queue-list">
+          <div class="empty">Fila vazia por enquanto 👾</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA ROBLOX -->
+    <div id="tabRoblox" class="tab">
+      <div class="card">
+        <div class="card-title">Status Roblox</div>
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-label">Script Lua</div>
+            <div class="status-value warn" id="luaStatus">Aguardando</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Aceitos</div>
+            <div class="status-value" id="totalReceived">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Ações Rápidas</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn blue full" onclick="sendWS('rejoin', {})">🔄 Dar Rejoin / Reiniciar Script</button>
+          <button class="btn red full" onclick="confirmClearQueue()">🗑️ Limpar Toda a Fila</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA LIVE -->
+    <div id="tabLive" class="tab">
+      <div class="card">
+        <div class="card-title">Perfil TikTok Live</div>
+        <div class="input-row">
+          <input type="text" id="mobileTikTokUser" placeholder="Seu @ do TikTok..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <button id="mobileTikTokBtn" class="btn green md" onclick="toggleMobileTikTok()">Conectar</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+          <span style="font-size:11px; color:var(--muted)">Status da Live:</span>
+          <span id="mobileTikTokStatus" style="font-size:12px; font-weight:700; color:var(--offline);">● Desconectado</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Status da Automação</div>
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-label">Estado</div>
+            <div class="status-value" id="liveState">idle</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Ciclo</div>
+            <div class="status-value" id="liveCycle">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Controle da Live</div>
+        <div class="btn-row">
+          <button class="btn green full" onclick="sendWS('start_auto_live', {})">▶ Iniciar Live</button>
+          <button class="btn red full" onclick="sendWS('stop_auto_live', {})">⏹ Parar Live</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA AJUSTES -->
+    <div id="tabSettings" class="tab">
+      <div class="card">
+        <div class="card-title">Servidor</div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <div class="status-label" style="margin-bottom: 6px;">Cooldown por usuário (seg)</div>
+            <input class="input-row input" type="number" id="cfgCooldown" style="width: 100%; background: #15161a; border: 1px solid #282a32; border-radius: 8px; padding: 11px 12px; color: #fff; font-size: 14px; outline: none;">
+          </div>
+          <button class="btn blue full" onclick="saveSettings()">💾 Salvar Configurações</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">WebSocket</div>
+        <div class="status-item" style="border-radius: 8px;">
+          <div class="status-label">Endereço</div>
+          <div class="status-value" id="wsAddr" style="font-size: 12px; word-break: break-all; color: #94a3b8;">—</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav>
+    <div class="nav-btn active" id="navFila" onclick="switchTab('Fila', this)">
+      <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+      <span>Fila</span>
+    </div>
+    <div class="nav-btn" id="navRoblox" onclick="switchTab('Roblox', this)">
+      <svg viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm3-3c-.83 0-1.5-.67-1.5-1.5S17.67 9 18.5 9s1.5.67 1.5 1.5S19.33 13 18.5 13z"/></svg>
+      <span>Roblox</span>
+    </div>
+    <div class="nav-btn" id="navLive" onclick="switchTab('Live', this)">
+      <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+      <span>Live</span>
+    </div>
+    <div class="nav-btn" id="navSettings" onclick="switchTab('Settings', this)">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      <span>Ajustes</span>
+    </div>
+  </nav>
+
+  <!-- MODAL +ROBUX -->
+  <div class="modal-overlay" id="robuxModal" onclick="closeRobuxModal(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Adicionar Robux</div>
+      <div class="modal-nick" id="modalNick">Nick: —</div>
+      <div class="robux-grid">
+        <div class="robux-opt" onclick="selectAmt(50, this)">
+          <div class="amount">50</div>
+          <div class="label">Robux</div>
+        </div>
+        <div class="robux-opt" onclick="selectAmt(100, this)">
+          <div class="amount">100</div>
+          <div class="label">Robux</div>
+        </div>
+        <div class="robux-opt" onclick="selectAmt(200, this)">
+          <div class="amount">200</div>
+          <div class="label">Robux</div>
+        </div>
+        <div class="robux-opt" onclick="selectAmt(400, this)">
+          <div class="amount">400</div>
+          <div class="label">Robux</div>
+        </div>
+        <div class="robux-opt" onclick="selectAmt(800, this)">
+          <div class="amount">800</div>
+          <div class="label">Robux</div>
+        </div>
+        <div class="robux-opt" onclick="selectAmt(1700, this)">
+          <div class="amount">1700</div>
+          <div class="label">Robux</div>
+        </div>
+      </div>
+      <div class="modal-custom">
+        <input type="number" id="customAmt" placeholder="Valor personalizado..." oninput="selectedAmt = parseInt(this.value) || 0;">
+      </div>
+      <button class="btn green full" onclick="confirmRobux()" style="padding: 14px; font-size: 15px;">✅ Confirmar Robux</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // --- WebSocket & Supabase ---
+    let ws = null;
+    let currentQueue = [];
+    let selectedAmt = 0;
+    let currentNick = '';
+    let alarmInterval = null;
+    let audioCtx = null;
+
+    let mobileTikTokConnected = false;
+    let mobileTikTokConnecting = false;
+    let mobileCurrentTikTokUser = '';
+
+    const wsUrl = 'ws://' + location.hostname + ':8765';
+    document.getElementById('wsAddr').textContent = wsUrl;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function() {});
+    }
+
+    function getAudioCtx() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    function playAlarm() {
+      try {
+        var ctx = getAudioCtx();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(440, ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.5);
+      } catch(e) {}
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    }
+
+    function showAlert(msg) {
+      var banner = document.getElementById('alertBanner');
+      document.getElementById('alertMsg').textContent = msg;
+      banner.classList.add('visible');
+      if (alarmInterval) clearInterval(alarmInterval);
+      playAlarm();
+      alarmInterval = setInterval(playAlarm, 1500);
+    }
+
+    function dismissAlert() {
+      document.getElementById('alertBanner').classList.remove('visible');
+      if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
+    }
+
+    function toggleMobileTikTok() {
+      var inp = document.getElementById('mobileTikTokUser');
+      if (mobileTikTokConnected || mobileTikTokConnecting) {
+        sendWS('disconnect_tiktok', {});
+        return;
+      }
+      var u = (inp.value || '').trim().replace(/^@/, '');
+      if (!u) {
+        alert('Digite o @ do TikTok!');
+        return;
+      }
+      sendWS('connect_tiktok', { username: u });
+    }
+
+    function updateMobileTikTokUI(connected, connecting, username) {
+      mobileTikTokConnected = !!connected;
+      mobileTikTokConnecting = !!connecting;
+      if (username) {
+        mobileCurrentTikTokUser = username.replace(/^@/, '');
+        var inp = document.getElementById('mobileTikTokUser');
+        if (inp && document.activeElement !== inp) inp.value = mobileCurrentTikTokUser;
+      }
+      var statusEl = document.getElementById('mobileTikTokStatus');
+      var btn = document.getElementById('mobileTikTokBtn');
+      if (!statusEl || !btn) return;
+
+      if (mobileTikTokConnecting) {
+        statusEl.textContent = '⏳ Conectando...';
+        statusEl.style.color = '#fbbf24';
+        btn.textContent = 'Aguarde...';
+        btn.className = 'btn gray md';
+      } else if (mobileTikTokConnected) {
+        statusEl.textContent = '● Ao Vivo (@' + mobileCurrentTikTokUser + ')';
+        statusEl.style.color = 'var(--online)';
+        btn.textContent = 'Desconectar';
+        btn.className = 'btn red md';
+      } else {
+        statusEl.textContent = '● Desconectado';
+        statusEl.style.color = 'var(--offline)';
+        btn.textContent = 'Conectar';
+        btn.className = 'btn green md';
+      }
+    }
+
+    // --- Supabase Realtime Mobile ---
+    const SUPABASE_URL = "https://ojjfwxjirlttpxcjhlho.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU";
+    let supabaseClient = null;
+
+    function initMobileSupabase() {
+      try {
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+          supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+          setTimeout(function() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+              supabaseClient.from('bgl_queue').select('*').eq('status', 'pending').order('id', { ascending: true })
+                .then(function(res) {
+                  if (res.data && res.data.length > 0) {
+                    currentQueue = res.data.map(function(r) {
+                      return { id: r.id, nick: r.nick, sender: r.sender || 'cloud', robux: r.robux || 0 };
+                    });
+                    renderQueue();
+                  }
+                });
+            }
+          }, 800);
+
+          supabaseClient.channel('bgl_mobile_sync')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_queue' }, function(p) {
+              if (p.eventType === 'INSERT') {
+                var it = { id: p.new.id, nick: p.new.nick, sender: p.new.sender || 'cloud', robux: p.new.robux || 0 };
+                if (!currentQueue.some(function(i) { return i.id === it.id; })) {
+                  currentQueue.push(it);
+                  renderQueue();
+                }
+              } else if (p.eventType === 'DELETE') {
+                currentQueue = currentQueue.filter(function(i) { return i.id !== p.old.id; });
+                renderQueue();
+              } else if (p.eventType === 'UPDATE') {
+                if (p.new.status === 'delivered' || p.new.status === 'removed') {
+                  currentQueue = currentQueue.filter(function(i) { return i.id !== p.new.id; });
+                }
+                renderQueue();
+              }
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'bgl_config' }, function(p) {
+              if (p.new && p.new.key === 'tiktok_status' && p.new.value) {
+                updateMobileTikTokUI(p.new.value.connected, p.new.value.connecting, p.new.value.username);
+              }
+            })
+            .subscribe();
+        }
+      } catch(e) {}
+    }
+
+    function initWS() {
+      initMobileSupabase();
+      ws = new WebSocket(wsUrl);
+      ws.onopen = function() {
+        var pill = document.getElementById('wsPill');
+        pill.className = 'ws-pill online';
+        document.getElementById('wsText').textContent = 'Online';
+      };
+      ws.onclose = function() {
+        var pill = document.getElementById('wsPill');
+        pill.className = 'ws-pill offline';
+        document.getElementById('wsText').textContent = 'Offline';
+        setTimeout(initWS, 3000);
+      };
+      ws.onmessage = function(evt) {
+        try {
+          var d = JSON.parse(evt.data);
+          if (d.type === 'queue_update') {
+            currentQueue = d.items || [];
+            renderQueue();
+          } else if (d.type === 'tiktok_status') {
+            updateMobileTikTokUI(d.connected, d.connecting, d.username);
+          } else if (d.type === 'settings_update') {
+            var inp = document.getElementById('cfgCooldown');
+            if (inp) inp.value = d.settings.cooldown || 300;
+          } else if (d.type === 'live_status') {
+            document.getElementById('liveState').textContent = d.state || 'idle';
+            document.getElementById('liveCycle').textContent = d.cycle || 0;
+          } else if (d.type === 'roblox_alert') {
+            showAlert('⚠️ ROBLOX: ' + (d.message || 'Desconectado!'));
+          } else if (d.type === 'tiktok_disconnected') {
+            showAlert('📴 TikTok Live desconectou!');
+          }
+        } catch(e) {}
+      };
+    }
+
+    function sendWS(type, data) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        var payload = Object.assign({ type: type }, data);
+        ws.send(JSON.stringify(payload));
+      }
+    }
+
+    function renderQueue() {
+      var list = document.getElementById('queueList');
+      var count = document.getElementById('queueCount');
+      count.textContent = currentQueue.length;
+      if (!currentQueue.length) {
+        list.innerHTML = '<div class="empty">Fila vazia por enquanto 👾</div>';
+        return;
+      }
+      list.innerHTML = currentQueue.map(function(item) {
+        var initials = item.nick.substring(0, 2).toUpperCase();
+        return '<div class="queue-item">' +
+          '<div class="queue-item-header">' +
+            '<div class="avatar">' + initials + '</div>' +
+            '<div>' +
+              '<div class="item-nick">' + escHtml(item.nick) + '</div>' +
+              '<div class="item-sender">@' + escHtml(item.sender) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="item-actions">' +
+            '<button class="btn green sm" onclick="openRobux(\'' + item.nick + '\')">+ Robux</button>' +
+            '<button class="btn red sm" onclick="removeItem(' + item.id + ')">Remover</button>' +
+            '<button class="btn gray sm" onclick="banItem(\'' + item.nick + '\')">Banir</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function addManual() {
+      var inp = document.getElementById('manualNick');
+      var nick = inp.value.trim();
+      if (!nick) return;
+      sendWS('add', { nick: nick, sender: 'mobile' });
+      inp.value = '';
+    }
+
+    function removeItem(id) {
+      sendWS('remove', { id: id });
+    }
+
+    function banItem(nick) {
+      if (confirm('Banir permanentemente ' + nick + '?')) {
+        sendWS('ban_nick', { nick: nick });
+      }
+    }
+
+    function confirmClearQueue() {
+      if (confirm('Limpar TODA a fila?')) sendWS('clear', {});
+    }
+
+    // --- Modal Robux ---
+    function openRobux(nick) {
+      currentNick = nick;
+      selectedAmt = 0;
+      document.getElementById('modalNick').textContent = 'Nick: ' + nick;
+      document.getElementById('customAmt').value = '';
+      document.querySelectorAll('.robux-opt').forEach(function(el) { el.classList.remove('selected'); });
+      document.getElementById('robuxModal').classList.add('open');
+    }
+
+    function closeRobuxModal(evt) {
+      if (evt.target === document.getElementById('robuxModal')) {
+        document.getElementById('robuxModal').classList.remove('open');
+      }
+    }
+
+    function selectAmt(amt, el) {
+      selectedAmt = amt;
+      document.querySelectorAll('.robux-opt').forEach(function(e) { e.classList.remove('selected'); });
+      el.classList.add('selected');
+      document.getElementById('customAmt').value = '';
+    }
+
+    function confirmRobux() {
+      if (!selectedAmt || !currentNick) {
+        alert('Selecione uma quantidade de Robux!');
+        return;
+      }
+      sendWS('add_robux', { nick: currentNick, amount: selectedAmt });
+      document.getElementById('robuxModal').classList.remove('open');
+      alert('Robux ' + selectedAmt + ' registrado para ' + currentNick + '!');
+    }
+
+    // --- Settings ---
+    function saveSettings() {
+      var cooldown = parseInt(document.getElementById('cfgCooldown').value);
+      if (!isNaN(cooldown)) {
+        sendWS('update_settings', { settings: { cooldown: cooldown } });
+        alert('Configurações salvas!');
+      }
+    }
+
+    // --- Navigation ---
+    function switchTab(name, el) {
+      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+      document.querySelectorAll('.nav-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.getElementById('tab' + name).classList.add('active');
+      el.classList.add('active');
+    }
+
+    window.onload = initWS;
+  </script>
+</body>
+</html>

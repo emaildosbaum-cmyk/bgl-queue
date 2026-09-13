@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roube um Egg - Live Overlay</title>
+    <link rel="icon" type="image/jpeg" href="icons/app-icon.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --accent-color: #06b6d4;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f97316;
+            --bg-glass: rgba(10, 12, 20, 0.75);
+            --border-glass: rgba(255, 255, 255, 0.12);
+            --border-cyan: 1px solid rgba(6, 182, 212, 0.45);
+            --border-orange: 1px solid rgba(249, 115, 22, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: transparent !important;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Container Principal do Widget */
+        .widget-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 450px;
+        }
+
+        /* Contador de Entregas */
+        .counter-card {
+            background: var(--bg-glass);
+            border: 1px solid rgba(6, 182, 212, 0.5);
+            border-radius: 18px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(6, 182, 212, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+        }
+
+        .counter-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .counter-label {
+            font-size: 1rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .counter-value {
+            font-size: 3rem;
+            font-weight: 900;
+            color: var(--accent-color);
+            text-shadow: 0 0 18px rgba(6, 182, 212, 0.6);
+            letter-spacing: -0.02em;
+        }
+
+        /* Histórico de Entregas */
+        .history-card {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            max-height: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .history-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #ffffff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            letter-spacing: 0.04em;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: hidden;
+        }
+
+        /* Item do Histórico */
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 10px 12px;
+            animation: slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .avatar-container {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(6, 182, 212, 0.3);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .avatar-img {
+            width: 110%;
+            height: 110%;
+            object-fit: cover;
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .username {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 250px;
+        }
+
+        .fruit-delivered {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--warning-color);
+        }
+
+        /* Alerta de Entrega Ativa (Pop-up) */
+        .alert-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-glass);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            border-radius: 20px;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(16, 185, 129, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10000;
+        }
+
+        .alert-toast.active {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .alert-icon {
+            font-size: 2rem;
+            animation: bounce 1s infinite alternate;
+        }
+
+        .alert-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .alert-title {
+            font-size: 1.1rem;
+            font-weight: 900;
+            color: var(--success-color);
+            text-transform: uppercase;
+        }
+
+        .alert-body {
+            font-size: 0.95rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        /* Efeitos e Animações */
+        @keyframes slideIn {
+            0% {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes bounce {
+            0% {
+                transform: scale(1);
+            }
+            100% {
+                transform: scale(1.15);
+            }
+        }
+
+        .pulse-effect {
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); box-shadow: 0 0 30px rgba(6, 182, 212, 0.6); }
+            100% { transform: scale(1); }
+        }
+
+        /* ---- Top 3 Likes ---- */
+        .top-likes-card {
+            background: var(--bg-glass);
+            border: 1px solid rgba(249, 115, 22, 0.45);
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(249, 115, 22, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.14);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .top-likes-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--warning-color);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            letter-spacing: 0.04em;
+        }
+
+        .top-likes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .top-likes-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 10px 12px;
+            animation: slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .top-likes-item:nth-child(1) { border-color: rgba(255, 215, 0, 0.5); background: rgba(255, 215, 0, 0.08); }
+        .top-likes-item:nth-child(2) { border-color: rgba(192, 192, 192, 0.5); background: rgba(192, 192, 192, 0.06); }
+        .top-likes-item:nth-child(3) { border-color: rgba(205, 127, 50, 0.5); background: rgba(205, 127, 50, 0.06); }
+
+        .medal {
+            font-size: 1.6rem;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .top-likes-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            background: rgba(0,0,0,0.3);
+        }
+
+        .top-likes-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-likes-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        .top-likes-count {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--warning-color);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div style="display: flex; gap: 20px; align-items: flex-start;">
+
+        <!-- Widget Lateral: Top 3 Likes (Agora no lado Esquerdo) -->
+        <div class="widget-container" style="width: 320px;">
+            <div class="top-likes-card">
+                <div class="top-likes-title">
+                    <span>❤️ TOP LIKES</span>
+                    <span style="color: var(--accent-color); font-size: 0.8rem;">LIVE</span>
+                </div>
+                <div class="top-likes-list" id="top-likes-list">
+                    <div style="color: #c5c6c7; font-size: 0.85rem; text-align: center; padding: 20px 0;">Aguardando likes...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Widget Principal: Contador + Histórico (Agora no lado Direito) -->
+        <div class="widget-container">
+            <!-- Contador de Entregas -->
+            <div class="counter-card" id="counter-card">
+                <div class="counter-info">
+                    <span class="counter-label">Entregas Realizadas</span>
+                    <span class="counter-value" id="counter-val">0</span>
+                </div>
+                <div style="font-size: 2.5rem;">🍎</div>
+            </div>
+
+            <!-- Histórico de Entregas -->
+            <div class="history-card">
+                <div class="history-title">
+                    <span>HISTÓRICO RECENTE</span>
+                    <span style="color: var(--accent-color);">LIVE</span>
+                </div>
+                <div class="history-list" id="history-list">
+                    <!-- Inserido dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Alerta Flutuante de Entrega Concluída -->
+    <div class="alert-toast" id="alert-toast">
+        <div class="alert-icon">🥚</div>
+        <div class="alert-text">
+            <div class="alert-title" id="alert-title">Entrega Feita!</div>
+            <div class="alert-body" id="alert-body">Usuário recebeu seu Monster Egg com sucesso</div>
+        </div>
+    </div>
+
+    <!-- Som embutido (Ding/Coins clássico em Base64 para não precisar de arquivos locais) -->
+    <audio id="audio-alert" preload="auto"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Overlay conecta sempre na porta WebSocket fixa 8765
+        // (mesmo servidor que o queue.html usa)
+        const wsPort = 8765;
+        let ws;
+        // Persiste o contador entre lives (sobrevive ao reload da página)
+        let totalDeliveries = parseInt(localStorage.getItem('totalDeliveries') || '0', 10);
+
+        // Gerador de Som Retro 8-bit de Moeda (Ding Ding) usando Web Audio API
+        function playRetroCoinSound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                
+                // Primeiro tom (Nota mais baixa)
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                osc1.frequency.setValueAtTime(880, ctx.currentTime + 0.1);  // A5 (salto clássico)
+                
+                gain1.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+                
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                
+                osc1.start();
+                osc1.stop(ctx.currentTime + 0.35);
+            } catch (e) {
+                console.error("Erro ao reproduzir sintetizador de áudio:", e);
+            }
+        }
+
+        // Constantes globais e Cache de avatares
+        const FALLBACK_IMG = 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular';
+        const _avatarCache = {};
+
+        // Função para obter o avatar do Roblox a partir do username (com proxy local sem CORS + fallback)
+        async function fetchRobloxAvatar(username) {
+            if (!username || username.trim() === '' || username === '---') {
+                return FALLBACK_IMG;
+            }
+            if (_avatarCache[username]) return _avatarCache[username];
+
+            // 1. Tenta API do servidor local em Python (sem bloqueio de CORS)
+            const apiEndpoints = [];
+            if (window.location.protocol.startsWith('http')) {
+                apiEndpoints.push(`/api/roblox-avatar?username=${encodeURIComponent(username)}`);
+            }
+            apiEndpoints.push(`http://127.0.0.1:8083/api/roblox-avatar?username=${encodeURIComponent(username)}`);
+
+            for (const url of apiEndpoints) {
+                try {
+                    const r = await fetch(url);
+                    if (r.ok) {
+                        const d = await r.json();
+                        if (d && d.avatar_url && !d.avatar_url.includes('regular')) {
+                            _avatarCache[username] = d.avatar_url;
+                            return d.avatar_url;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            const userPayload = JSON.stringify({ usernames: [username], excludeBannedUsers: false });
+
+            // 2. Método RoProxy (fallback alternativo)
+            let userId = null;
+            try {
+                const r = await fetch('https://users.roproxy.com/v1/usernames/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: userPayload
+                });
+                if (r.ok) {
+                    const d = await r.json();
+                    if (d.data && d.data.length > 0) userId = d.data[0].id;
+                }
+            } catch(e) {}
+
+            if (!userId) {
+                _avatarCache[username] = FALLBACK_IMG;
+                return FALLBACK_IMG;
+            }
+
+            // Tenta obter a thumbnail via RoProxy
+            const thumbParams = `userIds=${userId}&size=150x150&format=Png&isCircular=true`;
+            let imgUrl = null;
+            try {
+                const r = await fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?${thumbParams}`);
+                if (r.ok) {
+                    const d = await r.json();
+                    if (d.data && d.data.length > 0 && d.data[0].imageUrl) imgUrl = d.data[0].imageUrl;
+                }
+            } catch(e) {}
+
+            const result = imgUrl || FALLBACK_IMG;
+            _avatarCache[username] = result;
+            return result;
+        }
+
+        // Exibe o Pop-up de alerta animado na tela da live
+        function showAlert(username, fruit) {
+            const toast = document.getElementById('alert-toast');
+            const alertBody = document.getElementById('alert-body');
+            if (!toast || !alertBody) return;
+
+            alertBody.innerHTML = `<strong>${username}</strong> recebeu o pacote <strong>${fruit || '50x Monster Egg'}</strong>!`;
+
+            // Toca o som do widget usando Web Audio
+            playRetroCoinSound();
+
+            // Exibe e esconde após 4.5s
+            toast.classList.add('active');
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 4500);
+        }
+
+        // Atualiza a interface ao fazer entrega
+        async function handleNewDelivery(username, fruit, serverTotal, directAvatarUrl) {
+            // Se o servidor mandar o total global, usa ele (evita descincronizar entre reloads)
+            if (serverTotal && serverTotal > totalDeliveries) {
+                totalDeliveries = serverTotal;
+            } else {
+                totalDeliveries++;
+            }
+            localStorage.setItem('totalDeliveries', totalDeliveries);
+
+            // Incrementa o contador com pulso neon
+            const counterVal = document.getElementById('counter-val');
+            const counterCard = document.getElementById('counter-card');
+            if (counterVal) counterVal.innerText = totalDeliveries;
+            if (counterCard) {
+                counterCard.classList.add('pulse-effect');
+                setTimeout(() => counterCard.classList.remove('pulse-effect'), 500);
+            }
+
+            // Dispara pop-up na live
+            showAlert(username, fruit);
+
+            // Carrega avatar em tempo real do Roblox (usa direto se o servidor já mandou)
+            const avatarUrl = directAvatarUrl || await fetchRobloxAvatar(username);
+
+            // Adiciona no topo do histórico
+            const historyList = document.getElementById('history-list');
+            if (historyList) {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <div class="avatar-container">
+                        <img class="avatar-img" src="${avatarUrl}" alt="Avatar" onerror="this.onerror=null; this.src='${FALLBACK_IMG}'">
+                    </div>
+                    <div class="user-details">
+                        <span class="username">${username}</span>
+                        <span class="fruit-delivered">🥚 ${fruit || '50x Monster Egg'}</span>
+                    </div>
+                `;
+
+                historyList.insertBefore(item, historyList.firstChild);
+
+                // Limita a 5 itens visíveis no histórico da tela
+                if (historyList.children.length > 5) {
+                    historyList.removeChild(historyList.lastChild);
+                }
+            }
+        }
+
+        // Conexão WebSocket com a ponte
+        function connect() {
+            ws = new WebSocket(`ws://localhost:${wsPort}`);
+
+            ws.onopen = () => {
+                console.log("Overlay conectado à ponte WebSocket.");
+                ws.send(JSON.stringify({ client_type: 'dashboard' })); // Ouvir eventos
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    // Entregas realizadas (aceita last_sent_update, purchase_finished e delivery)
+                    if ((data.type === 'last_sent_update' || data.type === 'purchase_finished' || data.type === 'delivery') && data.username && data.username !== '---') {
+                        handleNewDelivery(data.username, data.fruit, data.total_deliveries, data.avatar_url);
+                    }
+
+                    // Top 3 Likes em tempo real
+                    if (data.type === 'top_likes_update' && data.top3) {
+                        updateTopLikes(data.top3);
+                    }
+                } catch (e) {
+                    console.error("Erro ao processar mensagem do websocket:", e);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log("WebSocket desconectado. Tentando reconectar em 3s...");
+                setTimeout(connect, 3000);
+            };
+        }
+
+        connect();
+
+        // Supabase Realtime para Overlay
+        const SUPABASE_URL = "https://ojjfwxjirlttpxcjhlho.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU";
+        function initOverlaySupabase() {
+            try {
+                if (window.supabase && typeof window.supabase.createClient === 'function') {
+                    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+                    // Carrega entregas recentes e contador inicial da nuvem
+                    sb.from('bgl_deliveries')
+                      .select('*', { count: 'exact' })
+                      .order('id', { ascending: false })
+                      .limit(5)
+                      .then(({ data, count, error }) => {
+                          if (!error) {
+                              if (count !== null && count !== undefined && count > totalDeliveries) {
+                                  totalDeliveries = count;
+                                  localStorage.setItem('totalDeliveries', totalDeliveries);
+                                  const counterVal = document.getElementById('counter-val');
+                                  if (counterVal) counterVal.innerText = totalDeliveries;
+                              }
+                              if (Array.isArray(data) && data.length > 0) {
+                                  const historyList = document.getElementById('history-list');
+                                  if (historyList && historyList.children.length <= 1) {
+                                      historyList.innerHTML = '';
+                                      data.forEach(d => {
+                                          const item = document.createElement('div');
+                                          item.className = 'history-item';
+                                          const u = d.username || 'Player';
+                                          const fruit = (d.amount ? d.amount + ' Robux' : '50x Monster Egg');
+                                          item.innerHTML = `
+                                              <div class="avatar-container">
+                                                  <img class="avatar-img" src="${FALLBACK_IMG}" alt="Avatar" id="hist-av-${d.id}">
+                                              </div>
+                                              <div class="user-details">
+                                                  <span class="username">${u}</span>
+                                                  <span class="fruit-delivered">🥚 ${fruit}</span>
+                                              </div>
+                                          `;
+                                          historyList.appendChild(item);
+                                          fetchRobloxAvatar(u).then(av => {
+                                              const img = document.getElementById('hist-av-' + d.id);
+                                              if (img && av) img.src = av;
+                                          });
+                                      });
+                                  }
+                              }
+                          }
+                      }).catch(() => {});
+
+                    // Realtime para novas entregas
+                    sb.channel('bgl_overlay_sync')
+                      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bgl_deliveries' }, (payload) => {
+                          const d = payload.new;
+                          if (d && d.username) {
+                              handleNewDelivery(d.username, (d.amount ? d.amount + ' Robux' : '50x Monster Egg'), null, null);
+                          }
+                      })
+                      .subscribe();
+                }
+            } catch(e) {
+                console.warn("[Overlay Supabase] Erro:", e);
+            }
+        }
+        initOverlaySupabase();
+
+        // Inicializa o contador na tela com o valor salvo (persiste entre lives)
+        const initCounter = document.getElementById('counter-val');
+        if (initCounter) initCounter.innerText = totalDeliveries;
+
+        // Atualiza o Top 3 Likes na tela
+        const MEDALS = ['🥇', '🥈', '🥉'];
+        const TIKTOK_AVATAR_FALLBACK = 'https://p16-sign.tiktokcdn-us.com/tos-useast5-avt-0068-tx/default_avatar.jpeg';
+
+        function updateTopLikes(top3) {
+            if (!Array.isArray(top3)) return;
+            const list = document.getElementById('top-likes-list');
+            if (!list) return;
+            list.innerHTML = '';
+            top3.forEach((user, idx) => {
+                const item = document.createElement('div');
+                item.className = 'top-likes-item';
+                item.innerHTML = `
+                    <span class="medal">${MEDALS[idx] || ''}</span>
+                    <img class="top-likes-avatar" src="${TIKTOK_AVATAR_FALLBACK}" alt="${user.nickname || ''}" onerror="this.onerror=null; this.src='${TIKTOK_AVATAR_FALLBACK}'">
+                    <div class="top-likes-info">
+                        <span class="top-likes-name">@${user.nickname || 'user'}</span>
+                        <span class="top-likes-count">❤️ ${(user.likes || 0).toLocaleString()} likes</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+    </script>
+</body>
+
+</html>
