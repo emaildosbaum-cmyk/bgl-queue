@@ -289,9 +289,13 @@
   }
 
   // ── Keyboard Sound Engine (Cliques Mecânicos Realistas) ──────
-  let keyboardSoundsEnabled = true;
+  let keyboardSoundsEnabled = false; // Desativado por padrão até sincronizar
   let keyboardVolume = 0.85;
   let customKeySounds = {};
+
+  function isKeyboardActive() {
+    return (keyboardSoundsEnabled !== false && keyboardSoundsEnabled !== 'false' && keyboardVolume > 0);
+  }
 
   const DEFAULT_KEY_KEYS = [
     'key_1', 'key_2', 'key_3', 'key_4', 'key_5',
@@ -299,7 +303,7 @@
   ];
 
   function playKeySound(type = 'key') {
-    if (!keyboardSoundsEnabled) return;
+    if (!isKeyboardActive()) return;
     try {
       let soundKey;
       if (type === 'space') {
@@ -319,10 +323,13 @@
 
       if (!src) return;
 
+      const calcVol = keyboardVolume * (0.88 + Math.random() * 0.12);
+      if (calcVol <= 0.01) return;
+
       const audio = new Audio(src);
       // Variação micro-acústica humana: velocidade 0.96-1.04, volume 0.88-1.0
       audio.playbackRate = 0.96 + Math.random() * 0.08;
-      audio.volume = Math.min(1.0, Math.max(0.1, keyboardVolume * (0.88 + Math.random() * 0.12)));
+      audio.volume = Math.min(1.0, Math.max(0.01, calcVol));
       audio.play().catch(() => {});
     } catch(e) {}
   }
@@ -836,9 +843,15 @@
         speechSettings = Object.assign({}, speechSettings, response.speech_settings);
       }
       if (response && response.keyboard_settings) {
-        if (response.keyboard_settings.enabled !== undefined) keyboardSoundsEnabled = !!response.keyboard_settings.enabled;
-        if (response.keyboard_settings.volume !== undefined) keyboardVolume = parseFloat(response.keyboard_settings.volume);
-        if (response.keyboard_settings.custom_sounds) customKeySounds = response.keyboard_settings.custom_sounds;
+        if (response.keyboard_settings.enabled !== undefined) {
+          keyboardSoundsEnabled = (response.keyboard_settings.enabled !== false && response.keyboard_settings.enabled !== 'false');
+        }
+        if (response.keyboard_settings.volume !== undefined) {
+          keyboardVolume = parseFloat(response.keyboard_settings.volume);
+        }
+        if (response.keyboard_settings.custom_sounds) {
+          customKeySounds = response.keyboard_settings.custom_sounds;
+        }
       }
 
       // No modo MINI ou PAUSED não processamos entregas no Roblox
@@ -878,9 +891,16 @@
         speechSettings = Object.assign({}, speechSettings, message.speech_settings);
       }
       if (message.keyboard_settings) {
-        if (message.keyboard_settings.enabled !== undefined) keyboardSoundsEnabled = !!message.keyboard_settings.enabled;
-        if (message.keyboard_settings.volume !== undefined) keyboardVolume = parseFloat(message.keyboard_settings.volume);
-        if (message.keyboard_settings.custom_sounds) customKeySounds = message.keyboard_settings.custom_sounds;
+        if (message.keyboard_settings.enabled !== undefined) {
+          keyboardSoundsEnabled = (message.keyboard_settings.enabled !== false && message.keyboard_settings.enabled !== 'false');
+        }
+        if (message.keyboard_settings.volume !== undefined) {
+          keyboardVolume = parseFloat(message.keyboard_settings.volume);
+        }
+        if (message.keyboard_settings.custom_sounds) {
+          customKeySounds = message.keyboard_settings.custom_sounds;
+        }
+        console.log(`[Extensao] Teclas mecânicas atualizadas: ${keyboardSoundsEnabled} | Volume: ${keyboardVolume}`);
       }
       console.log(`[Extensao] Modo atualizado: ${currentOperationMode} | AutoSend: ${autoSendEnabled} | Agradecimento: ${speechSettings.thank_enabled}`);
       if (currentOperationMode === 'FULL' || currentOperationMode === 'ENTREGA' || currentOperationMode === 'FALA') {
@@ -2199,6 +2219,13 @@
         </div>
         <div class="rs-divider"></div>
         <div class="rs-tts-section">
+          <div class="rs-ia-row" style="margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+            <span class="rs-ia-label" style="display:flex; align-items:center; gap:4px;">⌨️ Teclas Mecânicas</span>
+            <label class="rs-toggle">
+              <input type="checkbox" id="rsKeyboardToggle">
+              <span class="rs-toggle-track"></span>
+            </label>
+          </div>
           <div class="rs-ia-row">
             <span class="rs-ia-label">Voice</span>
             <label class="rs-toggle">
@@ -2336,6 +2363,40 @@
         savePresets();
       });
     });
+
+    // Wiring do controle de Teclas Mecânicas
+    const kbToggleEl = panel.querySelector('#rsKeyboardToggle');
+    if (kbToggleEl) {
+      kbToggleEl.checked = isKeyboardActive();
+      kbToggleEl.addEventListener('change', () => {
+        keyboardSoundsEnabled = kbToggleEl.checked;
+        if (!kbToggleEl.checked) {
+          keyboardVolume = 0;
+        } else if (keyboardVolume <= 0) {
+          keyboardVolume = 0.85;
+        }
+        chrome.storage.local.set({
+          keyboardSoundsEnabled: keyboardSoundsEnabled,
+          keyboardVolume: keyboardVolume
+        });
+        // Sincroniza Supabase
+        fetch('https://ojjfwxjirlttpxcjhlho.supabase.co/rest/v1/bgl_config?key=eq.keyboard_settings', {
+          method: 'PATCH',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            value: {
+              enabled: keyboardSoundsEnabled,
+              volume: keyboardVolume,
+              updated_at: Date.now()
+            }
+          })
+        }).catch(() => {});
+      });
+    }
 
     // Wiring dos controles de TTS
     const ttsToggleEl = panel.querySelector('#rsTtsToggle');
@@ -2828,9 +2889,71 @@
     if (data.ttsVoiceName) ttsVoiceName = data.ttsVoiceName;
     if (data.ttsEndLiveText) ttsEndLiveText = data.ttsEndLiveText;
     if (data.ttsEndLiveRecording) ttsEndLiveRecording = data.ttsEndLiveRecording;
-    if (data.keyboardSoundsEnabled !== undefined) keyboardSoundsEnabled = !!data.keyboardSoundsEnabled;
+    if (data.keyboardSoundsEnabled !== undefined) {
+      keyboardSoundsEnabled = (data.keyboardSoundsEnabled !== false && data.keyboardSoundsEnabled !== 'false');
+    }
     if (data.keyboardVolume !== undefined) keyboardVolume = parseFloat(data.keyboardVolume);
     if (data.customKeySounds) customKeySounds = data.customKeySounds;
+
+    // Sincroniza periodicamente com storage e Supabase diretamente na aba
+    async function syncKeyboardDirectly() {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get(['keyboardSoundsEnabled', 'keyboardVolume', 'customKeySounds'], res => {
+            if (res) {
+              if (res.keyboardSoundsEnabled !== undefined) {
+                keyboardSoundsEnabled = (res.keyboardSoundsEnabled !== false && res.keyboardSoundsEnabled !== 'false');
+              }
+              if (res.keyboardVolume !== undefined) {
+                keyboardVolume = parseFloat(res.keyboardVolume);
+              }
+              if (res.customKeySounds) customKeySounds = res.customKeySounds;
+            }
+          });
+        }
+        const res = await fetch('https://ojjfwxjirlttpxcjhlho.supabase.co/rest/v1/bgl_config?key=eq.keyboard_settings&select=value', {
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU'
+          }
+        });
+        if (res.ok) {
+          const rows = await res.json();
+          if (rows && rows[0] && rows[0].value) {
+            const val = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+            if (val) {
+              if (val.enabled !== undefined) {
+                keyboardSoundsEnabled = (val.enabled !== false && val.enabled !== 'false');
+              }
+              if (val.volume !== undefined) {
+                keyboardVolume = parseFloat(val.volume);
+              }
+              if (val.custom_sounds) {
+                customKeySounds = val.custom_sounds;
+              }
+            }
+          }
+        }
+      } catch(e) {}
+    }
+    syncKeyboardDirectly();
+    setInterval(syncKeyboardDirectly, 3000);
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, namespace) => {
+        if (namespace === 'local') {
+          if (changes.keyboardSoundsEnabled !== undefined) {
+            keyboardSoundsEnabled = (changes.keyboardSoundsEnabled.newValue !== false && changes.keyboardSoundsEnabled.newValue !== 'false');
+          }
+          if (changes.keyboardVolume !== undefined) {
+            keyboardVolume = parseFloat(changes.keyboardVolume.newValue);
+          }
+          if (changes.customKeySounds !== undefined) {
+            customKeySounds = changes.customKeySounds.newValue || {};
+          }
+        }
+      });
+    }
 
     blockRobloxLaunchDialog();
     autoCloseFoundationCloseButton();

@@ -3003,16 +3003,20 @@
   let activeRecordingKeyId = null;
   let recordingChunks = [];
 
+  function isKeyboardActiveDashboard() {
+    return (keyboardSettings.enabled !== false && keyboardSettings.enabled !== 'false' && (keyboardSettings.volume === undefined || keyboardSettings.volume > 0));
+  }
+
   function applyKeyboardSettingsUI() {
-    const isEnabled = keyboardSettings.enabled !== false;
+    const isEnabled = isKeyboardActiveDashboard();
     const toggle = document.getElementById('keyboard-enabled');
     const badge = document.getElementById('keyboard-enabled-badge');
     if (toggle) toggle.checked = isEnabled;
     if (badge) {
       badge.innerText = isEnabled ? 'ATIVADO' : 'DESATIVADO';
-      badge.style.background = isEnabled ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 116, 139, 0.15)';
-      badge.style.borderColor = isEnabled ? 'var(--accent-blue)' : 'var(--border)';
-      badge.style.color = isEnabled ? '#60a5fa' : 'var(--text-muted)';
+      badge.style.background = isEnabled ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+      badge.style.borderColor = isEnabled ? 'var(--accent-blue)' : 'rgba(239, 68, 68, 0.4)';
+      badge.style.color = isEnabled ? '#60a5fa' : '#f87171';
     }
 
     const volSlider = document.getElementById('keyboard-volume');
@@ -3027,7 +3031,10 @@
   function toggleKeyboardSounds() {
     const toggle = document.getElementById('keyboard-enabled');
     if (toggle) {
-      keyboardSettings.enabled = toggle.checked;
+      keyboardSettings.enabled = !!toggle.checked;
+      if (!toggle.checked) {
+        console.log('[Keyboard] Sons de teclas mecânicas DESATIVADOS pelo usuário.');
+      }
       saveKeyboardSettings();
     }
   }
@@ -3036,6 +3043,11 @@
     const num = parseFloat(val);
     if (!isNaN(num)) {
       keyboardSettings.volume = num;
+      if (num === 0) {
+        keyboardSettings.enabled = false;
+      } else if (keyboardSettings.enabled === false && num > 0) {
+        keyboardSettings.enabled = true;
+      }
       const volVal = document.getElementById('keyboard-volume-val');
       if (volVal) volVal.innerText = Math.round(num * 100) + '%';
       saveKeyboardSettings();
@@ -3053,19 +3065,21 @@
   }
 
   function playKeySoundDashboard(keyId) {
-    if (keyboardSettings.enabled === false) return;
+    if (!isKeyboardActiveDashboard()) return;
     try {
       const src = getKeyAudioSrc(keyId);
       if (!src) return;
+      const baseVol = keyboardSettings.volume !== undefined ? keyboardSettings.volume : 0.85;
+      if (baseVol <= 0) return;
       const audio = new Audio(src);
       audio.playbackRate = 0.96 + Math.random() * 0.08;
-      const baseVol = keyboardSettings.volume !== undefined ? keyboardSettings.volume : 0.85;
-      audio.volume = Math.min(1.0, Math.max(0.1, baseVol * (0.88 + Math.random() * 0.12)));
+      audio.volume = Math.min(1.0, Math.max(0.01, baseVol * (0.88 + Math.random() * 0.12)));
       audio.play().catch(() => {});
     } catch(e) {}
   }
 
   function handleTestTypingKey(e) {
+    if (!isKeyboardActiveDashboard()) return;
     if (e.key === ' ' || e.code === 'Space') {
       playKeySoundDashboard('spacebar');
     } else if (e.key === 'Enter') {
@@ -3083,6 +3097,10 @@
 
   let demoRunning = false;
   async function runKeyboardTypingDemo() {
+    if (!isKeyboardActiveDashboard()) {
+      alert('Os sons de teclas mecânicas estão DESATIVADOS! Ative a chave acima ou aumente o volume para ouvir a demonstração.');
+      return;
+    }
     if (demoRunning) return;
     demoRunning = true;
     const btn = document.getElementById('keyboard-test-btn');
@@ -3825,11 +3843,15 @@
       renderFalasQueue();
 
       try {
-        if (item.isLiveProof && item.keyboard_sound) {
-          const kbAudio = new Audio('https://actions.google.com/sounds/v1/foley/keyboard_typing.ogg');
-          kbAudio.volume = 0.4;
-          kbAudio.play().catch(() => {});
-          setTimeout(() => { try { kbAudio.pause(); } catch(e){} }, 4000);
+        const isKbActive = (keyboardSettings.enabled !== false && keyboardSettings.enabled !== 'false' && (keyboardSettings.volume === undefined || keyboardSettings.volume > 0));
+        if (item.isLiveProof && item.keyboard_sound && isKbActive) {
+          const kbVol = keyboardSettings.volume !== undefined ? parseFloat(keyboardSettings.volume) : 0.4;
+          if (kbVol > 0) {
+            const kbAudio = new Audio('https://actions.google.com/sounds/v1/foley/keyboard_typing.ogg');
+            kbAudio.volume = Math.min(1.0, Math.max(0.02, kbVol * 0.5));
+            kbAudio.play().catch(() => {});
+            setTimeout(() => { try { kbAudio.pause(); } catch(e){} }, 4000);
+          }
         }
 
         const voiceIdx = parseInt(document.getElementById('global-tts-voice')?.value) || 0;

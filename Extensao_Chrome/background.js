@@ -42,6 +42,15 @@ function broadcastSettingsToTabs(settings) {
   }
   if (settings.keyboard_settings) {
     currentKeyboardSettings = Object.assign({}, currentKeyboardSettings, settings.keyboard_settings);
+    const kbOn = (currentKeyboardSettings.enabled !== false && currentKeyboardSettings.enabled !== 'false' && (currentKeyboardSettings.volume === undefined || currentKeyboardSettings.volume > 0));
+    const kbVol = currentKeyboardSettings.volume !== undefined ? parseFloat(currentKeyboardSettings.volume) : 0.85;
+    try {
+      chrome.storage.local.set({
+        keyboardSoundsEnabled: kbOn,
+        keyboardVolume: kbVol,
+        customKeySounds: currentKeyboardSettings.custom_sounds || {}
+      });
+    } catch (e) {}
   }
   currentSettings = Object.assign({}, currentSettings, settings);
   try {
@@ -133,6 +142,15 @@ async function fetchConfigFromSupabase() {
             });
           } else if (item.key === 'keyboard_settings' && val) {
             currentKeyboardSettings = Object.assign({}, currentKeyboardSettings, val);
+            const kbOn = (currentKeyboardSettings.enabled !== false && currentKeyboardSettings.enabled !== 'false' && (currentKeyboardSettings.volume === undefined || currentKeyboardSettings.volume > 0));
+            const kbVol = currentKeyboardSettings.volume !== undefined ? parseFloat(currentKeyboardSettings.volume) : 0.85;
+            try {
+              chrome.storage.local.set({
+                keyboardSoundsEnabled: kbOn,
+                keyboardVolume: kbVol,
+                customKeySounds: currentKeyboardSettings.custom_sounds || {}
+              });
+            } catch (e) {}
             broadcastSettingsToTabs({
               keyboard_settings: currentKeyboardSettings
             });
