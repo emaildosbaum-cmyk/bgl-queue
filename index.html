@@ -2019,6 +2019,8 @@
     if (hBread) hBread.innerText = meta.breadcrumb;
 
     if (name === "stats") updateStatsUI();
+    if (name === "speech" && typeof renderFalasList === "function") renderFalasList();
+    if (name === "liveproof" && typeof renderLiveProofUI === "function") renderLiveProofUI();
   }
 
   /* ═════════════════════════════════════════════════════════════
@@ -2362,33 +2364,52 @@
             }
           })
           .on("postgres_changes", { event: "*", schema: "public", table: "bgl_config" }, (payload) => {
-            if (payload.new && payload.new.key === "tiktok_status") {
-              const val = payload.new.value;
-              if (val) updateTikTokStatusUI(val.connected, val.connecting, val.username);
+            if (!payload.new) return;
+            const k = payload.new.key;
+            const val = payload.new.value;
+            if (k === "tiktok_status" && val) {
+              updateTikTokStatusUI(val.connected, val.connecting, val.username);
             }
-            if (payload.new && payload.new.key === "operation_mode") {
-              const val = payload.new.value;
-              if (val && val.operation_mode) {
-                currentMode = val.operation_mode;
-                localStorage.setItem('operationMode', currentMode);
-                applyOperationModeUI(currentMode);
-              }
+            if (k === "operation_mode" && val && val.operation_mode) {
+              currentMode = val.operation_mode;
+              localStorage.setItem('operationMode', currentMode);
+              applyOperationModeUI(currentMode);
             }
-            if (payload.new && payload.new.key === "speech_settings") {
-              const val = payload.new.value;
-              if (val && typeof val === "object") {
+            if (k === "speech_settings" && val && typeof val === "object") {
+              const activeEl = document.activeElement;
+              if (!activeEl || (activeEl.id !== 'speech-thank-template' && activeEl.id !== 'speech-thank-timing')) {
                 speechSettings = Object.assign({}, speechSettings, val);
                 localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
                 if (typeof applySpeechThankUI === "function") applySpeechThankUI();
-    applyKeyboardSettingsUI();
               }
             }
-            if (payload.new && payload.new.key === "keyboard_settings") {
-              const val = payload.new.value;
-              if (val && typeof val === "object") {
-                keyboardSettings = Object.assign({}, keyboardSettings, val);
-                localStorage.setItem('bgl_keyboard_settings', JSON.stringify(keyboardSettings));
-                if (typeof applyKeyboardSettingsUI === "function") applyKeyboardSettingsUI();
+            if (k === "keyboard_settings" && val && typeof val === "object") {
+              keyboardSettings = Object.assign({}, keyboardSettings, val);
+              localStorage.setItem('bgl_keyboard_settings', JSON.stringify(keyboardSettings));
+              if (typeof applyKeyboardSettingsUI === "function") applyKeyboardSettingsUI();
+            }
+            if (k === "falas_list" && Array.isArray(val)) {
+              const activeEl = document.activeElement;
+              const isEditingFala = activeEl && (activeEl.classList.contains('fala-version-input') || activeEl.hasAttribute('data-fala-id'));
+              if (!isEditingFala) {
+                falasList = val;
+                localStorage.setItem('falasList', JSON.stringify(falasList));
+                renderFalasList();
+                restartFalasTimers();
+              }
+            }
+            if (k === "falas_global" && val && typeof val === "object") {
+              falasGlobal = Object.assign({}, falasGlobal, val);
+              localStorage.setItem('falasGlobal', JSON.stringify(falasGlobal));
+              if (val.muteAllAudio !== undefined) updateMuteUI(val.muteAllAudio);
+            }
+            if (k === "liveproof_config" && val && typeof val === "object") {
+              const activeEl = document.activeElement;
+              const isEditingLiveProof = activeEl && (activeEl.id === 'liveproof-current-text' || (activeEl.id && activeEl.id.startsWith('liveproof-')));
+              if (!isEditingLiveProof) {
+                liveProofConfig = Object.assign({}, liveProofConfig, val);
+                localStorage.setItem('liveProofConfig', JSON.stringify(liveProofConfig));
+                if (typeof renderLiveProofUI === "function") renderLiveProofUI();
               }
             }
           })
@@ -2450,9 +2471,13 @@
         .eq("key", "speech_settings")
         .maybeSingle();
       if (cSpeech && cSpeech.value && typeof cSpeech.value === "object") {
-        speechSettings = Object.assign({}, speechSettings, cSpeech.value);
-        localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
-        if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+        const activeEl = document.activeElement;
+        const isEditingSpeech = activeEl && (activeEl.id === 'speech-thank-template' || activeEl.id === 'speech-thank-timing');
+        if (!isEditingSpeech) {
+          speechSettings = Object.assign({}, speechSettings, cSpeech.value);
+          localStorage.setItem('speechSettings', JSON.stringify(speechSettings));
+          if (typeof applySpeechThankUI === "function") applySpeechThankUI();
+        }
       }
 
       const { data: cKb } = await supabaseClient
@@ -2464,6 +2489,46 @@
         keyboardSettings = Object.assign({}, keyboardSettings, cKb.value);
         localStorage.setItem('bgl_keyboard_settings', JSON.stringify(keyboardSettings));
         if (typeof applyKeyboardSettingsUI === "function") applyKeyboardSettingsUI();
+      }
+
+      const { data: cFalas } = await supabaseClient
+        .from("bgl_config")
+        .select("*")
+        .eq("key", "falas_list")
+        .maybeSingle();
+      if (cFalas && Array.isArray(cFalas.value) && cFalas.value.length > 0) {
+        const activeEl = document.activeElement;
+        const isEditingFala = activeEl && (activeEl.classList.contains('fala-version-input') || activeEl.hasAttribute('data-fala-id'));
+        if (!isEditingFala) {
+          falasList = cFalas.value;
+          localStorage.setItem('falasList', JSON.stringify(falasList));
+          renderFalasList();
+        }
+      }
+
+      const { data: cFalasGlobal } = await supabaseClient
+        .from("bgl_config")
+        .select("*")
+        .eq("key", "falas_global")
+        .maybeSingle();
+      if (cFalasGlobal && cFalasGlobal.value && typeof cFalasGlobal.value === "object") {
+        falasGlobal = Object.assign({}, falasGlobal, cFalasGlobal.value);
+        localStorage.setItem('falasGlobal', JSON.stringify(falasGlobal));
+      }
+
+      const { data: cLiveProof } = await supabaseClient
+        .from("bgl_config")
+        .select("*")
+        .eq("key", "liveproof_config")
+        .maybeSingle();
+      if (cLiveProof && cLiveProof.value && typeof cLiveProof.value === "object") {
+        const activeEl = document.activeElement;
+        const isEditingLiveProof = activeEl && (activeEl.id === 'liveproof-current-text' || (activeEl.id && activeEl.id.startsWith('liveproof-')));
+        if (!isEditingLiveProof) {
+          liveProofConfig = Object.assign({}, liveProofConfig, cLiveProof.value);
+          localStorage.setItem('liveProofConfig', JSON.stringify(liveProofConfig));
+          if (typeof renderLiveProofUI === "function") renderLiveProofUI();
+        }
       }
     } catch (e) {
       console.warn("[Supabase] Erro ao carregar estado inicial:", e);
@@ -4035,7 +4100,7 @@
 
   function addFala() {
     const newId = Date.now();
-    falasList.push({
+    const newFala = {
       id: newId,
       name: 'Fala ' + (falasList.length + 1),
       enabled: true,
@@ -4048,17 +4113,38 @@
         { id: 3, text: 'Valeu pela confiança, aproveite seus Robux!' }
       ],
       recentPlayed: []
-    });
+    };
+    falasList.push(newFala);
     activeFalaVersionMap[newId] = 1;
-    saveFalasAll();
+    saveFalasAll(true);
     renderFalasList();
+
+    // Rola instantaneamente até o novo card criado e destaca visualmente sem precisar de F5
+    setTimeout(() => {
+      const card = document.querySelector(`[data-fala-card-id="${newId}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.transition = 'box-shadow 0.3s ease, border-color 0.3s ease';
+        card.style.boxShadow = '0 0 24px rgba(59, 130, 246, 0.7)';
+        card.style.borderColor = 'var(--primary)';
+        setTimeout(() => {
+          card.style.boxShadow = '';
+          card.style.borderColor = 'var(--border)';
+        }, 1800);
+        const nameInp = card.querySelector('input[data-field="name"]');
+        if (nameInp) {
+          nameInp.focus();
+          nameInp.select();
+        }
+      }
+    }, 60);
   }
 
   function removeFala(falaId) {
     if (!confirm('Deseja excluir esta fala permanentemente?')) return;
     falasList = falasList.filter(f => f.id !== falaId);
     delete activeFalaVersionMap[falaId];
-    saveFalasAll();
+    saveFalasAll(true);
     renderFalasList();
   }
 
@@ -4070,8 +4156,16 @@
     const newId = maxId + 1;
     fala.versions.push({ id: newId, text: '' });
     activeFalaVersionMap[falaId] = newId;
-    saveFalasAll();
+    saveFalasAll(true);
     renderFalasList();
+
+    setTimeout(() => {
+      const card = document.querySelector(`[data-fala-card-id="${falaId}"]`);
+      if (card) {
+        const txt = card.querySelector(`.fala-version-input[data-version-id="${newId}"]`);
+        if (txt) { txt.focus(); }
+      }
+    }, 50);
   }
 
   function removeFalaVersion(falaId, versionId) {
@@ -4085,7 +4179,7 @@
     fala.versions = fala.versions.filter(v => v.id !== versionId);
     deleteVersionRecording(falaId, versionId);
     activeFalaVersionMap[falaId] = fala.versions[0].id;
-    saveFalasAll();
+    saveFalasAll(true);
     renderFalasList();
   }
 
@@ -4199,6 +4293,7 @@
     falasList.forEach(fala => {
       ensureFalaVersions(fala);
       const card = document.createElement('div');
+      card.dataset.falaCardId = fala.id;
       card.style.cssText = 'background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 12px;';
 
       if (!activeFalaVersionMap[fala.id] || !fala.versions.some(v => v.id === activeFalaVersionMap[fala.id])) {
@@ -4626,8 +4721,13 @@
     const newId = maxId + 1;
     liveProofConfig.versions.push({ id: newId, text: 'Tô ao vivo rapaziada, não é gravado!' });
     activeLiveProofVersionId = newId;
-    saveLiveProofSettings();
+    saveLiveProofSettings(true);
     renderLiveProofUI();
+
+    setTimeout(() => {
+      const curTxt = document.getElementById('liveproof-current-text');
+      if (curTxt) { curTxt.focus(); curTxt.select(); }
+    }, 50);
   }
 
   function deleteLiveProofActiveVersion() {
@@ -4728,7 +4828,9 @@
   }
 
   // ── Persistência & Sync com Servidor ─────────────────────────
-  function saveFalasAll() {
+  let saveFalasDebounceTimer = null;
+
+  function saveFalasAll(immediate = false) {
     localStorage.setItem('falasList', JSON.stringify(falasList));
     falasGlobal = {
       outputDevice: document.getElementById('audio-output-device')?.value || '',
@@ -4744,14 +4846,33 @@
     restartFalasTimers();
     saveSpeechToServer();
 
+    const doSync = () => {
+      supabaseSyncOperation("POST", "bgl_config", {
+        key: "falas_list",
+        value: falasList
+      });
+      supabaseSyncOperation("POST", "bgl_config", {
+        key: "falas_global",
+        value: falasGlobal
+      });
+    };
+
+    if (immediate) {
+      if (saveFalasDebounceTimer) clearTimeout(saveFalasDebounceTimer);
+      doSync();
+    } else {
+      if (saveFalasDebounceTimer) clearTimeout(saveFalasDebounceTimer);
+      saveFalasDebounceTimer = setTimeout(doSync, 400);
+    }
+
     const st = document.getElementById('falas-save-status');
     if (st) {
-      st.innerText = '✅ Todas as falas e configurações salvas com sucesso!';
-      setTimeout(() => st.innerText = '', 3000);
+      st.innerText = '✅ Todas as falas salvas e sincronizadas na nuvem!';
+      setTimeout(() => { if (st.innerText.includes('salvas')) st.innerText = ''; }, 3000);
     }
   }
 
-  function saveLiveProofSettings() {
+  function saveLiveProofSettings(silent = false) {
     ensureLiveProofVersions();
     liveProofConfig.enabled = document.getElementById('liveproof-enabled')?.checked ?? true;
     liveProofConfig.src = document.querySelector('input[name="liveproof-src"]:checked')?.value || 'tts';
@@ -4769,7 +4890,15 @@
 
     localStorage.setItem('liveProofConfig', JSON.stringify(liveProofConfig));
     saveSpeechToServer();
-    alert('✅ Configurações da Prova Fake salvas com sucesso!');
+
+    supabaseSyncOperation("POST", "bgl_config", {
+      key: "liveproof_config",
+      value: liveProofConfig
+    });
+
+    if (!silent) {
+      alert('✅ Configurações da Prova Fake salvas com sucesso!');
+    }
   }
 
   function saveSpeechToServer() {
