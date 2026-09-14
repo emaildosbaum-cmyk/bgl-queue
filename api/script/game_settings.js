@@ -27,13 +27,14 @@ module.exports = async (req, res) => {
   };
 
   try {
-    const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?script_token=eq.${encodeURIComponent(token)}&select=discord_id`, { headers });
+    const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?script_token=eq.${encodeURIComponent(token)}&select=discord_id,username`, { headers });
     const profiles = await profileResp.json();
     if (!profiles || profiles.length === 0) {
       res.statusCode = 401;
       return res.end(JSON.stringify({ error: "Token inválido" }));
     }
     const userId = profiles[0].discord_id;
+    const userName = profiles[0].username || userId;
 
     const cfgResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_configs?discord_id=eq.${encodeURIComponent(userId)}&select=*`, { headers });
     const configs = await cfgResp.json();
@@ -46,6 +47,8 @@ module.exports = async (req, res) => {
 
     res.statusCode = 200;
     return res.end(JSON.stringify({
+      user_id: userId,
+      username: userName,
       operation_mode: userCfg.operation_mode || "FULL",
       auto_send: userCfg.operation_mode === "FULL" || userCfg.operation_mode === "ENTREGA",
       step_timeouts: stepTimeouts,

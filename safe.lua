@@ -459,19 +459,45 @@ local function getCurrentFruitName()
     return name
 end
 
-local function getCurrentPlayerName()
-    -- Prioridade máxima: nome digitado na SearchBox do jogo
-    if searchBoxPlayerName and searchBoxPlayerName ~= "" then
-        return formatUsernameForNotification(searchBoxPlayerName)
+-- Extrai o nome limpo do jogador a partir do texto Footer.Context da GiftWindow (ex: "Gifting [NOME] <FRUTA}>")
+local function extractPlayerNameFromGiftContext(rawText)
+    if not rawText or rawText == "" then return nil end
+    local clean = tostring(rawText):gsub("<[^<>]->", ""):gsub("[}%]{}\"]", "")
+    
+    -- 1. Tenta extrair entre colchetes [NOME] (padrão oficial: "Gifting [NOME] <FRUTA}>")
+    local inBrackets = clean:match("%[%s*([^%[%]%<%>%{%}%s]+)%s*%]")
+    if inBrackets and inBrackets ~= "" then
+        local candidate = inBrackets:gsub("[%[%]%<%>%{%}%\"%']", ""):match("^%s*(.-)%s*$")
+        if candidate and candidate ~= "" and candidate:lower() ~= "player" then
+            return candidate
+        end
     end
-    if activeTargetPlayer and activeTargetPlayer ~= "" then
-        return formatUsernameForNotification(activeTargetPlayer)
+
+    -- 2. Tenta extrair após Gifting e antes de < (ex: "Gifting NomePlayer <Fruit>")
+    local afterGifting = clean:match("^[Gg]ifting%s+([^%[%]%<%>%{%}]+)%s*<")
+        or clean:match("[Gg]ifting%s+([^%[%]%<%>%{%}]+)%s*<")
+        or clean:match("^[Pp]resenteando%s+([^%[%]%<%>%{%}]+)%s*<")
+        or clean:match("[Pp]resenteando%s+([^%[%]%<%>%{%}]+)%s*<")
+    if afterGifting and afterGifting ~= "" then
+        local candidate = afterGifting:gsub("[%[%]%<%>%{%}%\"%']", ""):match("^%s*(.-)%s*$")
+        if candidate and candidate ~= "" and candidate:lower() ~= "player" then
+            return candidate
+        end
     end
-    if selectedPlayerName and selectedPlayerName ~= "" then
-        return formatUsernameForNotification(selectedPlayerName)
+
+    -- 3. Fallback genérico para pegar a primeira palavra após Gifting
+    local wordAfter = clean:match("[Gg]ifting%s+%[?([%w_]+)%]?")
+    if wordAfter and wordAfter ~= "" and wordAfter:lower() ~= "player" then
+        return wordAfter
     end
     
+    return nil
+end
+
+local function getCurrentPlayerName()
     local giftWindow = playerGui:FindFirstChild("GiftWindow")
+    
+    -- 1. Se a caixa de pesquisa (SearchBox) tiver texto digitado atualmente
     if giftWindow then
         local content = giftWindow:FindFirstChild("Content", true)
         if content then
@@ -482,6 +508,30 @@ local function getCurrentPlayerName()
             end
         end
     end
+    
+    -- 2. Se a TextBox estiver vazia: PEGA DIRETO DE Footer.Context (sem usar o nome antigo/cache!)
+    if giftWindow then
+        local footer = giftWindow:FindFirstChild("Window") and giftWindow.Window:FindFirstChild("Footer")
+        local context = footer and footer:FindFirstChild("Context")
+        if context and context.Text and context.Text ~= "" then
+            local extractedUser = extractPlayerNameFromGiftContext(context.Text)
+            if extractedUser and extractedUser ~= "" and extractedUser:lower() ~= "player" then
+                return formatUsernameForNotification(extractedUser)
+            end
+        end
+    end
+    
+    -- 3. Fallbacks secundários apenas se a GiftWindow não estiver ativa
+    if searchBoxPlayerName and searchBoxPlayerName ~= "" and searchBoxPlayerName ~= "Search..." and searchBoxPlayerName ~= "Search" then
+        return formatUsernameForNotification(searchBoxPlayerName)
+    end
+    if activeTargetPlayer and activeTargetPlayer ~= "" then
+        return formatUsernameForNotification(activeTargetPlayer)
+    end
+    if selectedPlayerName and selectedPlayerName ~= "" then
+        return formatUsernameForNotification(selectedPlayerName)
+    end
+    
     return "Player"
 end
 
@@ -1280,6 +1330,7 @@ local GuiBusy = false
 local buyInProgress = false
 local purchaseComplete = true
 local buyPurchasedThisCycle = false
+local currentBuyCycleId = 0
 
 local function startFillAnimation()
     canBuy = false
@@ -1295,6 +1346,7 @@ local function startFillAnimation()
 end
 
 local function closeGui()
+    currentBuyCycleId = currentBuyCycleId + 1 -- Invalida qualquer ciclo pendente imediatamente!
     if GuiBusy or not screenGui.Enabled then return end
     GuiBusy = true
     local tween = TweenService:Create(mainFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
@@ -1315,6 +1367,21 @@ local function openGui()
     if GuiBusy or screenGui.Enabled then return end
     GuiBusy = true
     buyPurchasedThisCycle = false
+    currentBuyCycleId = currentBuyCycleId + 1
+    local myCycleId = currentBuyCycleId
+
+    -- Suporte a ROBLOX PLUS: 10% de desconto no preço e oculta o aviso promocional
+    pcall(function()
+        local rawPrice = parseNumber(priceText.Text) or parseNumber(GENERIC_ITEM_PRICE) or 0
+        if currentSettings.roblox_plus then
+            if promoFrame then promoFrame.Visible = false end
+            local discounted = math.floor(rawPrice * 0.9)
+            if priceText then priceText.Text = formatNumber(discounted) end
+        else
+            if promoFrame then promoFrame.Visible = true end
+        end
+    end)
+
     screenGui.Enabled = true
     task.wait()
     mainFrame.Visible = false
@@ -1338,8 +1405,21 @@ local function openGui()
     task.spawn(function()
         logStep("Aguardando carregamento da animação de Compra...")
         task.wait(1.7)
+
+        -- TRAVA DE SEGURANÇA: Se a GUI foi fechada pelo streamer/usuário, ABORTA IMEDIATAMENTE!
+        if currentBuyCycleId ~= myCycleId or not screenGui.Enabled or not mainFrame.Visible then
+            print("[AutoBuyer] Compra abortada com sucesso: Buy GUI foi fechada pelo usuário antes da finalização.")
+            return
+        end
+
         logStep("Clicando no botão de Compra (Buy)...")
         cleanMouseClick(buyButton)
+
+        task.wait(0.08)
+        if currentBuyCycleId ~= myCycleId or not screenGui.Enabled or not mainFrame.Visible then
+            print("[AutoBuyer] Compra abortada: Buy GUI fechada durante o processo de clique.")
+            return
+        end
         
         -- Garante a execução da dedução e notificação se o clique não disparar o evento
         if not buyPurchasedThisCycle then
@@ -2189,71 +2269,99 @@ settingsGui.Parent = playerGui
 
 local settingsFrame = Instance.new("Frame")
 settingsFrame.Name = "SettingsFrame"
-settingsFrame.Size = UDim2.fromOffset(240, 430)
-settingsFrame.Position = UDim2.new(1, -255, 0, 55)
-settingsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+settingsFrame.Size = UDim2.fromOffset(250, 310)
+settingsFrame.Position = UDim2.new(1, -265, 0, 15)
+settingsFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
 settingsFrame.Visible = false
 settingsFrame.Parent = settingsGui
 
 local frameCorner = Instance.new("UICorner")
-frameCorner.CornerRadius = UDim.new(0, 8)
+frameCorner.CornerRadius = UDim.new(0, 10)
 frameCorner.Parent = settingsFrame
 
 local frameStroke = Instance.new("UIStroke")
-frameStroke.Color = Color3.fromRGB(60, 60, 65)
+frameStroke.Color = Color3.fromRGB(55, 55, 62)
 frameStroke.Thickness = 1
 frameStroke.Parent = settingsFrame
 
 local frameTitle = Instance.new("TextLabel")
-frameTitle.Size = UDim2.new(1, 0, 0, 30)
-frameTitle.Position = UDim2.fromOffset(0, 8)
+frameTitle.Size = UDim2.new(1, -40, 0, 24)
+frameTitle.Position = UDim2.new(0, 10, 0, 8)
 frameTitle.BackgroundTransparency = 1
-frameTitle.Text = "Configurações do Bridge"
+frameTitle.Text = "Configurações"
 frameTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-frameTitle.TextSize = 14
+frameTitle.TextSize = 13
 frameTitle.Font = Enum.Font.BuilderSansBold
+frameTitle.TextXAlignment = Enum.TextXAlignment.Left
 frameTitle.Parent = settingsFrame
+
+local closeSettingsBtn = createCloseIcon(settingsFrame, 20)
+closeSettingsBtn.Position = UDim2.new(1, -26, 0, 8)
+closeSettingsBtn.MouseButton1Click:Connect(function()
+    settingsFrame.Visible = false
+end)
+
+local wsStatusLabel = Instance.new("TextLabel")
+wsStatusLabel.Name = "WsStatusLabel"
+wsStatusLabel.Size = UDim2.new(1, -20, 0, 16)
+wsStatusLabel.Position = UDim2.new(0, 10, 0, 32)
+wsStatusLabel.BackgroundTransparency = 1
+wsStatusLabel.Text = "● Desconectado"
+wsStatusLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+wsStatusLabel.TextSize = 11
+wsStatusLabel.Font = Enum.Font.BuilderSansMedium
+wsStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+wsStatusLabel.Parent = settingsFrame
 
 local function createInput(placeholder, yPos, parent)
     local box = Instance.new("TextBox")
-    box.Size = UDim2.new(1, -20, 0, 30)
+    box.Size = UDim2.new(1, -20, 0, 28)
     box.Position = UDim2.new(0, 10, 0, yPos)
     box.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     box.PlaceholderText = placeholder
-    box.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+    box.PlaceholderColor3 = Color3.fromRGB(115, 115, 120)
     box.Text = ""
     box.TextColor3 = Color3.fromRGB(255, 255, 255)
-    box.TextSize = 13
+    box.TextSize = 12
     box.Font = Enum.Font.BuilderSansMedium
     box.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 4)
+    corner.CornerRadius = UDim.new(0, 5)
     corner.Parent = box
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(45, 45, 50)
+    stroke.Color = Color3.fromRGB(45, 45, 52)
     stroke.Thickness = 1
     stroke.Parent = box
     
     return box
 end
 
-robuxInput = createInput("Mock Robux (ex: 5,420)", 42, settingsFrame)
+-- 1. Input da Chave / Script Token
+local tokenInput = createInput("Chave / Token do Site (bgl_...)", 52, settingsFrame)
+if SCRIPT_TOKEN and SCRIPT_TOKEN ~= "" and SCRIPT_TOKEN ~= "SEU_TOKEN_AQUI" then
+    tokenInput.Text = SCRIPT_TOKEN
+end
 
+-- 2. Input de Robux Simulado
+robuxInput = createInput("Mock Robux (ex: 750,000)", 84, settingsFrame)
+robuxInput.Text = currentSettings.mock_balance or "750,000"
+
+-- Botão de Roletar Robux
 local rollRobuxBtn = Instance.new("TextButton")
 rollRobuxBtn.Name = "RollRobuxBtn"
-rollRobuxBtn.Size = UDim2.new(1, -20, 0, 26)
-rollRobuxBtn.Position = UDim2.new(0, 10, 0, 78)
+rollRobuxBtn.Size = UDim2.new(1, -20, 0, 24)
+rollRobuxBtn.Position = UDim2.new(0, 10, 0, 116)
 rollRobuxBtn.BackgroundColor3 = Color3.fromRGB(180, 100, 20)
 rollRobuxBtn.Text = "🎲 Roletar Robux (700k - 1M)"
 rollRobuxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-rollRobuxBtn.TextSize = 12
+rollRobuxBtn.TextSize = 11
 rollRobuxBtn.Font = Enum.Font.BuilderSansBold
 rollRobuxBtn.Parent = settingsFrame
 
 local rollCorner = Instance.new("UICorner")
-rollCorner.CornerRadius = UDim.new(0, 4)
+rollCorner.CornerRadius = UDim.new(0, 5)
 rollCorner.Parent = rollRobuxBtn
 
 rollRobuxBtn.MouseButton1Click:Connect(function()
@@ -2266,19 +2374,108 @@ rollRobuxBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
-local nameInput = createInput("Mock Item Name", 110, settingsFrame)
-local priceInput = createInput("Mock Item Price", 146, settingsFrame)
-local imageInput = createInput("Mock Item Image ID", 182, settingsFrame)
-local keybindInput = createInput("Tecla p/ Config (ex: P)", 218, settingsFrame)
+-- 3. Toggle Switch Animado do ROBLOX PLUS (-10% off)
+local rbxPlusFrame = Instance.new("Frame")
+rbxPlusFrame.Name = "RobloxPlusFrame"
+rbxPlusFrame.Size = UDim2.new(1, -20, 0, 30)
+rbxPlusFrame.Position = UDim2.new(0, 10, 0, 144)
+rbxPlusFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+rbxPlusFrame.BorderSizePixel = 0
+rbxPlusFrame.Parent = settingsFrame
 
+local rbxPlusCorner = Instance.new("UICorner")
+rbxPlusCorner.CornerRadius = UDim.new(0, 6)
+rbxPlusCorner.Parent = rbxPlusFrame
+
+local rbxPlusStroke = Instance.new("UIStroke")
+rbxPlusStroke.Color = Color3.fromRGB(42, 42, 48)
+rbxPlusStroke.Thickness = 1
+rbxPlusStroke.Parent = rbxPlusFrame
+
+local rbxPlusLabel = Instance.new("TextLabel")
+rbxPlusLabel.Size = UDim2.new(1, -55, 1, 0)
+rbxPlusLabel.Position = UDim2.new(0, 8, 0, 0)
+rbxPlusLabel.BackgroundTransparency = 1
+rbxPlusLabel.Text = "ROBLOX PLUS (-10%)"
+rbxPlusLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+rbxPlusLabel.TextSize = 11
+rbxPlusLabel.Font = Enum.Font.BuilderSansBold
+rbxPlusLabel.TextXAlignment = Enum.TextXAlignment.Left
+rbxPlusLabel.Parent = rbxPlusFrame
+
+local switchButton = Instance.new("TextButton")
+switchButton.Name = "SwitchButton"
+switchButton.Size = UDim2.new(0, 42, 0, 20)
+switchButton.Position = UDim2.new(1, -48, 0.5, -10)
+switchButton.BorderSizePixel = 0
+switchButton.Text = ""
+switchButton.AutoButtonColor = false
+switchButton.Parent = rbxPlusFrame
+
+local switchCorner = Instance.new("UICorner")
+switchCorner.CornerRadius = UDim.new(1, 0)
+switchCorner.Parent = switchButton
+
+local switchBall = Instance.new("Frame")
+switchBall.Name = "SwitchBall"
+switchBall.Size = UDim2.new(0, 16, 0, 16)
+switchBall.BorderSizePixel = 0
+switchBall.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+switchBall.Parent = switchButton
+
+local ballCorner = Instance.new("UICorner")
+ballCorner.CornerRadius = UDim.new(1, 0)
+ballCorner.Parent = switchBall
+
+local function updateRobloxPlusUI(enabled, animated)
+    local targetColor = enabled and Color3.fromRGB(40, 180, 60) or Color3.fromRGB(180, 40, 40)
+    local targetPos = enabled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    if animated then
+        TweenService:Create(switchButton, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundColor3 = targetColor
+        }):Play()
+        TweenService:Create(switchBall, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = targetPos
+        }):Play()
+    else
+        switchButton.BackgroundColor3 = targetColor
+        switchBall.Position = targetPos
+    end
+end
+
+updateRobloxPlusUI(currentSettings.roblox_plus == true, false)
+
+switchButton.MouseButton1Click:Connect(function()
+    currentSettings.roblox_plus = not (currentSettings.roblox_plus == true)
+    updateRobloxPlusUI(currentSettings.roblox_plus, true)
+    pcall(saveConfig)
+    
+    if screenGui and screenGui.Enabled then
+        if currentSettings.roblox_plus then
+            if promoFrame then promoFrame.Visible = false end
+            local curPrice = parseNumber(priceText.Text) or 0
+            priceText.Text = formatNumber(math.floor(curPrice * 0.9))
+        else
+            if promoFrame then promoFrame.Visible = true end
+            local origPrice = GENERIC_ITEM_PRICE
+            priceText.Text = formatNumber(origPrice)
+        end
+    end
+end)
+
+-- 4. Tecla de Atalho
+local keybindInput = createInput("Tecla de Atalho (ex: P)", 178, settingsFrame)
+keybindInput.Text = currentSettings.toggle_key or "P"
+
+-- 5. Botão Salvar e Sincronizar
 local saveBtn = Instance.new("TextButton")
 saveBtn.Name = "SaveBtn"
-saveBtn.Size = UDim2.new(1, -20, 0, 32)
-saveBtn.Position = UDim2.new(0, 10, 0, 258)
+saveBtn.Size = UDim2.new(1, -20, 0, 30)
+saveBtn.Position = UDim2.new(0, 10, 0, 210)
 saveBtn.BackgroundColor3 = Color3.fromRGB(53, 81, 198)
 saveBtn.Text = "Salvar e Sincronizar"
 saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-saveBtn.TextSize = 13
+saveBtn.TextSize = 12
 saveBtn.Font = Enum.Font.BuilderSansBold
 saveBtn.Parent = settingsFrame
 
@@ -2286,26 +2483,15 @@ local saveCorner = Instance.new("UICorner")
 saveCorner.CornerRadius = UDim.new(0, 6)
 saveCorner.Parent = saveBtn
 
-local wsStatusLabel = Instance.new("TextLabel")
-wsStatusLabel.Name = "WsStatusLabel"
-wsStatusLabel.Size = UDim2.new(1, -20, 0, 22)
-wsStatusLabel.Position = UDim2.new(0, 10, 0, 298)
-wsStatusLabel.BackgroundTransparency = 1
-wsStatusLabel.Text = "⬤ Desconectado do servidor"
-wsStatusLabel.TextColor3 = Color3.fromRGB(200, 60, 60)
-wsStatusLabel.TextSize = 12
-wsStatusLabel.Font = Enum.Font.BuilderSansMedium
-wsStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-wsStatusLabel.Parent = settingsFrame
-
+-- 6. Botão Reconectar Bridge
 local reconnectBtn = Instance.new("TextButton")
 reconnectBtn.Name = "ReconnectBtn"
-reconnectBtn.Size = UDim2.new(1, -20, 0, 35)
-reconnectBtn.Position = UDim2.new(0, 10, 0, 328)
+reconnectBtn.Size = UDim2.new(1, -20, 0, 28)
+reconnectBtn.Position = UDim2.new(0, 10, 0, 244)
 reconnectBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
 reconnectBtn.Text = "↺ Reconectar Bridge"
 reconnectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-reconnectBtn.TextSize = 14
+reconnectBtn.TextSize = 12
 reconnectBtn.Font = Enum.Font.BuilderSansBold
 reconnectBtn.Parent = settingsFrame
 
@@ -2313,18 +2499,64 @@ local reconnectCorner = Instance.new("UICorner")
 reconnectCorner.CornerRadius = UDim.new(0, 6)
 reconnectCorner.Parent = reconnectBtn
 
-local function setWsStatus(connected)
+local function setWsStatus(connected, streamerName)
     if connected then
-        wsStatusLabel.Text = "⬤ Conectado ao servidor"
-        wsStatusLabel.TextColor3 = Color3.fromRGB(60, 200, 80)
+        local stText = streamerName and (" (" .. streamerName .. ")") or ""
+        wsStatusLabel.Text = "● Conectado" .. stText
+        wsStatusLabel.TextColor3 = Color3.fromRGB(50, 220, 90)
         reconnectBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
         reconnectBtn.Text = "↺ Reconectar Bridge"
     else
-        wsStatusLabel.Text = "⬤ Desconectado do servidor"
-        wsStatusLabel.TextColor3 = Color3.fromRGB(200, 60, 60)
+        wsStatusLabel.Text = "● Desconectado"
+        wsStatusLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
         reconnectBtn.BackgroundColor3 = Color3.fromRGB(140, 40, 40)
         reconnectBtn.Text = "↺ Reconectar Bridge"
     end
+end
+
+local function validateTokenWithCloud(token)
+    if not token or token == "" or token == "SEU_TOKEN_AQUI" then
+        setWsStatus(false)
+        wsStatusLabel.Text = "● Chave não configurada"
+        return false
+    end
+    
+    wsStatusLabel.Text = "⏳ Validando chave na nuvem..."
+    wsStatusLabel.TextColor3 = Color3.fromRGB(220, 180, 40)
+    
+    local success, response = pcall(function()
+        local url = VERCEL_API_URL .. "/api/script/game_settings?token=" .. HttpService:UrlEncode(token)
+        if request then
+            local res = request({ Url = url, Method = "GET" })
+            return res.Body
+        elseif http_request then
+            local res = http_request({ Url = url, Method = "GET" })
+            return res.Body
+        elseif game.HttpGet then
+            return game:HttpGet(url)
+        else
+            return HttpService:GetAsync(url, true)
+        end
+    end)
+    
+    if success and response and response ~= "" then
+        local decOk, decoded = pcall(function() return HttpService:JSONDecode(response) end)
+        if decOk and decoded and not decoded.error then
+            local streamerName = decoded.username or decoded.user_id or "Online"
+            setWsStatus(true, streamerName)
+            SCRIPT_TOKEN = token
+            currentSettings.script_token = token
+            pcall(function()
+                if writefile then writefile("bgl_token.txt", token) end
+            end)
+            pcall(saveConfig)
+            return true
+        end
+    end
+    
+    setWsStatus(false)
+    wsStatusLabel.Text = "● Chave Inválida / Desconectado"
+    return false
 end
 
 local function syncGuiWithSettings(settings)
@@ -2333,13 +2565,29 @@ local function syncGuiWithSettings(settings)
     currentSettings.item_price = formatNumber(settings.item_price or currentSettings.item_price)
     currentSettings.item_image = settings.item_image or currentSettings.item_image
     currentSettings.toggle_key = settings.toggle_key or currentSettings.toggle_key or "P"
+    if settings.roblox_plus ~= nil then
+        currentSettings.roblox_plus = settings.roblox_plus == true
+    end
+    if settings.script_token and settings.script_token ~= "" and settings.script_token ~= "SEU_TOKEN_AQUI" then
+        SCRIPT_TOKEN = settings.script_token
+        currentSettings.script_token = settings.script_token
+    end
     
     pcall(saveConfig)
     
     pcall(function()
         if balanceText then balanceText.Text = currentSettings.mock_balance end
         if itemNameLabel then itemNameLabel.Text = currentSettings.item_name end
-        if priceText then priceText.Text = currentSettings.item_price end
+        if priceText then
+            local numPrice = parseNumber(currentSettings.item_price) or 0
+            if currentSettings.roblox_plus then
+                numPrice = math.floor(numPrice * 0.9)
+                if promoFrame then promoFrame.Visible = false end
+            else
+                if promoFrame then promoFrame.Visible = true end
+            end
+            priceText.Text = formatNumber(numPrice)
+        end
         if itemImage then 
             local img = currentSettings.item_image
             if currentSettings.item_name:lower():find("dragon") then
@@ -2351,21 +2599,43 @@ local function syncGuiWithSettings(settings)
     end)
     
     if robuxInput then robuxInput.Text = currentSettings.mock_balance end
-    if nameInput then nameInput.Text = currentSettings.item_name end
-    if priceInput then priceInput.Text = currentSettings.item_price end
-    if imageInput then imageInput.Text = currentSettings.item_image end
+    if tokenInput and SCRIPT_TOKEN and SCRIPT_TOKEN ~= "SEU_TOKEN_AQUI" then tokenInput.Text = SCRIPT_TOKEN end
     if keybindInput then keybindInput.Text = currentSettings.toggle_key end
+    updateRobloxPlusUI(currentSettings.roblox_plus == true, false)
 end
 
 syncGuiWithSettings(currentSettings)
 
 local function sendSettingsToBridge()
+    local rawToken = tokenInput.Text:gsub("%s+", "")
+    if rawToken ~= "" and rawToken ~= "SEU_TOKEN_AQUI" then
+        SCRIPT_TOKEN = rawToken
+        currentSettings.script_token = rawToken
+        pcall(function()
+            if writefile then writefile("bgl_token.txt", rawToken) end
+        end)
+    end
+
+    local rawKey = keybindInput.Text:gsub("%s+", ""):upper()
+    if rawKey ~= "" then
+        currentSettings.toggle_key = rawKey
+    end
+
+    if robuxInput.Text ~= "" then
+        currentSettings.mock_balance = formatNumber(robuxInput.Text)
+    end
+
+    pcall(saveConfig)
+
+    task.spawn(function()
+        validateTokenWithCloud(SCRIPT_TOKEN)
+    end)
+
     local payload = {
-        mock_balance = robuxInput.Text,
-        item_name = nameInput.Text,
-        item_price = priceInput.Text,
-        item_image = imageInput.Text,
-        toggle_key = keybindInput.Text
+        mock_balance = currentSettings.mock_balance,
+        toggle_key = currentSettings.toggle_key,
+        roblox_plus = currentSettings.roblox_plus,
+        script_token = SCRIPT_TOKEN
     }
     
     syncGuiWithSettings(payload)
@@ -2616,6 +2886,12 @@ reconnectBtn.MouseButton1Click:Connect(function()
     wsForceReconnect = true
     reconnectBtn.Text = "↺ Reconectando..."
     reconnectBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 30)
+    
+    -- Valida e reconecta à chave na nuvem
+    task.spawn(function()
+        validateTokenWithCloud(SCRIPT_TOKEN)
+    end)
+    
     if activeWS then
         pcall(function()
             if activeWS.Close then activeWS:Close() elseif activeWS.close then activeWS:close() end
@@ -2631,6 +2907,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if input.KeyCode == Enum.KeyCode.Escape then
         if screenGui.Enabled then closeGui() end
         if successGui.Enabled then closeSuccessGui() end
+        if settingsFrame and settingsFrame.Visible then settingsFrame.Visible = false end
     end
     
     if not gameProcessedEvent then

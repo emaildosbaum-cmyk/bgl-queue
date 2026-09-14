@@ -3732,17 +3732,40 @@
     }
   }
 
+  const STUDIO_AUDIO_CONSTRAINTS = {
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      sampleRate: { ideal: 48000 },
+      channelCount: { ideal: 2 }
+    }
+  };
+
+  function getHighQualityRecorder(stream) {
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus' : '');
+    const options = { audioBitsPerSecond: 320000 };
+    if (mimeType) options.mimeType = mimeType;
+    try {
+      return new MediaRecorder(stream, options);
+    } catch(e) {
+      return new MediaRecorder(stream);
+    }
+  }
+
   async function startRecordKey(keyId) {
     if (activeMediaRecorder && activeMediaRecorder.state === 'recording') {
       activeMediaRecorder.stop();
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia(STUDIO_AUDIO_CONSTRAINTS);
       recordingChunks = [];
       activeRecordingKeyId = keyId;
 
-      activeMediaRecorder = new MediaRecorder(stream);
+      activeMediaRecorder = getHighQualityRecorder(stream);
       activeMediaRecorder.ondataavailable = e => {
         if (e.data && e.data.size > 0) recordingChunks.push(e.data);
       };
@@ -3906,9 +3929,9 @@
 
   async function startThankRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia(STUDIO_AUDIO_CONSTRAINTS);
       thankChunks = [];
-      thankMediaRecorder = new MediaRecorder(stream);
+      thankMediaRecorder = getHighQualityRecorder(stream);
       thankMediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) thankChunks.push(e.data); };
       thankMediaRecorder.onstop = () => {
         const blob = new Blob(thankChunks, { type: 'audio/webm' });
@@ -4665,14 +4688,9 @@
   async function startVersionRecording(falaId, versionId) {
     const key = falaId + '_' + versionId;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: 48000 }
-      });
+      const stream = await navigator.mediaDevices.getUserMedia(STUDIO_AUDIO_CONSTRAINTS);
       versionChunks = [];
-      const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 128000 }
-        : {};
-      versionMediaRecorder = new MediaRecorder(stream, opts);
+      versionMediaRecorder = getHighQualityRecorder(stream);
       versionMediaRecorder.ondataavailable = e => {
         if (e.data && e.data.size > 0) versionChunks.push(e.data);
       };
@@ -4944,10 +4962,9 @@
 
   async function startLiveCloseRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 } });
+      const stream = await navigator.mediaDevices.getUserMedia(STUDIO_AUDIO_CONSTRAINTS);
       liveCloseChunks = [];
-      const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? { mimeType: 'audio/webm;codecs=opus' } : {};
-      liveCloseMediaRecorder = new MediaRecorder(stream, opts);
+      liveCloseMediaRecorder = getHighQualityRecorder(stream);
       liveCloseMediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) liveCloseChunks.push(e.data); };
       liveCloseMediaRecorder.onstop = () => {
         const blob = new Blob(liveCloseChunks, { type: 'audio/webm' });
@@ -5206,12 +5223,9 @@
     const verId = activeLiveProofVersionId;
     const key = 'liveproof_' + verId;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
-      });
+      const stream = await navigator.mediaDevices.getUserMedia(STUDIO_AUDIO_CONSTRAINTS);
       liveProofChunks = [];
-      const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? { mimeType: 'audio/webm;codecs=opus' } : {};
-      liveProofMediaRecorder = new MediaRecorder(stream, opts);
+      liveProofMediaRecorder = getHighQualityRecorder(stream);
       liveProofMediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) liveProofChunks.push(e.data); };
       liveProofMediaRecorder.onstop = () => {
         const blob = new Blob(liveProofChunks, { type: 'audio/webm' });
