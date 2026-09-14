@@ -14,6 +14,19 @@ function parseStepNumber(step) {
   return 0;
 }
 
+function cleanToken(raw) {
+  if (!raw) return "";
+  let tok = String(raw).trim().replace(/^["']|["']$/g, "").trim();
+  if (tok.includes("token=")) {
+    const match = tok.match(/token=([^&]+)/);
+    if (match) tok = decodeURIComponent(match[1]).trim();
+  } else if (tok.includes("uid=")) {
+    const match = tok.match(/uid=([^&]+)/);
+    if (match) tok = decodeURIComponent(match[1]).trim();
+  }
+  return tok.replace(/^["']|["']$/g, "").trim();
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -26,7 +39,8 @@ module.exports = async (req, res) => {
   }
 
   const urlObj = new URL(req.url, "http://localhost");
-  const token = urlObj.searchParams.get("token") || (req.headers["authorization"] || "").replace("Bearer ", "").trim();
+  const rawToken = urlObj.searchParams.get("token") || (req.headers["authorization"] || "").replace("Bearer ", "").trim();
+  const token = cleanToken(rawToken);
 
   let body = {};
   if (typeof req.body === "object" && req.body !== null) {
@@ -50,11 +64,12 @@ module.exports = async (req, res) => {
   };
 
   try {
-    const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?script_token=eq.${encodeURIComponent(token)}&select=discord_id`, { headers });
+    const filter = `or=(script_token.eq.${encodeURIComponent(token)},discord_id.eq.${encodeURIComponent(token)},username.ilike.${encodeURIComponent(token)})`;
+    const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?${filter}&select=discord_id`, { headers });
     const profiles = await profileResp.json();
     if (!profiles || profiles.length === 0) {
       res.statusCode = 401;
-      return res.end(JSON.stringify({ error: "Token inválido" }));
+      return res.end(JSON.stringify({ error: "Chave não encontrada no sistema" }));
     }
     const userId = profiles[0].discord_id;
 

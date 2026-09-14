@@ -2,6 +2,19 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ojjfwxjirlttpxcjhlho.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU";
 
+function cleanToken(raw) {
+  if (!raw) return "";
+  let tok = String(raw).trim().replace(/^["']|["']$/g, "").trim();
+  if (tok.includes("token=")) {
+    const match = tok.match(/token=([^&]+)/);
+    if (match) tok = decodeURIComponent(match[1]).trim();
+  } else if (tok.includes("uid=")) {
+    const match = tok.match(/uid=([^&]+)/);
+    if (match) tok = decodeURIComponent(match[1]).trim();
+  }
+  return tok.replace(/^["']|["']$/g, "").trim();
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -14,7 +27,8 @@ module.exports = async (req, res) => {
   }
 
   const urlObj = new URL(req.url, "http://localhost");
-  const token = urlObj.searchParams.get("token") || (req.headers["authorization"] || "").replace("Bearer ", "").trim();
+  const rawToken = urlObj.searchParams.get("token") || (req.headers["authorization"] || "").replace("Bearer ", "").trim();
+  const token = cleanToken(rawToken);
 
   if (!token) {
     res.statusCode = 401;
@@ -27,12 +41,13 @@ module.exports = async (req, res) => {
   };
 
   try {
-    // 1. Identifica usuário pelo script_token
-    const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?script_token=eq.${encodeURIComponent(token)}&select=discord_id,username`, { headers });
+    // 1. Identifica usuário por script_token, discord_id ou username
+    const filter = `or=(script_token.eq.${encodeURIComponent(token)},discord_id.eq.${encodeURIComponent(token)},username.ilike.${encodeURIComponent(token)})`;
+    const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?${filter}&select=discord_id,username`, { headers });
     const profiles = await profileResp.json();
     if (!profiles || profiles.length === 0) {
       res.statusCode = 401;
-      return res.end(JSON.stringify({ error: "Token inválido" }));
+      return res.end(JSON.stringify({ error: "Chave não encontrada no sistema" }));
     }
     const userId = profiles[0].discord_id;
 

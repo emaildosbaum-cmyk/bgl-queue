@@ -267,6 +267,90 @@ local function getTokenQuery()
     return (SCRIPT_TOKEN and SCRIPT_TOKEN ~= "" and SCRIPT_TOKEN ~= "SEU_TOKEN_AQUI") and ("?token=" .. SCRIPT_TOKEN) or ""
 end
 
+local function sanitizeToken(raw)
+    if not raw then return "" end
+    local clean = tostring(raw):gsub('^%s*["\']?', ''):gsub('["\']?%s*$', ''):gsub("%s+", "")
+    if clean:find("token=") then
+        clean = clean:match("token=([^&%s]+)") or clean
+    elseif clean:find("uid=") then
+        clean = clean:match("uid=([^&%s]+)") or clean
+    end
+    return clean:gsub('^["\']', ''):gsub('["\']$', '')
+end
+
+local function universalHttpRequest(url, method, body, headers)
+    method = (method or "GET"):upper()
+    headers = headers or {}
+    if method == "POST" and not headers["Content-Type"] and not headers["content-type"] then
+        headers["Content-Type"] = "application/json"
+    end
+    
+    -- 1. Executores modernos (request / http_request / syn.request / http.request)
+    local req = (type(request) == "function" and request)
+        or (type(http_request) == "function" and http_request)
+        or (syn and type(syn.request) == "function" and syn.request)
+        or (http and type(http.request) == "function" and http.request)
+        
+    if req then
+        local reqData = {
+            Url = url,
+            url = url,
+            Method = method,
+            method = method,
+            Headers = headers,
+            headers = headers
+        }
+        if body then
+            reqData.Body = body
+            reqData.body = body
+        end
+        
+        local ok, res = pcall(req, reqData)
+        if ok and res then
+            if type(res) == "string" and res ~= "" then
+                return true, res, 200
+            elseif type(res) == "table" then
+                local resBody = res.Body or res.body or res.Data or res.data
+                local statusCode = tonumber(res.StatusCode or res.status_code or res.statusCode) or 200
+                if resBody and type(resBody) == "string" then
+                    return (statusCode >= 200 and statusCode < 300), resBody, statusCode
+                end
+            end
+        end
+    end
+    
+    -- 2. Métodos nativos de executor game:HttpGet / game:HttpGetAsync
+    if method == "GET" then
+        local getOk, getRes = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if getOk and getRes and type(getRes) == "string" and getRes ~= "" then
+            return true, getRes, 200
+        end
+        
+        local getAsyncOk, getAsyncRes = pcall(function()
+            return game:HttpGetAsync(url)
+        end)
+        if getAsyncOk and getAsyncRes and type(getAsyncRes) == "string" and getAsyncRes ~= "" then
+            return true, getAsyncRes, 200
+        end
+    end
+    
+    -- 3. Fallback HttpService (Roblox Studio ou executores com bridge)
+    local hsOk, hsRes = pcall(function()
+        if method == "GET" then
+            return HttpService:GetAsync(url, true)
+        else
+            return HttpService:PostAsync(url, body or "", Enum.HttpContentType.ApplicationJson)
+        end
+    end)
+    if hsOk and hsRes and type(hsRes) == "string" and hsRes ~= "" then
+        return true, hsRes, 200
+    end
+    
+    return false, "Nenhum método HTTP disponível ou conexão recusada", 0
+end
+
 local function updateInstancePorts(instNum)
     local num = tonumber(instNum)
     if not num or num < 1 then return false end
@@ -2857,7 +2941,8 @@ local function setWsStatus(connected, streamerName)
 end
 
 local function validateTokenWithCloud(token)
-    if not token or token == "" or token == "SEU_TOKEN_AQUI" then
+    local clean = sanitizeToken(token)
+    if clean == "" or clean == "SEU_TOKEN_AQUI" then
         setWsStatus(false)
         wsStatusLabel.Text = "● Chave não configurada"
         return false
@@ -2865,39 +2950,43 @@ local function validateTokenWithCloud(token)
     
     wsStatusLabel.Text = "⏳ Validando chave na nuvem..."
     wsStatusLabel.TextColor3 = Color3.fromRGB(220, 180, 40)
+    print("[AutoBuyer] Validando chave na nuvem: '" .. clean .. "'...")
     
-    local success, response = pcall(function()
-        local url = VERCEL_API_URL .. "/api/script/game_settings?token=" .. HttpService:UrlEncode(token)
-        if request then
-            local res = request({ Url = url, Method = "GET" })
-            return res.Body
-        elseif http_request then
-            local res = http_request({ Url = url, Method = "GET" })
-            return res.Body
-        elseif game.HttpGet then
-            return game:HttpGet(url)
-        else
-            return HttpService:GetAsync(url, true)
-        end
-    end)
+    local url = VERCEL_API_URL .. "/api/script/game_settings?token=" .. HttpService:UrlEncode(clean)
+    local ok, response, statusCode = universalHttpRequest(url, "GET")
     
-    if success and response and response ~= "" then
+    print("[AutoBuyer] Resposta da nuvem (Status " .. tostring(statusCode) .. "): " .. tostring(response))
+    
+    if response and response ~= "" then
         local decOk, decoded = pcall(function() return HttpService:JSONDecode(response) end)
-        if decOk and decoded and not decoded.error then
-            local streamerName = decoded.username or decoded.user_id or "Online"
-            setWsStatus(true, streamerName)
-            SCRIPT_TOKEN = token
-            currentSettings.script_token = token
-            pcall(function()
-                if writefile then writefile("bgl_token.txt", token) end
-            end)
-            pcall(saveConfig)
-            return true
+        if decOk and type(decoded) == "table" then
+            if not decoded.error and (statusCode == 200 or statusCode == 0) then
+                local streamerName = decoded.username or decoded.user_id or "Online"
+                setWsStatus(true, streamerName)
+                local finalToken = decoded.script_token or clean
+                SCRIPT_TOKEN = finalToken
+                currentSettings.script_token = finalToken
+                if tokenInput then tokenInput.Text = finalToken end
+                pcall(function()
+                    if writefile then writefile("bgl_token.txt", finalToken) end
+                end)
+                pcall(saveConfig)
+                print("[AutoBuyer] Chave validada com sucesso para " .. streamerName .. "!")
+                return true
+            else
+                local errMsg = decoded.error or ("Erro HTTP " .. tostring(statusCode))
+                setWsStatus(false)
+                wsStatusLabel.Text = "● " .. tostring(errMsg)
+                warn("[AutoBuyer] Falha na validação da chave: " .. tostring(errMsg))
+                return false
+            end
         end
     end
     
     setWsStatus(false)
-    wsStatusLabel.Text = "● Chave Inválida / Desconectado"
+    local failText = (statusCode and statusCode > 0) and ("● Erro HTTP " .. tostring(statusCode)) or "● Sem conexão com Vercel"
+    wsStatusLabel.Text = failText
+    warn("[AutoBuyer] Falha ao conectar à API Vercel: " .. tostring(response))
     return false
 end
 
@@ -2961,8 +3050,15 @@ end
 
 syncGuiWithSettings(currentSettings)
 
+if SCRIPT_TOKEN and SCRIPT_TOKEN ~= "" and SCRIPT_TOKEN ~= "SEU_TOKEN_AQUI" then
+    task.spawn(function()
+        task.wait(1)
+        validateTokenWithCloud(SCRIPT_TOKEN)
+    end)
+end
+
 local function sendSettingsToBridge()
-    local rawToken = tokenInput.Text:gsub("%s+", "")
+    local rawToken = sanitizeToken(tokenInput.Text)
     if rawToken ~= "" and rawToken ~= "SEU_TOKEN_AQUI" then
         SCRIPT_TOKEN = rawToken
         currentSettings.script_token = rawToken
@@ -3278,7 +3374,8 @@ reconnectBtn.MouseButton1Click:Connect(function()
     
     -- Valida e reconecta à chave na nuvem
     task.spawn(function()
-        validateTokenWithCloud(SCRIPT_TOKEN)
+        local tokToValidate = (tokenInput and tokenInput.Text ~= "") and tokenInput.Text or SCRIPT_TOKEN
+        validateTokenWithCloud(tokToValidate)
     end)
     
     if activeWS then
