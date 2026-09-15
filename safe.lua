@@ -2815,29 +2815,30 @@ local function executeBuyFruit(username, fruitName, queueItemId)
             
             logStep("Aguardando janela de envio (GiftWindow) carregar...")
             task.wait(0.45 + math.random(50, 120) / 1000)
-            logStep("Inserindo o nick do usuário: " .. username .. "...")
-            
-            setBridgeUsername(username, fruitName, giftButton)
-            
-            purchaseComplete = false
-            logStep("Aguardando fluxo completo (Buy → OK → Cancel)...")
-            local waitStart = os.clock()
-            while not purchaseComplete and not watchdogAborted and (os.clock() - waitStart) < 8 do
-                task.wait(0.1)
-            end
-            if watchdogAborted then
-                logStep("Compra abortada pelo Watchdog.")
-                return
-            end
-            if not purchaseComplete then
-                warn("[AutoBuyer] Timeout aguardando o fim do fluxo de compra. Continuando.")
-                purchaseComplete = true
-            end
-            
-            logStep("Username " .. username .. " inserido! Compra preparada com sucesso.")
         else
             warn("[AutoBuyer] GiftButton não encontrado!")
         end
+        end -- Fecha if not giftWindowOpen then
+
+        logStep("Inserindo o nick do usuário: " .. username .. "...")
+        setBridgeUsername(username, fruitName, giftButton)
+        
+        purchaseComplete = false
+        logStep("Aguardando fluxo completo (Buy → OK → Cancel)...")
+        local waitStart = os.clock()
+        while not purchaseComplete and not watchdogAborted and (os.clock() - waitStart) < 8 do
+            task.wait(0.1)
+        end
+        if watchdogAborted then
+            logStep("Compra abortada pelo Watchdog.")
+            return
+        end
+        if not purchaseComplete then
+            warn("[AutoBuyer] Timeout aguardando o fim do fluxo de compra. Continuando.")
+            purchaseComplete = true
+        end
+        
+        logStep("Username " .. username .. " inserido! Compra preparada com sucesso.")
     end)
     
     if not success then
