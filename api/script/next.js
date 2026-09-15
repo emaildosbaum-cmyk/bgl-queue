@@ -4,7 +4,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6Ik
 
 function cleanToken(raw) {
   if (!raw) return "";
-  let tok = String(raw).trim().replace(/^["']|["']$/g, "").trim();
+  let tok = String(raw).trim().replace(/^[\"']|[\"']$/g, "").trim();
   if (tok.includes("token=")) {
     const match = tok.match(/token=([^&]+)/);
     if (match) tok = decodeURIComponent(match[1]).trim();
@@ -12,7 +12,7 @@ function cleanToken(raw) {
     const match = tok.match(/uid=([^&]+)/);
     if (match) tok = decodeURIComponent(match[1]).trim();
   }
-  return tok.replace(/^["']|["']$/g, "").trim();
+  return tok.replace(/^[\"']|[\"']$/g, "").trim();
 }
 
 module.exports = async (req, res) => {
@@ -37,13 +37,13 @@ module.exports = async (req, res) => {
 
   const headers = {
     "apikey": SUPABASE_KEY,
-    "Authorization": `Bearer ${SUPABASE_KEY}`
+    "Authorization": "Bearer " + SUPABASE_KEY
   };
 
   try {
     // 1. Identifica usuário por script_token, discord_id ou username
-    const filter = `or=(script_token.eq.${encodeURIComponent(token)},discord_id.eq.${encodeURIComponent(token)},username.ilike.${encodeURIComponent(token)})`;
-    const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?${filter}&select=discord_id,username`, { headers });
+    const filter = "or=(script_token.eq." + encodeURIComponent(token) + ",discord_id.eq." + encodeURIComponent(token) + ",username.ilike." + encodeURIComponent(token) + ")";
+    const profileResp = await fetch(SUPABASE_URL + "/rest/v1/bgl_user_profiles?" + filter + "&select=discord_id,username", { headers });
     const profiles = await profileResp.json();
     if (!profiles || profiles.length === 0) {
       res.statusCode = 401;
@@ -51,8 +51,9 @@ module.exports = async (req, res) => {
     }
     const userId = profiles[0].discord_id;
 
-    // 2. Verifica se a fila está pausada nas configs do usuário
-    const cfgResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_configs?discord_id=eq.${encodeURIComponent(userId)}&select=operation_mode,queue_paused`, { headers });
+    // 2. Verifica se a fila está pausada nas configs do usuário & pega fruta configurada
+    let configuredFruit = "Rocket";
+    const cfgResp = await fetch(SUPABASE_URL + "/rest/v1/bgl_user_configs?discord_id=eq." + encodeURIComponent(userId) + "&select=operation_mode,queue_paused,general_settings", { headers });
     const configs = await cfgResp.json();
     if (configs && configs.length > 0) {
       const cfg = configs[0];
@@ -60,10 +61,26 @@ module.exports = async (req, res) => {
         res.statusCode = 204;
         return res.end();
       }
+      if (cfg.general_settings && cfg.general_settings.item_name) {
+        const item = String(cfg.general_settings.item_name).trim();
+        if (item && item.toLowerCase() !== "generic" && item.toLowerCase() !== "fruit" && item !== "Sword of Destiny") {
+          configuredFruit = item;
+        }
+      }
     }
 
+    // 2.1 Watchdog de fila: destrava itens em processing há mais de 45s
+    try {
+      const staleTime = new Date(Date.now() - 45000).toISOString();
+      await fetch(SUPABASE_URL + "/rest/v1/bgl_user_queues?user_id=eq." + encodeURIComponent(userId) + "&status=eq.processing&created_at=lt." + staleTime, {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" })
+      });
+    } catch(e) {}
+
     // 3. Puxa o próximo nick pendente da fila deste usuário
-    const queueResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?user_id=eq.${encodeURIComponent(userId)}&status=eq.pending&order=id.asc&limit=1`, { headers });
+    const queueResp = await fetch(SUPABASE_URL + "/rest/v1/bgl_user_queues?user_id=eq." + encodeURIComponent(userId) + "&status=eq.pending&order=id.asc&limit=1", { headers });
     const queueItems = await queueResp.json();
     if (!queueItems || queueItems.length === 0) {
       res.statusCode = 204;
@@ -73,14 +90,14 @@ module.exports = async (req, res) => {
     const item = queueItems[0];
 
     // 4. Marca como processando para não repetir
-    await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?id=eq.${item.id}`, {
+    await fetch(SUPABASE_URL + "/rest/v1/bgl_user_queues?id=eq." + item.id, {
       method: "PATCH",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ status: "processing" })
     });
 
     // 5. Atualiza o Passo 1 no Stepper
-    await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_steps?user_id=eq.${encodeURIComponent(userId)}`, {
+    await fetch(SUPABASE_URL + "/rest/v1/bgl_user_steps?user_id=eq." + encodeURIComponent(userId), {
       method: "PATCH",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -92,10 +109,12 @@ module.exports = async (req, res) => {
       })
     });
 
+    const finalFruit = item.fruit || configuredFruit || "Rocket";
+
     res.statusCode = 200;
     return res.end(JSON.stringify({
       username: item.nick,
-      fruit: "Random",
+      fruit: finalFruit,
       source: item.sender_id || "queue",
       id: item.id
     }));

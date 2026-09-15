@@ -8,6 +8,7 @@
     { "source": "/loader.lua", "destination": "/api/script/load" },
     { "source": "/heartbeat", "destination": "/api/script/heartbeat" },
     { "source": "/link_roblox", "destination": "/api/script/link_roblox" },
-    { "source": "/reset_key", "destination": "/api/script/reset_key" }
+    { "source": "/reset_key", "destination": "/api/script/reset_key" },
+    { "source": "/admin/users", "destination": "/api/admin/users" }
   ]
 }

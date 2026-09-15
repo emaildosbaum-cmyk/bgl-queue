@@ -4,7 +4,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6Ik
 
 function cleanToken(raw) {
   if (!raw) return "";
-  let tok = String(raw).trim().replace(/^["']|["']$/g, "").trim();
+  let tok = String(raw).trim().replace(/^[\"']|[\"']$/g, "").trim();
   if (tok.includes("token=")) {
     const match = tok.match(/token=([^&]+)/);
     if (match) tok = decodeURIComponent(match[1]).trim();
@@ -12,7 +12,7 @@ function cleanToken(raw) {
     const match = tok.match(/uid=([^&]+)/);
     if (match) tok = decodeURIComponent(match[1]).trim();
   }
-  return tok.replace(/^["']|["']$/g, "").trim();
+  return tok.replace(/^[\"']|[\"']$/g, "").trim();
 }
 
 module.exports = async (req, res) => {
@@ -32,8 +32,9 @@ module.exports = async (req, res) => {
 
   let body = {};
   if (req.method === "GET") {
-    body.status = urlObj.searchParams.get("status") || "success";
-    body.error = urlObj.searchParams.get("error") || "";
+    body.status = urlObj.searchParams.get("status") || "delivered";
+    body.username = urlObj.searchParams.get("username") || "";
+    body.id = urlObj.searchParams.get("id") || "";
     body.reason = urlObj.searchParams.get("reason") || "";
   } else if (typeof req.body === "object" && req.body !== null) {
     body = req.body;
@@ -47,6 +48,12 @@ module.exports = async (req, res) => {
   if (!body.status && urlObj.searchParams.get("status")) {
     body.status = urlObj.searchParams.get("status");
   }
+  if (!body.username && urlObj.searchParams.get("username")) {
+    body.username = urlObj.searchParams.get("username");
+  }
+  if (!body.id && urlObj.searchParams.get("id")) {
+    body.id = urlObj.searchParams.get("id");
+  }
 
   if (!token) {
     res.statusCode = 401;
@@ -55,12 +62,12 @@ module.exports = async (req, res) => {
 
   const headers = {
     "apikey": SUPABASE_KEY,
-    "Authorization": `Bearer ${SUPABASE_KEY}`
+    "Authorization": "Bearer " + SUPABASE_KEY
   };
 
   try {
-    const filter = `or=(script_token.eq.${encodeURIComponent(token)},discord_id.eq.${encodeURIComponent(token)},username.ilike.${encodeURIComponent(token)})`;
-    const profileResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?${filter}&select=discord_id`, { headers });
+    const filter = "or=(script_token.eq." + encodeURIComponent(token) + ",discord_id.eq." + encodeURIComponent(token) + ",username.ilike." + encodeURIComponent(token) + ")";
+    const profileResp = await fetch(SUPABASE_URL + "/rest/v1/bgl_user_profiles?" + filter + "&select=discord_id", { headers });
     const profiles = await profileResp.json();
     if (!profiles || profiles.length === 0) {
       res.statusCode = 401;
@@ -68,12 +75,14 @@ module.exports = async (req, res) => {
     }
     const userId = profiles[0].discord_id;
 
-    const status = body.status || "delivered";
+    const rawStatus = String(body.status || "delivered").toLowerCase();
+    const isSuccess = (rawStatus === "delivered" || rawStatus === "success" || rawStatus === "finished" || rawStatus === "ok" || rawStatus === "complete");
     const username = body.username || body.nick || "";
+    const itemId = body.id ? Number(body.id) : null;
 
-    if (status === "delivered") {
+    if (isSuccess) {
       // 1. Salva nas entregas do usuário
-      await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_deliveries`, {
+      await fetch(SUPABASE_URL + "/rest/v1/bgl_user_deliveries", {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -85,9 +94,15 @@ module.exports = async (req, res) => {
         })
       });
 
-      // 2. Atualiza item na fila deste usuário
-      if (username) {
-        await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?user_id=eq.${encodeURIComponent(userId)}&nick=eq.${encodeURIComponent(username)}&status=eq.processing`, {
+      // 2. Atualiza item na fila deste usuário por ID direto ou nick
+      if (itemId) {
+        await fetch(SUPABASE_URL + "/rest/v1/bgl_user_queues?id=eq." + itemId, {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "delivered" })
+        });
+      } else if (username) {
+        await fetch(SUPABASE_URL + "/rest/v1/bgl_user_queues?user_id=eq." + encodeURIComponent(userId) + "&nick=eq." + encodeURIComponent(username) + "&status=eq.processing", {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ status: "delivered" })
@@ -95,7 +110,7 @@ module.exports = async (req, res) => {
       }
 
       // 3. Atualiza stepper para concluído
-      await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_steps?user_id=eq.${encodeURIComponent(userId)}`, {
+      await fetch(SUPABASE_URL + "/rest/v1/bgl_user_steps?user_id=eq." + encodeURIComponent(userId), {
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -106,15 +121,22 @@ module.exports = async (req, res) => {
         })
       });
     } else {
-      // Abortado / cancelado
-      if (username) {
-        await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?user_id=eq.${encodeURIComponent(userId)}&nick=eq.${encodeURIComponent(username)}&status=eq.processing`, {
+      // Abortado / cancelado / erro
+      if (itemId) {
+        await fetch(SUPABASE_URL + "/rest/v1/bgl_user_queues?id=eq." + itemId, {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "cancelled" })
+        });
+      } else if (username) {
+        await fetch(SUPABASE_URL + "/rest/v1/bgl_user_queues?user_id=eq." + encodeURIComponent(userId) + "&nick=eq." + encodeURIComponent(username) + "&status=eq.processing", {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ status: "cancelled" })
         });
       }
-      await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_steps?user_id=eq.${encodeURIComponent(userId)}`, {
+
+      await fetch(SUPABASE_URL + "/rest/v1/bgl_user_steps?user_id=eq." + encodeURIComponent(userId), {
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -128,7 +150,7 @@ module.exports = async (req, res) => {
     }
 
     res.statusCode = 200;
-    return res.end(JSON.stringify({ success: true }));
+    return res.end(JSON.stringify({ success: true, status: isSuccess ? "delivered" : "cancelled" }));
   } catch (err) {
     res.statusCode = 500;
     return res.end(JSON.stringify({ error: err.message }));

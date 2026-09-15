@@ -1106,6 +1106,14 @@
         <span class="nav-label">Estatísticas</span>
       </a>
 
+      <div class="nav-group-title">Administração</div>
+
+      <a class="nav-item" id="nav-users" onclick="switchTab('users')">
+        <span class="nav-icon">👑</span>
+        <span class="nav-label">Gerenciar Usuários</span>
+        <span class="nav-badge" id="sideUsersBadge" style="background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.4);">Master</span>
+      </a>
+
       <div class="nav-group-title">Transmissão & OBS</div>
 
       <a class="nav-item" id="nav-links" onclick="openLinksModal()">
@@ -1396,6 +1404,7 @@
             <span id="count" style="font-size: 13px; color: var(--text-muted); font-weight: 600;">0 na fila</span>
           </div>
           <div style="display: flex; gap: 8px;">
+            <button id="unstick-btn" class="btn-secondary" onclick="unstickUserQueue()" style="color: #60a5fa; border-color: rgba(59, 130, 246, 0.4); display: flex; align-items: center; gap: 5px;" title="Destravar pedidos que ficaram em processamento no jogo"><span>⚡</span> Destravar Fila</button>
             <button id="settings-btn" class="btn-secondary" onclick="toggleSettings()">⚙️ Configurações</button>
             <button id="clear-btn" class="btn-danger" onclick="clearQueue()">Limpar Fila</button>
           </div>
@@ -1943,6 +1952,80 @@
         </div>
       </div>
     </section>
+
+    <!-- ═════════════════════════════════════════════════════════════
+         ABA: GERENCIAMENTO MASTER DE USUÁRIOS
+         ═════════════════════════════════════════════════════════════ -->
+    <section id="tab-users" class="tab-pane">
+      <!-- 4 Cards de Estatísticas Globais -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+        <div class="card" style="margin: 0; padding: 18px; display: flex; align-items: center; gap: 16px; background: rgba(13, 16, 26, 0.7); border: 1px solid var(--border);">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 22px;">👥</div>
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Streamers</div>
+            <div id="admStatTotal" style="font-size: 22px; font-weight: 800; color: #fff;">0</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin: 0; padding: 18px; display: flex; align-items: center; gap: 16px; background: rgba(13, 16, 26, 0.7); border: 1px solid var(--border);">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; font-size: 22px;">🎮</div>
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Roblox Online</div>
+            <div id="admStatRoblox" style="font-size: 22px; font-weight: 800; color: #10b981;">0</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin: 0; padding: 18px; display: flex; align-items: center; gap: 16px; background: rgba(13, 16, 26, 0.7); border: 1px solid var(--border);">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(236, 72, 153, 0.15); display: flex; align-items: center; justify-content: center; font-size: 22px;">🎵</div>
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Extensão TikTok</div>
+            <div id="admStatExt" style="font-size: 22px; font-weight: 800; color: #ec4899;">0</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin: 0; padding: 18px; display: flex; align-items: center; gap: 16px; background: rgba(13, 16, 26, 0.7); border: 1px solid var(--border);">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; font-size: 22px;">📋</div>
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Itens nas Filas</div>
+            <div id="admStatQueue" style="font-size: 22px; font-weight: 800; color: #f59e0b;">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Controle: Pesquisa, Filtros e Botão Novo Usuário -->
+      <div class="card" style="margin-bottom: 20px; padding: 16px; border-color: rgba(234, 179, 8, 0.3); background: rgba(13, 16, 26, 0.85);">
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: 1; min-width: 280px;">
+            <div style="position: relative; flex: 1; min-width: 220px;">
+              <input type="text" id="adminSearchInput" oninput="filterAdminUsers()" placeholder="🔍 Pesquisar por Nome, Discord ID, Nick Roblox ou Token..." style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px 9px 34px; color: #fff; font-size: 13px; outline: none; transition: border-color 0.2s;">
+              <span style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 13px; pointer-events: none; opacity: 0.5;">🔎</span>
+            </div>
+            <select id="adminFilterStatus" onchange="filterAdminUsers()" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; color: #fff; font-size: 13px; outline: none; cursor: pointer;">
+              <option value="all">Todos os Streamers</option>
+              <option value="roblox_online">🟢 Roblox Conectado (Online)</option>
+              <option value="roblox_linked">🔗 Com Roblox Vinculado</option>
+              <option value="roblox_unlinked">🔓 Chave Livre (Sem Vínculo)</option>
+              <option value="queue_active">📦 Com Presentes na Fila</option>
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button type="button" class="btn btn-secondary" onclick="loadAdminUsers()" style="display: flex; align-items: center; gap: 6px; padding: 9px 14px; font-size: 13px;">
+              <span>🔄</span> Atualizar
+            </button>
+            <button type="button" class="btn btn-primary" onclick="openCreateUserModal()" style="display: flex; align-items: center; gap: 6px; padding: 9px 16px; font-size: 13px; background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 700; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);">
+              <span>➕</span> Criar Novo Usuário
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Container de Cards dos Usuários -->
+      <div id="adminUsersContainer" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="text-align: center; color: var(--text-muted); padding: 40px;">Carregando usuários...</div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -2114,7 +2197,7 @@
     }
   }
 
-  function grantAccess() {
+  async function grantAccess() {
     console.log("[Auth] Acesso liberado ao painel!");
     const loginScreen = document.getElementById("login-screen");
     const app = document.getElementById("app");
@@ -2127,6 +2210,40 @@
       app.classList.add("authenticated");
       app.style.setProperty("display", "flex", "important");
     }
+
+    // Auto-resolve currentUser se ainda for nulo (ex: login via senha ou token direto)
+    if (!currentUser) {
+      try {
+        const meRes = await fetch("/api/auth/me");
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData && meData.authenticated && meData.user) {
+            setupDiscordUser({
+              uid: meData.user.id,
+              name: meData.user.name,
+              avatar: meData.user.avatar,
+              token: meData.user.token
+            });
+          }
+        }
+      } catch(e) {}
+    }
+
+    if (!currentUser && supabaseClient) {
+      try {
+        const { data: profs } = await supabaseClient.from("bgl_user_profiles").select("*").order("created_at", { ascending: false }).limit(1);
+        if (profs && profs.length > 0) {
+          const p = profs[0];
+          setupDiscordUser({
+            uid: p.discord_id,
+            name: p.username,
+            avatar: p.avatar_url,
+            token: p.script_token
+          });
+        }
+      } catch(e) {}
+    }
+
     if (typeof loadFromSupabase === "function") {
       loadFromSupabase();
     }
@@ -2176,7 +2293,8 @@
     liveproof: { title: "🎭 Sistema de Prova Fake", breadcrumb: "Dashboard / Anti-Gravação" },
     banned: { title: "🚫 Jogadores Banidos", breadcrumb: "Dashboard / Lista Negra" },
     auto: { title: "⚡ Controle da Auto Live", breadcrumb: "Dashboard / Automação" },
-    stats: { title: "📊 Estatísticas da Sessão", breadcrumb: "Dashboard / Relatórios" }
+    stats: { title: "📊 Estatísticas da Sessão", breadcrumb: "Dashboard / Relatórios" },
+    users: { title: "👑 Gerenciamento Master de Usuários", breadcrumb: "Administração / Streamers & Chaves" }
   };
 
   function switchTab(name) {
@@ -2197,6 +2315,7 @@
     if (name === "stats") updateStatsUI();
     if (name === "speech" && typeof renderFalasList === "function") renderFalasList();
     if (name === "liveproof" && typeof renderLiveProofUI === "function") renderLiveProofUI();
+    if (name === "users" && typeof loadAdminUsers === "function") loadAdminUsers();
   }
 
   /* ═════════════════════════════════════════════════════════════
@@ -2713,18 +2832,19 @@
     if (!supabaseClient) return;
     try {
       if (currentUser && currentUser.uid) {
-        // Multi-tenant: carrega exclusivamente a fila deste usuário
+        // Multi-tenant: carrega a fila deste usuário (pendentes e em processamento)
         const { data: qData, error } = await supabaseClient
           .from("bgl_user_queues")
           .select("*")
           .eq("user_id", currentUser.uid)
-          .eq("status", "pending")
+          .in("status", ["pending", "processing"])
           .order("id", { ascending: true });
         if (!error && Array.isArray(qData)) {
           _currentQueueCache = qData.map(r => ({
             id: r.id,
             nick: r.nick,
             sender: r.sender || "manual",
+            status: r.status || "pending",
             robux: r.robux || 0,
             ts: new Date(r.created_at || Date.now()).getTime() / 1000
           }));
@@ -3045,15 +3165,20 @@
       el.className = "queue-item-card";
       el.dataset.id = item.id;
       const initial = (item.nick || "?").charAt(0).toUpperCase();
+      const isProcessing = item.status === "processing";
       el.innerHTML = `
         <div class="queue-user-info">
-          <div class="avatar-pill">${initial}</div>
+          <div class="avatar-pill" style="${isProcessing ? 'background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);' : ''}">${initial}</div>
           <div>
-            <div class="nick-name">${escapeHtml(item.nick)}</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="nick-name">${escapeHtml(item.nick)}</span>
+              ${isProcessing ? '<span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.35); font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px;">⚡ No Roblox...</span>' : ''}
+            </div>
             <div class="nick-meta">enviado por @${escapeHtml(item.sender)}</div>
           </div>
         </div>
         <div class="queue-item-actions">
+          ${isProcessing ? `<button class="btn-secondary" onclick="resetQueueItemToPending(${item.id})" title="Destravar item de volta para pendente" style="color: #60a5fa; border-color: rgba(59, 130, 246, 0.4);">↺ Destravar</button>` : ''}
           <button class="btn-secondary" onclick="copyNick('${escapeJs(item.nick)}', this)">copiar</button>
           <button class="btn-secondary" onclick="repeatNick('${escapeJs(item.nick)}')">repetir ↻</button>
           <button class="btn-success" onclick="markDone(${item.id})">confirmado ✓</button>
@@ -3074,6 +3199,34 @@
     const old = btn.textContent;
     btn.textContent = "copiado!";
     setTimeout(() => { btn.textContent = old; }, 1000);
+  }
+
+
+  async function unstickUserQueue() {
+    const uid = (currentUser && currentUser.uid) || "1456785643211591994";
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?user_id=eq.${encodeURIComponent(uid)}&status=eq.processing`, {
+        method: "PATCH",
+        headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pending" })
+      });
+      showToast("⚡", "Fila Destravada!", "Todos os pedidos voltaram para pendente.", true);
+      setTimeout(loadFromSupabase, 300);
+    } catch(e) {
+      alert("Erro ao destravar fila: " + e.message);
+    }
+  }
+
+  async function resetQueueItemToPending(id) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_queues?id=eq.${id}`, {
+        method: "PATCH",
+        headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pending" })
+      });
+      showToast("↺", "Item Destravado!", "Nick voltou para a fila pendente.", true);
+      setTimeout(loadFromSupabase, 300);
+    } catch(e) {}
   }
 
   function markDone(id) {
@@ -5987,6 +6140,413 @@
   setInterval(pollStatusChecklist, 3500);
   setTimeout(pollStatusChecklist, 500);
 
+
+  /* ═════════════════════════════════════════════════════════════
+     SISTEMA MASTER DE GERENCIAMENTO DE USUÁRIOS
+     ═════════════════════════════════════════════════════════════ */
+  let _adminUsersCache = [];
+  let _activeInspectedUserId = null;
+
+  async function loadAdminUsers() {
+    const container = document.getElementById("adminUsersContainer");
+    if (container && _adminUsersCache.length === 0) {
+      container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px;">⏳ Buscando todos os usuários cadastrados na nuvem...</div>';
+    }
+
+    try {
+      const res = await fetch("/api/admin/users");
+      if (!res.ok) throw new Error("Erro HTTP " + res.status);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Falha ao carregar lista");
+
+      _adminUsersCache = data.users || [];
+
+      // Atualiza badges e contadores globais
+      const statTotal = document.getElementById("admStatTotal");
+      const statRbx = document.getElementById("admStatRoblox");
+      const statExt = document.getElementById("admStatExt");
+      const statQ = document.getElementById("admStatQueue");
+      const sideBadge = document.getElementById("sideUsersBadge");
+
+      if (statTotal) statTotal.innerText = data.stats.total_users;
+      if (statRbx) statRbx.innerText = data.stats.roblox_online_count;
+      if (statExt) statExt.innerText = data.stats.extension_online_count;
+      if (statQ) statQ.innerText = data.stats.total_pending_queue;
+      if (sideBadge) sideBadge.innerText = data.stats.total_users + " users";
+
+      renderAdminUsers(_adminUsersCache);
+    } catch (err) {
+      if (container) {
+        container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 40px;">❌ Erro ao carregar usuários: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+  }
+
+  function filterAdminUsers() {
+    const searchVal = (document.getElementById("adminSearchInput")?.value || "").toLowerCase().trim();
+    const filterStatus = document.getElementById("adminFilterStatus")?.value || "all";
+
+    const filtered = _adminUsersCache.filter(u => {
+      // 1. Filtro de pesquisa textual
+      const matchSearch = !searchVal ||
+        (u.username && u.username.toLowerCase().includes(searchVal)) ||
+        (u.discord_id && u.discord_id.toLowerCase().includes(searchVal)) ||
+        (u.roblox_username && u.roblox_username.toLowerCase().includes(searchVal)) ||
+        (u.roblox_display_name && u.roblox_display_name.toLowerCase().includes(searchVal)) ||
+        (u.script_token && u.script_token.toLowerCase().includes(searchVal));
+
+      if (!matchSearch) return false;
+
+      // 2. Filtro de status
+      if (filterStatus === "roblox_online") return u.roblox_online;
+      if (filterStatus === "roblox_linked") return !!(u.roblox_user_id || u.roblox_username);
+      if (filterStatus === "roblox_unlinked") return !(u.roblox_user_id || u.roblox_username);
+      if (filterStatus === "queue_active") return (u.pending_count || 0) > 0;
+
+      return true;
+    });
+
+    renderAdminUsers(filtered);
+  }
+
+  function renderAdminUsers(users) {
+    const container = document.getElementById("adminUsersContainer");
+    if (!container) return;
+
+    if (!users || users.length === 0) {
+      container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px; background: rgba(13, 16, 26, 0.5); border: 1px dashed var(--border); border-radius: var(--radius-md);">Nenhum usuário encontrado com os filtros atuais.</div>';
+      return;
+    }
+
+    container.innerHTML = users.map(user => {
+      const isRbxOnline = user.roblox_online;
+      const isExtOnline = user.extension_online;
+      const hasRobloxLinked = !!(user.roblox_user_id || user.roblox_username);
+      const origin = window.location.origin;
+      const loaderCode = `loadstring(game:HttpGet("${origin}/loader.lua?token=${user.script_token}"))()`;
+
+      return `
+        <div class="card" style="margin: 0; padding: 20px; background: rgba(13, 16, 26, 0.85); border: 1px solid ${isRbxOnline ? 'rgba(16, 185, 129, 0.4)' : 'var(--border)'}; border-radius: var(--radius-lg); transition: all 0.2s;">
+          <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 16px;">
+            <!-- Perfil Discord -->
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <img src="${user.avatar_url || 'https://cdn.discordapp.com/embed/avatars/0.png'}" alt="Avatar" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #5865F2; object-fit: cover; background: #1e1f29;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 16px; font-weight: 800; color: #fff;">${escapeHtml(user.username || 'Streamer')}</span>
+                  <span style="font-size: 10px; font-weight: 700; background: rgba(88, 101, 242, 0.2); color: #818cf8; border: 1px solid rgba(88, 101, 242, 0.4); padding: 2px 7px; border-radius: 6px;">DISCORD</span>
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                  <span>ID: <code style="color: #94a3b8; font-family: monospace;">${escapeHtml(user.discord_id)}</code></span>
+                  <button type="button" onclick="navigator.clipboard.writeText('${user.discord_id}'); showToast('📋', 'ID Copiado!', '', true);" style="background: none; border: none; cursor: pointer; font-size: 11px; color: var(--text-dim);">📑</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Badges de Presença em Tempo Real -->
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+              <!-- Roblox Status -->
+              <div style="display: flex; align-items: center; gap: 7px; background: ${isRbxOnline ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)'}; border: 1px solid ${isRbxOnline ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.25)'}; padding: 6px 12px; border-radius: 999px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${isRbxOnline ? '#10b981' : '#ef4444'}; box-shadow: 0 0 6px ${isRbxOnline ? '#10b981' : '#ef4444'};"></span>
+                <span style="font-size: 11.5px; font-weight: 700; color: ${isRbxOnline ? '#10b981' : '#ef4444'};">
+                  Roblox: ${isRbxOnline ? ('Online' + (user.roblox_username ? ' (@' + user.roblox_username + ')' : '')) : 'Offline'}
+                </span>
+              </div>
+
+              <!-- Extensão TikTok Status -->
+              <div style="display: flex; align-items: center; gap: 7px; background: ${isExtOnline ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)'}; border: 1px solid ${isExtOnline ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.25)'}; padding: 6px 12px; border-radius: 999px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${isExtOnline ? '#10b981' : '#ef4444'}; box-shadow: 0 0 6px ${isExtOnline ? '#10b981' : '#ef4444'};"></span>
+                <span style="font-size: 11.5px; font-weight: 700; color: ${isExtOnline ? '#10b981' : '#ef4444'};">
+                  TikTok Ext: ${isExtOnline ? 'Conectada' : 'Offline'}
+                </span>
+              </div>
+
+              <!-- Fila Badge -->
+              <button type="button" onclick="adminViewQueue('${user.discord_id}', '${escapeHtml(user.username)}')" style="display: flex; align-items: center; gap: 6px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); padding: 6px 12px; border-radius: 999px; color: #f59e0b; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: background 0.2s;">
+                <span>📦</span>
+                <span>Fila: ${user.pending_count || 0} pendentes</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Corpo do Card: Conta Roblox Vinculada + Chave de Script -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0;">
+            <!-- Box: Conta Roblox Vinculada (Trava de Segurança) -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-md); padding: 14px;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                <span>🎮 Conta Roblox Vinculada</span>
+                ${hasRobloxLinked ? 
+                  '<span style="color: #10b981; font-weight: 700;">● Vinculada</span>' : 
+                  '<span style="color: #94a3b8; font-weight: 700;">○ Livre</span>'}
+              </div>
+
+              ${hasRobloxLinked ? `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <img src="${user.roblox_avatar_url || ('https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=' + (user.roblox_user_id || '1') + '&size=150x150&format=Png&isCircular=true')}" alt="Roblox Avatar" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #10b981; object-fit: cover; background: #000;">
+                  <div style="display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+                    <span style="font-size: 14px; font-weight: 700; color: #fff;">${escapeHtml(user.roblox_display_name || user.roblox_username)}</span>
+                    <span style="font-size: 11px; color: #94a3b8;">@${escapeHtml(user.roblox_username || 'desconhecido')} (ID: ${user.roblox_user_id || '---'})</span>
+                  </div>
+                  <button type="button" class="btn btn-secondary" onclick="adminResetRoblox('${user.discord_id}', '${escapeHtml(user.username)}')" title="Desvincular para permitir troca de conta" style="padding: 6px 10px; font-size: 11px; color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); display: flex; align-items: center; gap: 4px;">
+                    <span>🔓</span> Desvincular
+                  </button>
+                </div>
+              ` : `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0;">
+                  <span style="font-size: 12px; color: var(--text-dim);">Nenhuma conta conectada nesta chave ainda.</span>
+                  <span style="font-size: 11px; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; color: #cbd5e1;">Aguardando execução</span>
+                </div>
+              `}
+            </div>
+
+            <!-- Box: Chave de Token e Loader -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                  <span>🔑 Chave Exclusiva / Script Token</span>
+                  <button type="button" onclick="adminRegenToken('${user.discord_id}', '${escapeHtml(user.username)}')" style="background: none; border: none; color: #3b82f6; font-size: 11px; font-weight: 700; cursor: pointer; text-decoration: underline;">↺ Gerar Nova</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px;">
+                  <code style="font-size: 11.5px; color: #60a5fa; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">${user.script_token}</code>
+                  <button type="button" onclick="navigator.clipboard.writeText('${user.script_token}'); showToast('🔑', 'Chave copiada!', '', true);" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #fff; font-size: 11px; cursor: pointer; padding: 3px 7px; border-radius: 4px;">Copiar</button>
+                </div>
+              </div>
+
+              <!-- Botão Copiar Loader -->
+              <div style="margin-top: 10px;">
+                <button type="button" onclick="copyUserLoaderCode('${user.script_token}', '${escapeHtml(user.username)}')" style="width: 100%; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none; border-radius: var(--radius-sm); padding: 8px 12px; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);">
+                  <span>📋</span> Copiar Script de 1 Linha Oficial
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rodapé de Ações do Card -->
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+            <div style="font-size: 11px; color: var(--text-dim);">
+              Criado em: ${user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '---'}
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button type="button" class="btn btn-secondary" onclick="adminClearQueue('${user.discord_id}', '${escapeHtml(user.username)}')" style="padding: 6px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 5px;">
+                <span>🧹</span> Limpar Fila
+              </button>
+              <button type="button" class="btn btn-danger" onclick="adminDeleteUser('${user.discord_id}', '${escapeHtml(user.username)}')" style="padding: 6px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 5px;">
+                <span>🗑️</span> Excluir Usuário
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function copyUserLoaderCode(token, username) {
+    const origin = window.location.origin;
+    const loaderCode = `loadstring(game:HttpGet("${origin}/loader.lua?token=${token}"))()`;
+    navigator.clipboard.writeText(loaderCode).then(() => {
+      showToast("🚀", "Loader Copiado!", `Para: ${username}`, true);
+    }).catch(() => {
+      prompt("Copie o script de 1 linha:", loaderCode);
+    });
+  }
+
+  // AÇÕES ADMINISTRATIVAS (RESET ROBLOX, REGEN TOKEN, DELETE, CLEAR)
+  async function adminResetRoblox(discordId, username) {
+    if (!confirm(`Deseja realmente desvincular a conta Roblox de "${username}"?\n\nIsso liberará a chave para ser usada em qualquer outra conta do Roblox.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_roblox", discord_id: discordId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao desvincular");
+
+      showToast("🔓", "Conta Desvinculada!", "A chave agora está livre", true);
+      loadAdminUsers();
+    } catch (err) {
+      alert("Erro ao desvincular: " + err.message);
+    }
+  }
+
+  async function adminRegenToken(discordId, username) {
+    if (!confirm(`Gerar uma nova chave de script para "${username}"?\n\nA chave atual será invalidada imediatamente no Roblox e na Extensão.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "regen_token", discord_id: discordId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao gerar chave");
+
+      showToast("🔑", "Nova Chave Gerada!", data.script_token, true);
+      loadAdminUsers();
+    } catch (err) {
+      alert("Erro ao gerar nova chave: " + err.message);
+    }
+  }
+
+  async function adminClearQueue(discordId, username) {
+    if (!confirm(`Deseja limpar todos os pedidos da fila de "${username}"?`)) return;
+
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear_queue", discord_id: discordId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao limpar fila");
+
+      showToast("🧹", "Fila Limpa!", `Streamer: ${username}`, true);
+      loadAdminUsers();
+      if (typeof loadFromSupabase === "function") loadFromSupabase();
+    } catch (err) {
+      alert("Erro: " + err.message);
+    }
+  }
+
+  async function adminDeleteUser(discordId, username) {
+    if (!confirm(`⚠️ ATENÇÃO: Deseja realmente EXCLUIR o usuário "${username}"?\n\nTodas as configurações, chaves e fila deste usuário serão removidas definitivamente.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_user", discord_id: discordId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao excluir usuário");
+
+      showToast("🗑️", "Usuário Excluído!", username, true);
+      loadAdminUsers();
+    } catch (err) {
+      alert("Erro ao excluir usuário: " + err.message);
+    }
+  }
+
+  // MODAL CRIAR USUÁRIO
+  function openCreateUserModal() {
+    const modal = document.getElementById("createUserModal");
+    const nameInp = document.getElementById("newUserNameInput");
+    const idInp = document.getElementById("newUserIdInput");
+    if (nameInp) nameInp.value = "";
+    if (idInp) idInp.value = "";
+    if (modal) {
+      modal.style.display = "flex";
+      setTimeout(() => nameInp?.focus(), 50);
+    }
+  }
+
+  function closeCreateUserModal() {
+    const modal = document.getElementById("createUserModal");
+    if (modal) modal.style.display = "none";
+  }
+
+  function handleCreateUserModalClick(e) {
+    if (e.target.id === "createUserModal") closeCreateUserModal();
+  }
+
+  async function submitCreateUser() {
+    const nameInp = document.getElementById("newUserNameInput");
+    const idInp = document.getElementById("newUserIdInput");
+    const name = (nameInp?.value || "").trim();
+    const customId = (idInp?.value || "").trim();
+
+    if (!name) {
+      alert("Por favor, digite o nome do streamer / usuário.");
+      nameInp?.focus();
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_user",
+          username: name,
+          discord_id: customId
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao criar usuário");
+
+      closeCreateUserModal();
+      showToast("✅", "Usuário Criado com Sucesso!", name, true);
+      loadAdminUsers();
+    } catch (err) {
+      alert("Erro ao criar usuário: " + err.message);
+    }
+  }
+
+  // MODAL INSPEÇÃO DE FILA
+  async function adminViewQueue(discordId, username) {
+    _activeInspectedUserId = discordId;
+    const modal = document.getElementById("userQueueModal");
+    const title = document.getElementById("userQueueModalTitle");
+    const content = document.getElementById("userQueueModalContent");
+
+    if (title) title.innerText = `Fila de ${username}`;
+    if (content) content.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 30px;">⏳ Carregando pedidos...</div>';
+    if (modal) modal.style.display = "flex";
+
+    try {
+      const res = await fetch(`/api/admin/users?user_id=${encodeURIComponent(discordId)}&action=get_queue`);
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Falha ao puxar fila");
+
+      const items = data.queue || [];
+      if (items.length === 0) {
+        content.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 30px;">Fila vazia no momento.</div>';
+        return;
+      }
+
+      content.innerHTML = items.map((q, idx) => `
+        <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-weight: 800; color: #f59e0b; font-size: 13px;">#${idx + 1}</span>
+            <div>
+              <span style="font-weight: 700; color: #fff; font-size: 13.5px;">@${escapeHtml(q.nick)}</span>
+              <span style="font-size: 11px; color: var(--text-dim); margin-left: 8px;">Por: ${escapeHtml(q.sender || 'presente')}</span>
+            </div>
+          </div>
+          <span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: ${q.status === 'processing' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${q.status === 'processing' ? '#60a5fa' : '#34d399'};">
+            ${q.status === 'processing' ? 'Processando...' : 'Pendente'}
+          </span>
+        </div>
+      `).join("");
+    } catch (err) {
+      content.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 30px;">Erro: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function closeUserQueueModal() {
+    const modal = document.getElementById("userQueueModal");
+    if (modal) modal.style.display = "none";
+    _activeInspectedUserId = null;
+  }
+
+  function handleUserQueueModalClick(e) {
+    if (e.target.id === "userQueueModal") closeUserQueueModal();
+  }
+
+  function adminClearQueueFromModal() {
+    if (!_activeInspectedUserId) return;
+    adminClearQueue(_activeInspectedUserId, "usuário");
+    closeUserQueueModal();
+  }
+
 </script>
 
   <!-- =========================================================
@@ -6162,6 +6722,62 @@
       <!-- Lista Rolável com Categorias -->
       <div id="fruitListContainer" style="overflow-y: auto; max-height: 52vh; display: flex; flex-direction: column; gap: 14px; padding-right: 4px;">
         <!-- Renderizado dinamicamente via renderFruitList() -->
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL: CRIAR NOVO USUÁRIO / STREAMER -->
+  <div id="createUserModal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 20px;" onclick="handleCreateUserModalClick(event)">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: var(--radius-lg); width: 100%; max-width: 480px; padding: 24px; box-shadow: var(--shadow-elevated); display: flex; flex-direction: column; gap: 16px;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <div style="font-size: 16px; font-weight: 800; color: #10b981; display: flex; align-items: center; gap: 8px;">
+          <span>➕</span>
+          <span>Criar Novo Usuário / Streamer</span>
+        </div>
+        <button type="button" onclick="closeCreateUserModal()" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 4px 10px; border-radius: 6px;">✕</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; display: block;">Nome do Streamer / Jogador *</label>
+          <input type="text" id="newUserNameInput" placeholder="Ex: Streamer João, Maria Live..." style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: #fff; font-size: 13.5px; outline: none;">
+        </div>
+
+        <div>
+          <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; display: block;">Discord ID ou Identificador (Opcional)</label>
+          <input type="text" id="newUserIdInput" placeholder="Deixe em branco para gerar automático..." style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: #fff; font-size: 13.5px; outline: none;">
+          <span style="font-size: 11px; color: var(--text-dim); margin-top: 4px; display: block;">Uma chave estável única e o Loader de 1 Linha serão criados automaticamente.</span>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeCreateUserModal()" style="padding: 10px 18px;">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="submitCreateUser()" style="padding: 10px 22px; background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 700;">Salvar e Gerar Chave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: INSPECIONAR FILA DO USUÁRIO -->
+  <div id="userQueueModal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 20px;" onclick="handleUserQueueModalClick(event)">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: var(--radius-lg); width: 100%; max-width: 600px; max-height: 80vh; padding: 22px; box-shadow: var(--shadow-elevated); display: flex; flex-direction: column; gap: 14px;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span>📦</span>
+          <span id="userQueueModalTitle" style="font-size: 16px; font-weight: 800; color: #f59e0b;">Fila de Presentes</span>
+        </div>
+        <button type="button" onclick="closeUserQueueModal()" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 4px 10px; border-radius: 6px;">✕</button>
+      </div>
+
+      <div id="userQueueModalContent" style="overflow-y: auto; max-height: 55vh; display: flex; flex-direction: column; gap: 10px;">
+        <div style="text-align: center; color: var(--text-muted); padding: 30px;">Carregando pedidos da fila...</div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;">
+        <button type="button" class="btn btn-danger" id="userQueueClearBtn" onclick="adminClearQueueFromModal()" style="padding: 8px 14px; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+          <span>🧹</span> Limpar Toda Fila
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeUserQueueModal()" style="padding: 8px 18px; font-size: 12px;">Fechar</button>
       </div>
     </div>
   </div>

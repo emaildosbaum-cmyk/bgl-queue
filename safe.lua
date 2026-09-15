@@ -446,6 +446,7 @@ local activeWS = nil
 
 -- Variáveis globais para rastrear alvo e fruta atuais
 local activeTargetPlayer = ""
+local currentBuyItemId = 0
 local activeTargetFruit = ""
 local selectedPlayerName = ""
 local searchBoxPlayerName = "" -- nome lido direto da SearchBox do jogo (prioridade máxima)
@@ -603,11 +604,19 @@ local function createCloseIcon(parent, size)
     return btn
 end
 
-local function reportPurchaseFinished(status, reason)
-    print(string.format("[AutoBuyer] Status da compra: %s (Motivo: %s)", tostring(status), tostring(reason or "none")))
+local function reportPurchaseFinished(status, reason, targetNick, fruitName, queueItemId)
+    local nick = targetNick or activeTargetPlayer or ""
+    local fruit = fruitName or activeTargetFruit or ""
+    local qId = queueItemId or currentBuyItemId or 0
+
+    print(string.format("[AutoBuyer] Status da compra: %s (Nick: %s | ID: %s | Motivo: %s)", tostring(status), tostring(nick), tostring(qId), tostring(reason or "none")))
     local payload = HttpService:JSONEncode({
         type = "purchase_finished",
         status = status,
+        username = nick,
+        nick = nick,
+        fruit = fruit,
+        id = qId,
         reason = reason or "",
         token = SCRIPT_TOKEN
     })
@@ -620,7 +629,7 @@ local function reportPurchaseFinished(status, reason)
         local tokenQ = getTokenQuery()
         if tokenQ ~= "" then
             pcall(function()
-                local cloudUrl = VERCEL_API_URL .. "/api/script/purchase_finished" .. tokenQ .. "&status=" .. HttpService:UrlEncode(tostring(status))
+                local cloudUrl = VERCEL_API_URL .. "/api/script/purchase_finished" .. tokenQ .. "&status=" .. HttpService:UrlEncode(tostring(status)) .. "&username=" .. HttpService:UrlEncode(tostring(nick)) .. "&id=" .. tostring(qId)
                 universalHttpRequest(cloudUrl, "POST", payload)
             end)
         end
@@ -2234,15 +2243,43 @@ end)
 ---------------------------------------------------------
 local FRUIT_ORDER = {
     ["rocket"] = 1, ["spin"] = 2, ["chop"] = 3, ["spring"] = 4, ["bomb"] = 5,
-    ["spike"] = 6, ["flame"] = 7, ["falcon"] = 8, ["ice"] = 9, ["sand"] = 10,
-    ["dark"] = 11, ["diamond"] = 12, ["light"] = 13, ["rubber"] = 14, ["barrier"] = 15,
-    ["ghost"] = 16, ["magma"] = 17, ["quake"] = 18, ["buddha"] = 19, ["love"] = 20,
-    ["spider"] = 21, ["sound"] = 22, ["phoenix"] = 23, ["portal"] = 24, ["rumble"] = 25,
-    ["pain"] = 26, ["blizzard"] = 27, ["gravity"] = 28, ["mammoth"] = 29, ["t-rex"] = 30,
-    ["dough"] = 31, ["shadow"] = 32, ["venom"] = 33, ["control"] = 34, ["spirit"] = 35,
-    ["dragon"] = 36, ["leopard"] = 37, ["kitsune"] = 38,
-    ["gas"] = 39, ["yeti"] = 40, ["magnet"] = 41
+    ["smoke"] = 6, ["spike"] = 7, ["flame"] = 8, ["falcon"] = 9, ["ice"] = 10, ["sand"] = 11,
+    ["dark"] = 12, ["diamond"] = 13, ["light"] = 14, ["rubber"] = 15, ["barrier"] = 16,
+    ["ghost"] = 17, ["magma"] = 18, ["quake"] = 19, ["buddha"] = 20, ["love"] = 21,
+    ["spider"] = 22, ["sound"] = 23, ["phoenix"] = 24, ["portal"] = 25, ["rumble"] = 26,
+    ["pain"] = 27, ["blizzard"] = 28, ["gravity"] = 29, ["mammoth"] = 30, ["t-rex"] = 31,
+    ["dough"] = 32, ["shadow"] = 33, ["venom"] = 34, ["control"] = 35, ["spirit"] = 36,
+    ["dragon"] = 37, ["leopard"] = 38, ["tiger"] = 38, ["kitsune"] = 39,
+    ["gas"] = 40, ["yeti"] = 41, ["magnet"] = 42
 }
+
+local function resolveFruitToBuy(fruitName)
+    -- 1. Se o streamer já deixou uma fruta aberta na loja do jogo, usa ela!
+    local openFruit, _ = getActiveFruitFromShop()
+    if openFruit and openFruit ~= "" and FRUIT_ORDER[openFruit:lower()] then
+        print("[AutoBuyer] Usando fruta aberta na loja: " .. openFruit)
+        return openFruit
+    end
+
+    -- 2. Se fruitName foi passado e é válido
+    if fruitName and fruitName ~= "" then
+        local fLower = fruitName:lower():gsub("^%s*(.-)%s*$", "%1")
+        if fLower ~= "random" and fLower ~= "generic" and fLower ~= "fruit" and fLower ~= "sword of destiny" and FRUIT_ORDER[fLower] then
+            return fruitName
+        end
+    end
+
+    -- 3. Se houver fruta configurada no currentSettings
+    if currentSettings and currentSettings.item_name then
+        local cfgFruit = tostring(currentSettings.item_name):lower():gsub("^%s*(.-)%s*$", "%1")
+        if cfgFruit ~= "random" and cfgFruit ~= "generic" and cfgFruit ~= "fruit" and cfgFruit ~= "sword of destiny" and FRUIT_ORDER[cfgFruit] then
+            return currentSettings.item_name
+        end
+    end
+
+    -- 4. Fallback padrão seguro: "Rocket" (mais barata, 50 Robux, index 1)
+    return "Rocket"
+end
 
 local function scrollAndFindFruit(scrollingFrame, fruitName)
     local targetIdx = FRUIT_ORDER[fruitName:lower()]
@@ -2574,10 +2611,10 @@ end
 -- Processo completo de auto-compra acionado pelo servidor
 local autoBuyBusy = false
 local currentBuyId = 0
-local function executeBuyFruit(username, fruitName)
+local function executeBuyFruit(username, fruitName, queueItemId)
     if autoBuyBusy then
         warn("[AutoBuyer] Já está processando outra compra, aguarde...")
-        logStep("Erro: Já processando outra compra")
+        logStep("Aguarde: Compra anterior ainda em andamento")
         return
     end
     
@@ -2585,47 +2622,81 @@ local function executeBuyFruit(username, fruitName)
     watchdogAborted = false
     currentBuyId = currentBuyId + 1
     local myBuyId = currentBuyId
+    currentBuyItemId = queueItemId or currentBuyItemId or 0
     activeTargetPlayer = username
     selectedPlayerName = username
-    if fruitName and fruitName ~= "" and fruitName:lower() ~= "generic" and fruitName ~= "Fruit" and fruitName ~= "Sword of Destiny" then
-        activeTargetFruit = fruitName
-        lastDetectedInGameItem = fruitName
-    end
 
-    -- WATCHDOG TIMER: aborta automaticamente se o fluxo todo demorar demais
+    local finalFruit = resolveFruitToBuy(fruitName)
+    activeTargetFruit = finalFruit
+    lastDetectedInGameItem = finalFruit
+
+    -- WATCHDOG TIMER: aborta e destrava automaticamente
     local totalTimeout = tonumber(currentSettings.step_timeouts and currentSettings.step_timeouts.total) or 30
     task.delay(totalTimeout, function()
         if autoBuyBusy and currentBuyId == myBuyId and not watchdogAborted then
-            warn(string.format("[Watchdog] Timeout total de %ds atingido! Abortando compra para '%s'", totalTimeout, username))
-            abortCurrentBuy("Timeout total de " .. totalTimeout .. "s excedido")
+            warn(string.format("[Watchdog] Timeout de %ds atingido! Destravando para '%s'", totalTimeout, username))
+            abortCurrentBuy("Timeout total excedido")
             purchaseComplete = true
+            reportPurchaseFinished("aborted", "Timeout excedido no Roblox", username, finalFruit, currentBuyItemId)
             autoBuyBusy = false
         end
     end)
     
     print("[AutoBuyer] ========================================")
-    print("[AutoBuyer] Iniciando compra: " .. fruitName .. " para " .. username)
+    print(string.format("[AutoBuyer] Iniciando compra: %s para %s (ID: %s)", tostring(finalFruit), tostring(username), tostring(currentBuyItemId)))
     print("[AutoBuyer] ========================================")
-    logStep("Iniciando compra da fruta " .. fruitName .. " para " .. username)
+    logStep("Iniciando compra da fruta " .. tostring(finalFruit) .. " para " .. tostring(username))
     
     local success, err = pcall(function()
-        logStep("Verificando se a loja de frutas está aberta...")
+        logStep("Verificando loja de frutas no Roblox...")
         local shopGui = playerGui:FindFirstChild("FruitShopAndDealer")
+        
+        -- Se a loja estiver fechada, espera até 6 segundos para o streamer abri-la
         if not shopGui then
-            warn("[AutoBuyer] Loja de frutas fechada!")
-            return
+            logStep("Aviso: Abra a Loja de Frutas (Fruit Dealer) no Roblox!")
+            local startWaitShop = os.clock()
+            while not shopGui and (os.clock() - startWaitShop) < 6 do
+                task.wait(0.5)
+                shopGui = playerGui:FindFirstChild("FruitShopAndDealer")
+            end
         end
-        
-        local scrollingFrame = shopGui.Shop.Menu.Content.Body.ScrollingFrame
-        if not scrollingFrame then return end
-        
-        logStep("Buscando inteligentemente a fruta " .. fruitName .. " na loja...")
-        local fruitSlot = scrollAndFindFruit(scrollingFrame, fruitName)
-        
-        if not fruitSlot then
-            warn("[AutoBuyer] Fruta '" .. fruitName .. "' não encontrada na loja!")
-            return
-        end
+
+        local existingGiftWindow = playerGui:FindFirstChild("GiftWindow")
+        local giftWindowOpen = existingGiftWindow and existingGiftWindow.Enabled and existingGiftWindow:FindFirstChild("Window") and existingGiftWindow.Window.Visible
+
+        if not giftWindowOpen then
+            if not shopGui then
+                warn("[AutoBuyer] Loja de frutas continua fechada!")
+                logStep("Erro: Abra a Loja de Frutas no Roblox")
+                reportPurchaseFinished("aborted", "Loja de frutas fechada", username, finalFruit, currentBuyItemId)
+                return
+            end
+            
+            local scrollingFrame = shopGui:FindFirstChild("Shop")
+                and shopGui.Shop:FindFirstChild("Menu")
+                and shopGui.Shop.Menu:FindFirstChild("Content")
+                and shopGui.Shop.Menu.Content:FindFirstChild("Body")
+                and shopGui.Shop.Menu.Content.Body:FindFirstChild("ScrollingFrame")
+            if not scrollingFrame then
+                warn("[AutoBuyer] ScrollingFrame da loja não encontrado!")
+                reportPurchaseFinished("error", "ScrollingFrame não encontrado", username, finalFruit, currentBuyItemId)
+                return
+            end
+            
+            logStep("Buscando fruta " .. finalFruit .. " na loja...")
+            local fruitSlot = scrollAndFindFruit(scrollingFrame, finalFruit)
+            
+            if not fruitSlot then
+                warn("[AutoBuyer] Fruta '" .. finalFruit .. "' não encontrada. Tentando Rocket ou slot ativo...")
+                fruitSlot = scrollAndFindFruit(scrollingFrame, "Rocket") or scrollingFrame:FindFirstChild("Fruit[2]") or scrollingFrame:FindFirstChild("Fruit[1]")
+            end
+            
+            if not fruitSlot then
+                warn("[AutoBuyer] Nenhum slot de fruta disponível na loja!")
+                logStep("Erro: Fruta não encontrada na loja")
+                reportPurchaseFinished("error", "Fruta não encontrada na loja", username, finalFruit, currentBuyItemId)
+                return
+            end
         
         -- Verifica se o painel já está aberto e o botão Gift já está visível
         local controlPanel = fruitSlot:FindFirstChild("ControlPanel")
@@ -3197,20 +3268,18 @@ local function handleBridgeMessage(decoded)
         local username = decoded.username
         local fruit = decoded.fruit
         
-        if username and username ~= "" and fruit and fruit ~= "" and fruit:lower() ~= "generic" and fruit:lower() ~= "fruit" and fruit ~= "Sword of Destiny" then
-            -- Evita duplicata: ignora se é exatamente o mesmo pedido repetido
-            if username == lastBridgeUsername and fruit == lastBridgeFruit then return end
-            lastBridgeUsername = username
-            lastBridgeFruit = fruit
-            
-            print("[AutoBuyer] Comando recebido: Comprar '" .. fruit .. "' para '" .. username .. "'")
-            task.spawn(function() executeBuyFruit(username, fruit) end)
-        elseif username and username ~= "" then
-            -- set_username só executa se NÃO houver compra em andamento
-            if not autoBuyBusy and username ~= lastBridgeUsername then
-                lastBridgeUsername = username
-                setBridgeUsername(username, "")
+        if username and username ~= "" then
+            if autoBuyBusy then
+                warn("[AutoBuyer] Ignorando comando: outra compra já em andamento")
+                return
             end
+            lastBridgeUsername = username
+            lastBridgeFruit = fruit or ""
+            local qId = decoded.id or 0
+            currentBuyItemId = qId
+            
+            print("[AutoBuyer] Comando recebido: Comprar '" .. tostring(fruit) .. "' para '" .. tostring(username) .. "' (ID: " .. tostring(qId) .. ")")
+            task.spawn(function() executeBuyFruit(username, fruit, qId) end)
         end
     elseif decoded.action == "set_username" then
         -- Ignora set_username durante uma compra ativa (evita corrupção do nick em andamento)
@@ -3271,11 +3340,13 @@ startHttpPolling = function()
                     failedNext = 0
                     local dataSuccess, decoded = pcall(function() return HttpService:JSONDecode(response) end)
                     if dataSuccess and decoded and decoded.username and decoded.username ~= "" then
-                        print("[AutoBuyer] Fila Nuvem -> Comprando para @" .. tostring(decoded.username) .. " | Fruta: " .. tostring(decoded.fruit))
+                        currentBuyItemId = decoded.id or 0
+                        print("[AutoBuyer] Fila Nuvem -> Comprando para @" .. tostring(decoded.username) .. " | Fruta: " .. tostring(decoded.fruit) .. " | ID: " .. tostring(decoded.id))
                         handleBridgeMessage({
                             action = "buy_fruit",
                             username = decoded.username,
-                            fruit = decoded.fruit or ""
+                            fruit = decoded.fruit or "",
+                            id = decoded.id
                         })
                     end
                     task.wait(0.5)
