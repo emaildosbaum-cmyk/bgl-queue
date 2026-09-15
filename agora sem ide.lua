@@ -2116,49 +2116,74 @@ end)
 ---------------------------------------------------------
 local function getAutomaticPriceAndName()
     local price = lastDetectedInGamePrice or GENERIC_ITEM_PRICE
-    local itemName = detectRealInGameItemName()
+    local itemName = (type(detectRealInGameItemName) == "function" and pcall(detectRealInGameItemName) and detectRealInGameItemName()) or activeTargetFruit or ""
     local itemImg = lastDetectedInGameImage or GENERIC_ITEM_IMAGE
     local imgColor = Color3.fromRGB(255, 255, 255)
     local imgTrans = 0
     local imgRectOffset = Vector2.new(0, 0)
     local imgRectSize = Vector2.new(0, 0)
-    
-    local giftWindow = playerGui:FindFirstChild("GiftWindow")
-    if giftWindow then
-        -- 1. Tenta extrair nome diretamente da GiftWindow via varredura aprofundada
-        local detectedName = scanGiftWindowForName(giftWindow)
-        if detectedName and detectedName ~= "" and detectedName:lower() ~= "generic" and detectedName ~= "Fruit" and detectedName ~= "Sword of Destiny" then
-            itemName = detectedName
-            lastDetectedInGameItem = detectedName
+
+    pcall(function()
+        local giftWindow = playerGui:FindFirstChild("GiftWindow")
+        if not giftWindow then return end
+
+        -- 1. Tenta extrair nome diretamente da GiftWindow
+        if type(scanGiftWindowForName) == "function" then
+            local ok, detectedName = pcall(scanGiftWindowForName, giftWindow)
+            if ok and detectedName and detectedName ~= "" and detectedName:lower() ~= "generic"
+                and detectedName ~= "Fruit" and detectedName ~= "Sword of Destiny" then
+                itemName = detectedName
+                lastDetectedInGameItem = detectedName
+            end
         end
-        
+
         local content = giftWindow:FindFirstChild("Content", true)
-        if content then
-            -- 2. Lê o preço exato do botão Purchase na GiftWindow
-            pcall(function()
-                local buttons = content:FindFirstChild("Buttons")
-                local purchase = buttons and buttons:FindFirstChild("Purchase")
-                local textLabel = purchase and (purchase:FindFirstChild("TextLabel") or purchase:FindFirstChildWhichIsA("TextLabel"))
-                if textLabel and textLabel.Text ~= "" then
-                    local text = textLabel.Text:gsub("<[^<>]->" , "")
-                    local clean = text:match("[%d,%.]+")
-                    if clean then 
-                        price = clean 
-                        lastDetectedInGamePrice = clean
-                    end
+        if not content then return end
+
+        -- 2. Lê o preço exato do botão Purchase
+        pcall(function()
+            local buttons = content:FindFirstChild("Buttons")
+            local purchase = buttons and buttons:FindFirstChild("Purchase")
+            local textLabel = purchase and (purchase:FindFirstChild("TextLabel") or purchase:FindFirstChildWhichIsA("TextLabel"))
+            if textLabel and textLabel.Text ~= "" then
+                local text = textLabel.Text:gsub("<[^<>]->", "")
+                local clean = text:match("[%d,%.]+")
+                if clean then
+                    price = clean
+                    lastDetectedInGamePrice = clean
                 end
-            end)
-            
-            -- 3. Tenta pegar a imagem direto do slot ativo/expandido na loja ou pelo nome da fruta
-            local gotIcon = false
+            end
+        end)
+
+        -- 3. Tenta pegar a imagem do slot ativo na loja
+        local gotIcon = false
+        pcall(function()
+            if type(getActiveFruitFromShop) ~= "function" then return end
+            local shopFruit, artIcon = getActiveFruitFromShop()
+            if artIcon and artIcon.Image ~= "" and artIcon.Image ~= "rbxassetid://16335379958" then
+                itemImg = artIcon.Image
+                imgColor = artIcon.ImageColor3
+                imgTrans = artIcon.ImageTransparency
+                imgRectOffset = artIcon.ImageRectOffset
+                imgRectSize = artIcon.ImageRectSize
+                gotIcon = true
+                lastDetectedInGameImage = itemImg
+                lastDetectedInGameImageColor = imgColor
+                lastDetectedInGameImageTrans = imgTrans
+                lastDetectedInGameImageOffset = imgRectOffset
+                lastDetectedInGameImageSize = imgRectSize
+            end
+        end)
+
+        if not gotIcon and type(findFruitIconInShop) == "function" then
             pcall(function()
-                local shopFruit, artIcon = getActiveFruitFromShop()
-                if artIcon and artIcon.Image ~= "" and artIcon.Image ~= "rbxassetid://16335379958" then
-                    itemImg = artIcon.Image
-                    imgColor = artIcon.ImageColor3
-                    imgTrans = artIcon.ImageTransparency
-                    imgRectOffset = artIcon.ImageRectOffset
-                    imgRectSize = artIcon.ImageRectSize
+                local iconData = findFruitIconInShop(itemName or activeTargetFruit)
+                if iconData and iconData.Image and iconData.Image ~= "" then
+                    itemImg = iconData.Image
+                    imgColor = iconData.Color or Color3.fromRGB(255, 255, 255)
+                    imgTrans = iconData.Transparency or 0
+                    imgRectOffset = iconData.RectOffset or Vector2.new(0, 0)
+                    imgRectSize = iconData.RectSize or Vector2.new(0, 0)
                     gotIcon = true
                     lastDetectedInGameImage = itemImg
                     lastDetectedInGameImageColor = imgColor
@@ -2167,28 +2192,9 @@ local function getAutomaticPriceAndName()
                     lastDetectedInGameImageSize = imgRectSize
                 end
             end)
-            
-            if not gotIcon and findFruitIconInShop then
-                pcall(function()
-                    local iconData = findFruitIconInShop(itemName or activeTargetFruit)
-                    if iconData and iconData.Image and iconData.Image ~= "" then
-                        itemImg = iconData.Image
-                        imgColor = iconData.Color or Color3.fromRGB(255, 255, 255)
-                        imgTrans = iconData.Transparency or 0
-                        imgRectOffset = iconData.RectOffset or Vector2.new(0, 0)
-                        imgRectSize = iconData.RectSize or Vector2.new(0, 0)
-                        gotIcon = true
-                        lastDetectedInGameImage = itemImg
-                        lastDetectedInGameImageColor = imgColor
-                        lastDetectedInGameImageTrans = imgTrans
-                        lastDetectedInGameImageOffset = imgRectOffset
-                        lastDetectedInGameImageSize = imgRectSize
-                    end
-                end)
-            end
         end
-    end
-    
+    end)
+
     return price, itemName, itemImg, imgColor, imgTrans, imgRectOffset, imgRectSize
 end
 
