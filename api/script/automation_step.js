@@ -30,7 +30,7 @@ function cleanToken(raw) {
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
@@ -43,7 +43,9 @@ module.exports = async (req, res) => {
   const token = cleanToken(rawToken);
 
   let body = {};
-  if (typeof req.body === "object" && req.body !== null) {
+  if (req.method === "GET") {
+    body.step = urlObj.searchParams.get("step") || "";
+  } else if (typeof req.body === "object" && req.body !== null) {
     body = req.body;
   } else if (typeof req.body === "string") {
     try { body = JSON.parse(req.body); } catch(e) {}
@@ -51,6 +53,9 @@ module.exports = async (req, res) => {
     const buffers = [];
     for await (const chunk of req) buffers.push(chunk);
     try { body = JSON.parse(Buffer.concat(buffers).toString()); } catch(e) {}
+  }
+  if (!body.step && urlObj.searchParams.get("step")) {
+    body.step = urlObj.searchParams.get("step");
   }
 
   if (!token) {

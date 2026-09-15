@@ -20,6 +20,7 @@ local HttpService = game:GetService("HttpService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
 local TextChatService = pcall(function() return game:GetService("TextChatService") end) and game:GetService("TextChatService") or nil
 
 local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
@@ -181,7 +182,10 @@ local currentSettings = {
     item_name = "Sword of Destiny",
     item_price = "1,250",
     item_image = "rbxassetid://6071895945",
-    toggle_key = "P"
+    toggle_key = "P",
+    step_timeouts = {
+        total = 30
+    }
 }
 
 local function saveConfig()
@@ -282,11 +286,15 @@ local function universalHttpRequest(url, method, body, headers)
         headers["Content-Type"] = "application/json"
     end
     
-    -- 1. Executores modernos (request / http_request / syn.request / http.request)
+    -- 1. Executores modernos: busca por request / http_request / syn.request / http.request / fluxus.request
+    local genv = (getgenv and type(getgenv) == "function") and getgenv() or _G or {}
     local req = (type(request) == "function" and request)
         or (type(http_request) == "function" and http_request)
+        or (type(genv.request) == "function" and genv.request)
+        or (type(genv.http_request) == "function" and genv.http_request)
         or (syn and type(syn.request) == "function" and syn.request)
         or (http and type(http.request) == "function" and http.request)
+        or (fluxus and type(fluxus.request) == "function" and fluxus.request)
         
     if req then
         local reqData = {
@@ -304,36 +312,37 @@ local function universalHttpRequest(url, method, body, headers)
         
         local ok, res = pcall(req, reqData)
         if ok and res then
-            if type(res) == "string" and res ~= "" then
+            if type(res) == "string" then
                 return true, res, 200
             elseif type(res) == "table" then
-                local resBody = res.Body or res.body or res.Data or res.data
+                local resBody = res.Body or res.body or res.Data or res.data or ""
                 local statusCode = tonumber(res.StatusCode or res.status_code or res.statusCode) or 200
-                if resBody and type(resBody) == "string" then
-                    return (statusCode >= 200 and statusCode < 300), resBody, statusCode
-                end
+                return (statusCode >= 200 and statusCode < 300), tostring(resBody), statusCode
             end
         end
     end
     
     -- 2. Métodos nativos de executor game:HttpGet / game:HttpGetAsync
     if method == "GET" then
-        local getOk, getRes = pcall(function()
-            return game:HttpGet(url)
-        end)
-        if getOk and getRes and type(getRes) == "string" and getRes ~= "" then
+        local getOk, getRes = pcall(function() return game:HttpGet(url) end)
+        if getOk and getRes and type(getRes) == "string" then
             return true, getRes, 200
         end
-        
-        local getAsyncOk, getAsyncRes = pcall(function()
-            return game:HttpGetAsync(url)
-        end)
-        if getAsyncOk and getAsyncRes and type(getAsyncRes) == "string" and getAsyncRes ~= "" then
+        local getAsyncOk, getAsyncRes = pcall(function() return game:HttpGetAsync(url) end)
+        if getAsyncOk and getAsyncRes and type(getAsyncRes) == "string" then
             return true, getAsyncRes, 200
         end
     end
     
-    -- 3. Fallback HttpService (Roblox Studio ou executores com bridge)
+    -- 3. Fallback POST para executores com suporte apenas a HttpGet
+    if method == "POST" then
+        local getOk, getRes = pcall(function() return game:HttpGet(url) end)
+        if getOk and getRes and type(getRes) == "string" then
+            return true, getRes, 200
+        end
+    end
+    
+    -- 4. Fallback HttpService (Roblox Studio ou servidor local 127.0.0.1)
     local hsOk, hsRes = pcall(function()
         if method == "GET" then
             return HttpService:GetAsync(url, true)
@@ -341,8 +350,8 @@ local function universalHttpRequest(url, method, body, headers)
             return HttpService:PostAsync(url, body or "", Enum.HttpContentType.ApplicationJson)
         end
     end)
-    if hsOk and hsRes and type(hsRes) == "string" and hsRes ~= "" then
-        return true, hsRes, 200
+    if hsOk and hsRes then
+        return true, tostring(hsRes), 200
     end
     
     return false, "Nenhum método HTTP disponível ou conexão recusada", 0
@@ -360,7 +369,14 @@ local function verifyAndLinkRobloxAccount(token)
     local robloxDisplayName = tostring(localPlayer.DisplayName)
     local robloxAvatar = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. robloxUserId .. "&size=150x150&format=Png&isCircular=true"
     
-    local linkUrl = VERCEL_API_URL .. "/api/script/link_roblox"
+    local queryParams = string.format("?token=%s&roblox_user_id=%s&roblox_username=%s&roblox_display_name=%s&roblox_avatar_url=%s",
+        HttpService:UrlEncode(clean),
+        HttpService:UrlEncode(robloxUserId),
+        HttpService:UrlEncode(robloxUsername),
+        HttpService:UrlEncode(robloxDisplayName),
+        HttpService:UrlEncode(robloxAvatar)
+    )
+    local linkUrl = VERCEL_API_URL .. "/api/script/link_roblox" .. queryParams
     local linkBody = HttpService:JSONEncode({
         token = clean,
         roblox_user_id = robloxUserId,
@@ -433,6 +449,71 @@ local activeTargetPlayer = ""
 local activeTargetFruit = ""
 local selectedPlayerName = ""
 local searchBoxPlayerName = "" -- nome lido direto da SearchBox do jogo (prioridade máxima)
+
+-- Forward declarations para Watchdog
+local closeGui
+local closeSuccessGui
+local openSuccessGui
+
+---------------------------------------------------------
+-- LOGSTEP (silenciado por padrão para não poluir console)
+---------------------------------------------------------
+local DEBUG_LOGS = false
+local function logStep(msg)
+    if DEBUG_LOGS then
+        print("[WD] " .. tostring(msg))
+    end
+end
+
+---------------------------------------------------------
+-- WATCHDOG: abortCurrentBuy
+---------------------------------------------------------
+local watchdogAborted = false
+local function abortCurrentBuy(reason)
+    warn("[Watchdog] ABORT: " .. tostring(reason))
+    watchdogAborted = true
+    
+    -- Tenta fechar todas as GUIs abertas
+    pcall(function()
+        if closeGui then closeGui() end
+    end)
+    pcall(function()
+        if closeSuccessGui then closeSuccessGui() end
+    end)
+    
+    -- Tenta clicar Cancel na GiftWindow ou duplo ESC
+    pcall(function()
+        local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        local gw = pg:FindFirstChild("GiftWindow")
+        local cancelBtn = gw and gw:FindFirstChild("Cancel", true)
+        if cancelBtn and cancelBtn:IsA("GuiButton") and cancelBtn.Visible then
+            cancelBtn:SetAttribute("__wdclick", true)
+            -- Simula o clique via fire
+            pcall(function()
+                local vim = game:GetService("VirtualInputManager")
+                vim:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+                task.wait(0.04)
+                vim:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+                task.wait(0.05)
+                vim:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+                task.wait(0.04)
+                vim:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+            end)
+        else
+            local vim = game:GetService("VirtualInputManager")
+            vim:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+            task.wait(0.04)
+            vim:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+            task.wait(0.05)
+            vim:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+            task.wait(0.04)
+            vim:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+        end
+    end)
+    
+    -- Notifica o servidor e a nuvem que abortou
+    reportPurchaseFinished("aborted", reason)
+end
 
 ---------------------------------------------------------
 -- UTILITÁRIOS DE FORMATAÇÃO E NÚMEROS
@@ -522,65 +603,63 @@ local function createCloseIcon(parent, size)
     return btn
 end
 
-local function logStep(stepName)
-    print("[AutoBuyer - Passo] " .. stepName)
+local function reportPurchaseFinished(status, reason)
+    print(string.format("[AutoBuyer] Status da compra: %s (Motivo: %s)", tostring(status), tostring(reason or "none")))
+    local payload = HttpService:JSONEncode({
+        type = "purchase_finished",
+        status = status,
+        reason = reason or "",
+        token = SCRIPT_TOKEN
+    })
     pcall(function()
         if activeWS then
-            local msg = HttpService:JSONEncode({
-                type = "automation_step",
-                step = stepName
-            })
-            if activeWS.Send then
-                activeWS:Send(msg)
-            elseif activeWS.send then
-                activeWS:send(msg)
-            end
+            if activeWS.Send then activeWS:Send(payload) elseif activeWS.send then activeWS:send(payload) end
         end
     end)
     task.spawn(function()
+        local tokenQ = getTokenQuery()
+        if tokenQ ~= "" then
+            pcall(function()
+                local cloudUrl = VERCEL_API_URL .. "/api/script/purchase_finished" .. tokenQ .. "&status=" .. HttpService:UrlEncode(tostring(status))
+                universalHttpRequest(cloudUrl, "POST", payload)
+            end)
+        end
         pcall(function()
-            HttpService:PostAsync(
-                "http://127.0.0.1:" .. HTTP_PORT .. "/automation_step",
-                HttpService:JSONEncode({ step = stepName }),
-                Enum.HttpContentType.ApplicationJson
-            )
+            universalHttpRequest("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", "POST", payload)
+        end)
+    end)
+end
+
+local function logStep(stepName)
+    print("[AutoBuyer - Passo] " .. tostring(stepName))
+    local payload = HttpService:JSONEncode({
+        type = "automation_step",
+        step = stepName,
+        step_name = stepName,
+        token = SCRIPT_TOKEN
+    })
+    pcall(function()
+        if activeWS then
+            if activeWS.Send then activeWS:Send(payload) elseif activeWS.send then activeWS:send(payload) end
+        end
+    end)
+    task.spawn(function()
+        local tokenQ = getTokenQuery()
+        if tokenQ ~= "" then
+            pcall(function()
+                local cloudUrl = VERCEL_API_URL .. "/api/script/automation_step" .. tokenQ .. "&step=" .. HttpService:UrlEncode(tostring(stepName))
+                universalHttpRequest(cloudUrl, "POST", payload)
+            end)
+        end
+        pcall(function()
+            universalHttpRequest("http://127.0.0.1:" .. HTTP_PORT .. "/automation_step", "POST", payload)
         end)
     end)
 end
 
 ---------------------------------------------------------
--- FORMATAÇÃO E CAPTURA DE JOGADOR E FRUTA
+-- FORMATAÇÃO E CAPTURA DE JOGADOR E FRUTA (DIRETO DO JOGO)
 ---------------------------------------------------------
-local function formatFruitForNotification(rawFruit)
-    if not rawFruit or rawFruit == "" then rawFruit = "Fruit" end
-    local clean = tostring(rawFruit):gsub("<[^<>]->", ""):gsub("[}%]{}\"]", ""):match("^%s*(.-)%s*$") or rawFruit
-    if clean:lower():sub(1, 6) == "fruit " then
-        clean = clean:sub(7)
-    end
-    if clean:lower():sub(-6) == " fruit" then
-        clean = clean:sub(1, -7)
-    end
-    
-    local words = {}
-    for word in clean:gmatch("%S+") do
-        table.insert(words, word:sub(1,1):upper() .. word:sub(2):lower())
-    end
-    local titleCase = table.concat(words, " ")
-    if titleCase == "" then titleCase = "Fruit" end
-    
-    if not titleCase:lower():find("permanent") then
-        titleCase = "Permanent " .. titleCase
-    end
-    return titleCase
-end
-
-local function formatUsernameForNotification(rawUser)
-    if not rawUser or rawUser == "" then rawUser = "Player" end
-    local clean = string.split(tostring(rawUser), ":")[1] or rawUser
-    clean = clean:gsub("<[^<>]->", ""):gsub("[}%]{}\"]", ""):gsub("^@", ""):match("^%s*(.-)%s*$") or clean
-    if clean == "" or clean:lower() == "nil" then clean = "Player" end
-    return clean
-end
 
 -- Declaração antecipada das referências de UI
 local itemNameLabel = nil
@@ -588,26 +667,63 @@ local priceText = nil
 local balanceText = nil
 local robuxInput = nil
 
-local function getCurrentFruitName()
-    local name = ""
-    if itemNameLabel and itemNameLabel.Text and itemNameLabel.Text ~= "" then
-        name = itemNameLabel.Text
+-- Remove tags de formatação nativas de RichText do Roblox sem corromper <NomeDoItem>
+local function stripRobloxRichTextTags(str)
+    if not str then return "" end
+    local clean = tostring(str)
+    local rbxTags = {
+        "font", "/font", "stroke", "/stroke", "b", "/b", "i", "/i",
+        "u", "/u", "s", "/s", "color", "/color", "mark", "/mark",
+        "smallcaps", "/smallcaps", "sc", "/sc", "br"
+    }
+    for _, tag in ipairs(rbxTags) do
+        clean = clean:gsub("<%s*" .. tag .. "%s*[^>]*>", "")
     end
-    if name == "" or name == "Mock Item Name" or name == "Sword of Destiny" then
-        if activeTargetFruit and activeTargetFruit ~= "" then
-            name = activeTargetFruit
-        else
-            name = currentSettings.item_name or "Fruit"
+    return clean
+end
+
+-- Extrai o nome limpo do item a partir do texto de contexto da GiftWindow
+local function extractItemNameFromContextText(rawText)
+    if not rawText or rawText == "" then return nil end
+    local clean = stripRobloxRichTextTags(rawText)
+    
+    -- 1. Tenta extrair conteúdo entre <...> (ex: "Gift <2x Money> to a friend", "Gift <Permanent Buddha> to")
+    local inBrackets = clean:match("<%s*([^<>]+)%s*>")
+    if inBrackets and inBrackets ~= "" then
+        local candidate = inBrackets:gsub("[}%]\"']", ""):match("^%s*(.-)%s*$")
+        if candidate and candidate ~= "" and not candidate:lower():find("font") and not candidate:lower():find("stroke") then
+            return candidate
         end
     end
-    name = name:gsub("<[^<>]->", ""):gsub("[}%]{}\"]", ""):match("^%s*(.-)%s*$") or name
-    return name
+    
+    -- 2. Tenta regex "Gift [Item] to" ou "Presentear [Item] para"
+    local afterGift = clean:match("^[Gg]ift%s+(.-)%s+[Tt]o") 
+        or clean:match("^[Pp]resentear%s+(.-)%s+[Pp]ara")
+        or clean:match("[Gg]ift%s+(.-)%s+[Tt]o")
+        or clean:match("[Pp]resentear%s+(.-)%s+[Pp]ara")
+    if afterGift and afterGift ~= "" then
+        local candidate = afterGift:gsub("<[^<>]->", ""):gsub("[}%]\"']", ""):match("^%s*(.-)%s*$")
+        if candidate and candidate ~= "" then
+            return candidate
+        end
+    end
+    
+    -- 3. Tenta "Gift [Item]" no final
+    local justGift = clean:match("^[Gg]ift%s+(.-)$") or clean:match("^[Pp]resentear%s+(.-)$")
+    if justGift and justGift ~= "" then
+        local candidate = justGift:gsub("<[^<>]->", ""):gsub("[}%]\"']", ""):match("^%s*(.-)%s*$")
+        if candidate and candidate ~= "" then
+            return candidate
+        end
+    end
+    
+    return nil
 end
 
 -- Extrai o nome limpo do jogador a partir do texto Footer.Context da GiftWindow (ex: "Gifting [NOME] <FRUTA}>")
 local function extractPlayerNameFromGiftContext(rawText)
     if not rawText or rawText == "" then return nil end
-    local clean = tostring(rawText):gsub("<[^<>]->", ""):gsub("[}%]{}\"]", "")
+    local clean = stripRobloxRichTextTags(rawText)
     
     -- 1. Tenta extrair entre colchetes [NOME] (padrão oficial: "Gifting [NOME] <FRUTA}>")
     local inBrackets = clean:match("%[%s*([^%[%]%<%>%{%}%s]+)%s*%]")
@@ -637,6 +753,190 @@ local function extractPlayerNameFromGiftContext(rawText)
     end
     
     return nil
+end
+
+-- Varre a GiftWindow aberta no jogo procurando o nome do item/gamepass
+local function scanGiftWindowForName(giftWindow)
+    if not giftWindow then return nil end
+    
+    -- 1. Verifica no Footer.Context (padrão oficial do Blox Fruits)
+    local footer = giftWindow:FindFirstChild("Window") and giftWindow.Window:FindFirstChild("Footer")
+    local context = footer and footer:FindFirstChild("Context")
+    if context and context.Text and context.Text ~= "" then
+        local extracted = extractItemNameFromContextText(context.Text)
+        if extracted and extracted ~= "" and extracted:lower() ~= "generic" and extracted ~= "Fruit" and extracted ~= "Sword of Destiny" then
+            return extracted
+        end
+    end
+    
+    -- 2. Varre descendentes da GiftWindow procurando textos de itens/gamepasses
+    local ignoredTexts = {
+        ["gift"] = true, ["cancel"] = true, ["purchase"] = true, ["buy"] = true,
+        ["presentear"] = true, ["cancelar"] = true, ["comprar"] = true,
+        ["global"] = true, ["friends"] = true, ["amigos"] = true, ["server"] = true, ["servidor"] = true,
+        ["search..."] = true, ["search"] = true, ["pesquisar..."] = true, ["pesquisar"] = true,
+        ["ok"] = true, ["close"] = true, ["fechar"] = true, ["balance"] = true
+    }
+    
+    for _, desc in ipairs(giftWindow:GetDescendants()) do
+        if desc:IsA("TextLabel") and desc.Visible and desc.Text and desc.Text ~= "" then
+            local raw = desc.Text
+            local extracted = extractItemNameFromContextText(raw)
+            if extracted and extracted ~= "" and extracted:lower() ~= "generic" and extracted ~= "Fruit" and extracted ~= "Sword of Destiny" then
+                return extracted
+            end
+            
+            local clean = stripRobloxRichTextTags(raw):gsub("[}%]\"']", ""):match("^%s*(.-)%s*$")
+            if clean and clean ~= "" and not ignoredTexts[clean:lower()] and not clean:match("^[%d,%.%s]+$") and #clean >= 3 and #clean <= 45 then
+                local lower = clean:lower()
+                if lower:find("fruit") or lower:find("pass") or lower:find("2x") or lower:find("storage") 
+                    or lower:find("boat") or lower:find("blade") or lower:find("notifier") or lower:find("money")
+                    or lower:find("mastery") or lower:find("drop") or lower:find("perm") then
+                    return clean
+                end
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Captura a fruta selecionada diretamente no painel aberto da loja do jogo (FruitShopAndDealer)
+local function getActiveFruitFromShop()
+    local shopGui = playerGui:FindFirstChild("FruitShopAndDealer")
+    if not shopGui then return nil, nil end
+    local scrollingFrame = shopGui:FindFirstChild("Shop")
+        and shopGui.Shop:FindFirstChild("Menu")
+        and shopGui.Shop.Menu:FindFirstChild("Content")
+        and shopGui.Shop.Menu.Content:FindFirstChild("Body")
+        and shopGui.Shop.Menu.Content.Body:FindFirstChild("ScrollingFrame")
+    if not scrollingFrame then return nil, nil end
+    
+    for _, slot in ipairs(scrollingFrame:GetChildren()) do
+        if slot:IsA("GuiObject") and slot.Name:find("Fruit") then
+            local controlPanel = slot:FindFirstChild("ControlPanel")
+            if controlPanel and controlPanel.Visible and controlPanel.AbsoluteSize.Y > 0 then
+                local title = slot:FindFirstChild("CardButton")
+                    and slot.CardButton:FindFirstChild("Profile")
+                    and slot.CardButton.Profile:FindFirstChild("TopInfo")
+                    and slot.CardButton.Profile.TopInfo:FindFirstChild("Title")
+                local artIcon = slot:FindFirstChild("CardButton")
+                    and slot.CardButton:FindFirstChild("Profile")
+                    and slot.CardButton.Profile:FindFirstChild("Icon")
+                    and slot.CardButton.Profile.Icon:FindFirstChild("IconEffectContainer")
+                    and slot.CardButton.Profile.Icon.IconEffectContainer:FindFirstChild("ArtIcon")
+                if title and title.Text and title.Text ~= "" then
+                    local cleanName = title.Text:gsub("<[^<>]->", ""):gsub("[}%]{}\"]", ""):match("^%s*(.-)%s*$")
+                    if cleanName and cleanName ~= "" then
+                        return cleanName, artIcon
+                    end
+                end
+            end
+        end
+    end
+    return nil, nil
+end
+
+-- Variáveis globais de cache para o último item verificado diretamente no jogo
+local lastDetectedInGameItem = nil
+local lastDetectedInGamePrice = nil
+local lastDetectedInGameImage = nil
+
+-- DETECÇÃO TOTALMENTE INDEPENDENTE DO SERVIDOR: SEMPRE PEGA O NOME REAL NO JOGO
+local function detectRealInGameItemName()
+    -- 1. Prioridade máxima: ler diretamente da GiftWindow aberta no jogo
+    local giftWindow = playerGui:FindFirstChild("GiftWindow")
+    if giftWindow and giftWindow.Enabled then
+        local nameFromGift = scanGiftWindowForName(giftWindow)
+        if nameFromGift and nameFromGift ~= "" and nameFromGift:lower() ~= "generic" and nameFromGift ~= "Fruit" and nameFromGift ~= "Sword of Destiny" and nameFromGift ~= "Mock Item Name" then
+            lastDetectedInGameItem = nameFromGift
+            return nameFromGift
+        end
+    end
+    
+    -- 2. Segunda prioridade: ler do slot atualmente expandido na loja de frutas
+    local shopFruitName = getActiveFruitFromShop()
+    if shopFruitName and shopFruitName ~= "" and shopFruitName:lower() ~= "generic" and shopFruitName ~= "Fruit" and shopFruitName ~= "Sword of Destiny" and shopFruitName ~= "Mock Item Name" then
+        lastDetectedInGameItem = shopFruitName
+        return shopFruitName
+    end
+    
+    -- 3. Terceira prioridade: se houver fruta real definida pelo comando de compra do bot
+    if activeTargetFruit and activeTargetFruit ~= "" and activeTargetFruit:lower() ~= "generic" and activeTargetFruit ~= "Fruit" and activeTargetFruit ~= "Sword of Destiny" and activeTargetFruit ~= "Mock Item Name" then
+        lastDetectedInGameItem = activeTargetFruit
+        return activeTargetFruit
+    end
+    
+    -- 4. Quarta prioridade: último item verificado capturado no jogo
+    if lastDetectedInGameItem and lastDetectedInGameItem ~= "" and lastDetectedInGameItem:lower() ~= "generic" and lastDetectedInGameItem ~= "Fruit" and lastDetectedInGameItem ~= "Sword of Destiny" and lastDetectedInGameItem ~= "Mock Item Name" then
+        return lastDetectedInGameItem
+    end
+    
+    -- 5. Se itemNameLabel tiver algo que NÃO seja generic/mock/sword of destiny
+    if itemNameLabel and itemNameLabel.Text and itemNameLabel.Text ~= "" then
+        local t = itemNameLabel.Text:gsub("<[^<>]->", ""):gsub("[}%]{}\"]", ""):match("^%s*(.-)%s*$")
+        if t and t ~= "" and t:lower() ~= "generic" and t ~= "Fruit" and t ~= "Sword of Destiny" and t ~= "Mock Item Name" then
+            return t
+        end
+    end
+    
+    -- Fallback limpo: se nada foi detectado ainda, retorna "Fruit" (NUNCA "Generic" ou "Sword of Destiny")
+    return "Fruit"
+end
+
+local function getCurrentFruitName()
+    return detectRealInGameItemName()
+end
+
+local function formatFruitForNotification(rawFruit)
+    if not rawFruit or rawFruit == "" or rawFruit:lower() == "generic" or rawFruit == "Fruit" or rawFruit == "Sword of Destiny" then 
+        rawFruit = detectRealInGameItemName() 
+    end
+    local clean = tostring(rawFruit):gsub("<[^<>]->", ""):gsub("[}%]{}\"]", ""):match("^%s*(.-)%s*$") or rawFruit
+    if clean:lower() == "generic" or clean == "" or clean == "Sword of Destiny" then
+        clean = "Fruit"
+    end
+    
+    if clean:lower():sub(1, 6) == "fruit " then
+        clean = clean:sub(7)
+    end
+    if clean:lower():sub(-6) == " fruit" then
+        clean = clean:sub(1, -7)
+    end
+    
+    local words = {}
+    for word in clean:gmatch("%S+") do
+        table.insert(words, word:sub(1,1):upper() .. word:sub(2):lower())
+    end
+    local titleCase = table.concat(words, " ")
+    if titleCase == "" or titleCase:lower() == "generic" or titleCase == "Sword Of Destiny" then titleCase = "Fruit" end
+    
+    -- Gamepasses NÃO devem receber o prefixo "Permanent" (ex: "Fast Boats", "2x Money", "Dark Blade", "Fruit Notifier", "+1 Fruit Storage")
+    local lower = titleCase:lower()
+    local isGamepass = false
+    local gamepassKeywords = {"2x money", "2x mastery", "2x boss drops", "fast boats", "dark blade", "fruit notifier", "+1 fruit storage", "fruit storage", "gamepass"}
+    for _, kw in ipairs(gamepassKeywords) do
+        if lower:find(kw, 1, true) then
+            isGamepass = true
+            break
+        end
+    end
+    if not isGamepass and (lower:find("boat") or lower:find("blade") or lower:find("notifier") or lower:find("storage") or lower:find("2x")) then
+        isGamepass = true
+    end
+    
+    if not isGamepass and not titleCase:lower():find("permanent") and titleCase:lower() ~= "fruit" then
+        titleCase = "Permanent " .. titleCase
+    end
+    return titleCase
+end
+
+local function formatUsernameForNotification(rawUser)
+    if not rawUser or rawUser == "" then rawUser = "Player" end
+    local clean = string.split(tostring(rawUser), ":")[1] or rawUser
+    clean = clean:gsub("<[^<>]->", ""):gsub("[}%]{}\"]", ""):gsub("^@", ""):match("^%s*(.-)%s*$") or clean
+    if clean == "" or clean:lower() == "nil" then clean = "Player" end
+    return clean
 end
 
 local function getCurrentPlayerName()
@@ -938,45 +1238,26 @@ local function cleanMouseClick(instance)
     local pos = btn.AbsolutePosition
     local size = btn.AbsoluteSize
     
-    local x = pos.X + (size.X / 2)
-    local y = pos.Y + (size.Y / 2) + inset.Y
+    -- Pequeno jitter natural dentro da área do botão
+    local jx = math.random(-math.floor(size.X * 0.12), math.floor(size.X * 0.12))
+    local jy = math.random(-math.floor(size.Y * 0.12), math.floor(size.Y * 0.12))
+    local x = pos.X + (size.X / 2) + jx
+    local y = pos.Y + (size.Y / 2) + inset.Y + jy
 
-    -- 2. Move o cursor suavemente (interpolação senoidal)
-    local currentMousePos = UserInputService:GetMouseLocation()
-    local startX, startY = currentMousePos.X, currentMousePos.Y
-    
-    local dist = math.sqrt((x - startX)^2 + (y - startY)^2)
-    if dist > 15 then
-        local steps = math.random(5, 8)
-        for i = 1, steps do
-            local t = i / steps
-            local tSmooth = math.sin(t * math.pi / 2)
-            local currX = startX + (x - startX) * tSmooth
-            local currY = startY + (y - startY) * tSmooth
-            
-            if mousemoveabs then
-                pcall(function() mousemoveabs(currX, currY) end)
-            else
-                pcall(function() VirtualInputManager:SendMouseMoveEvent(currX, currY, game) end)
-            end
-            task.wait(0.01 + math.random(-2, 4) / 1000)
-        end
-    end
-    
-    -- Posicionamento final exato
+    -- Posiciona diretamente sem atrasos desnecessários de cursor na live
     if mousemoveabs then
         pcall(function() mousemoveabs(x, y) end)
     else
         pcall(function() VirtualInputManager:SendMouseMoveEvent(x, y, game) end)
     end
     
-    task.wait(0.12 + math.random(-20, 20)/1000)
+    task.wait(0.06 + math.random(15, 45)/1000)
 
-    -- 3. Dispara o clique físico
+    -- Dispara o clique físico com duração natural de pressão (65ms a 95ms)
     pcall(function()
         VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
     end)
-    task.wait(0.08 + math.random(-10, 10)/1000)
+    task.wait(0.07 + math.random(10, 25)/1000)
     pcall(function()
         VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
     end)
@@ -999,22 +1280,10 @@ local function restMouse()
     local viewportSize = workspace.CurrentCamera.ViewportSize
     local rx = math.random(math.floor(viewportSize.X * 0.15), math.floor(viewportSize.X * 0.85))
     local ry = math.random(math.floor(viewportSize.Y * 0.15), math.floor(viewportSize.Y * 0.85))
-    
-    local currentMousePos = UserInputService:GetMouseLocation()
-    local startX, startY = currentMousePos.X, currentMousePos.Y
-    
-    local steps = math.random(6, 10)
-    for i = 1, steps do
-        local t = i / steps
-        local tSmooth = math.sin(t * math.pi / 2)
-        local currX = startX + (rx - startX) * tSmooth
-        local currY = startY + (ry - startY) * tSmooth
-        if mousemoveabs then
-            pcall(function() mousemoveabs(currX, currY) end)
-        else
-            pcall(function() VirtualInputManager:SendMouseMoveEvent(currX, currY, game) end)
-        end
-        task.wait(0.01)
+    if mousemoveabs then
+        pcall(function() mousemoveabs(rx, ry) end)
+    else
+        pcall(function() VirtualInputManager:SendMouseMoveEvent(rx, ry, game) end)
     end
 end
 
@@ -1028,17 +1297,34 @@ local function typeHuman(textBox, text)
         textBox:CaptureFocus()
         textBox.Text = ""
     end)
-    task.wait(0.08)
+    -- Pausa de reação antes de começar a teclar (humano posiciona os dedos no teclado)
+    task.wait(0.18 + math.random(20, 60) / 1000)
     
-    -- Cola o texto diretamente
-    textBox.Text = text
+    -- Digita caractere por caractere com ritmo de digitação humano natural
+    local currentTyped = ""
+    local len = #text
+    for i = 1, len do
+        local ch = text:sub(i, i)
+        currentTyped = currentTyped .. ch
+        textBox.Text = currentTyped
+        
+        -- Intervalo natural entre teclas: ~65ms a ~115ms
+        local keyDelay = math.random(65, 115) / 1000
+        
+        -- Leve pausa ao alcançar números, símbolos ou a cada 4 a 6 letras
+        if (ch:match("%d") or ch == "_" or math.random(1, 6) == 1) and i < len then
+            keyDelay = keyDelay + math.random(60, 120) / 1000
+        end
+        task.wait(keyDelay)
+    end
     
-    task.wait(0.35) -- Aguarda tempo otimizado para carregar a pesquisa
+    -- Pausa de conferência visual pós-digitação (humano confere se o nick está correto)
+    task.wait(0.35 + math.random(40, 100) / 1000)
     
-    -- Envia o Enter físico (que fará o Roblox submeter e liberar o foco naturalmente)
+    -- Pressiona Enter fisicamente
     pcall(function()
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-        task.wait(0.03)
+        task.wait(0.06 + math.random(10, 30) / 1000)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
     end)
 end
@@ -1163,7 +1449,7 @@ successMessage.AnchorPoint = Vector2.new(0.5, 0)
 successMessage.Position = UDim2.new(0.5, 0, 0, 130)
 successMessage.Size = UDim2.new(1, -40, 0, 40)
 successMessage.BackgroundTransparency = 1
-successMessage.Text = "You have successfully bought " .. GENERIC_ITEM_NAME .. "."
+successMessage.Text = "You have successfully bought " .. detectRealInGameItemName() .. "."
 successMessage.TextColor3 = Color3.fromRGB(205, 205, 205)
 successMessage.TextSize = 15
 successMessage.Font = Enum.Font.BuilderSansMedium
@@ -1198,7 +1484,7 @@ end)
 FixZIndex(successFrame)
 
 local successBusy = false
-local function closeSuccessGui()
+closeSuccessGui = function()
     if successBusy or not successGui.Enabled then return end
     successBusy = true
     TweenService:Create(successFrame, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
@@ -1208,8 +1494,12 @@ local function closeSuccessGui()
     successBusy = false
 end
 
-local function openSuccessGui()
+openSuccessGui = function()
     if successBusy or successGui.Enabled then return end
+    local realItem = detectRealInGameItemName()
+    if realItem and realItem ~= "" and realItem ~= "Fruit" and realItem:lower() ~= "generic" and realItem ~= "Sword of Destiny" then
+        successMessage.Text = "You have successfully bought " .. realItem .. "."
+    end
     successGui.Enabled = true
     successFrame.BackgroundTransparency = 1
     successOverlay.BackgroundTransparency = 1
@@ -1331,7 +1621,7 @@ itemNameLabel = Instance.new("TextLabel")
 itemNameLabel.Size = UDim2.new(0, 280, 0, 22)
 itemNameLabel.Position = UDim2.new(0, 122, 0, 58)
 itemNameLabel.BackgroundTransparency = 1
-itemNameLabel.Text = GENERIC_ITEM_NAME
+itemNameLabel.Text = detectRealInGameItemName()
 itemNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 itemNameLabel.TextSize = 15
 itemNameLabel.Font = Enum.Font.BuilderSansBold
@@ -1490,8 +1780,8 @@ local function startFillAnimation()
     end)
 end
 
-local function closeGui()
-    currentBuyCycleId = currentBuyCycleId + 1 -- Invalida qualquer ciclo pendente imediatamente!
+closeGui = function()
+    currentBuyCycleId = currentBuyCycleId + 1 -- Invalida qualquer ciclo de compra pendente imediatamente!
     if GuiBusy or not screenGui.Enabled then return end
     GuiBusy = true
     local tween = TweenService:Create(mainFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
@@ -1514,10 +1804,17 @@ local function openGui()
     buyPurchasedThisCycle = false
     currentBuyCycleId = currentBuyCycleId + 1
     local myCycleId = currentBuyCycleId
+    
+    -- Garante que o Buy GUI e a mensagem de sucesso tenham o nome REAL detectado no jogo
+    local realItem = detectRealInGameItemName()
+    if realItem and realItem ~= "" and realItem ~= "Fruit" and realItem:lower() ~= "generic" and realItem ~= "Sword of Destiny" then
+        if itemNameLabel then itemNameLabel.Text = realItem end
+        if successMessage then successMessage.Text = "You have successfully bought " .. realItem .. "." end
+    end
 
     -- Suporte a ROBLOX PLUS: 10% de desconto no preço e oculta o aviso promocional
     pcall(function()
-        local rawPrice = parseNumber(priceText.Text) or parseNumber(GENERIC_ITEM_PRICE) or 0
+        local rawPrice = parseNumber(priceText.Text) or parseNumber(lastDetectedInGamePrice) or parseNumber(GENERIC_ITEM_PRICE) or 0
         if currentSettings.roblox_plus then
             if promoFrame then promoFrame.Visible = false end
             local discounted = math.floor(rawPrice * 0.9)
@@ -1526,7 +1823,7 @@ local function openGui()
             if promoFrame then promoFrame.Visible = true end
         end
     end)
-
+    
     screenGui.Enabled = true
     task.wait()
     mainFrame.Visible = false
@@ -1549,11 +1846,12 @@ local function openGui()
 
     task.spawn(function()
         logStep("Aguardando carregamento da animação de Compra...")
-        task.wait(1.7)
+        -- A animação de fill leva 1.5s. Aguarda a barra encher e clica com tempo de reação humano natural:
+        task.wait(1.85 + math.random(40, 100) / 1000)
 
-        -- TRAVA DE SEGURANÇA: Se a GUI foi fechada pelo streamer/usuário, ABORTA IMEDIATAMENTE!
+        -- TRAVA DE SEGURANÇA: Se a GUI foi fechada pelo usuário (clicou fora, ESC, etc.), ABORTA IMEDIATAMENTE!
         if currentBuyCycleId ~= myCycleId or not screenGui.Enabled or not mainFrame.Visible then
-            print("[AutoBuyer] Compra abortada com sucesso: Buy GUI foi fechada pelo usuário antes da finalização.")
+            print("[AutoBuyer] Compra abortada com sucesso: Buy GUI foi fechada pelo usuário antes da confirmação.")
             return
         end
 
@@ -1589,15 +1887,19 @@ local function openGui()
             end)
             
             closeGui()
-            task.wait(0.1)
+            task.wait(0.18 + math.random(20, 50) / 1000)
             openSuccessGui()
         end
         
-        task.wait(0.3)
-        logStep("Confirmando a compra no botão OK...")
-        cleanMouseClick(okButton)
+        -- Humano visualiza a tela de sucesso da compra e clica em OK
+        task.wait(0.55 + math.random(50, 120) / 1000)
+        if successGui and successGui.Enabled then
+            logStep("Confirmando a compra no botão OK...")
+            cleanMouseClick(okButton)
+        end
         
-        task.wait(0.2)
+        -- Humano fecha a janela de presente (GiftWindow) que ficou ao fundo
+        task.wait(0.38 + math.random(30, 80) / 1000)
         logStep("Fechando a interface do jogo (Clicando em Cancel)...")
         pcall(function()
             local giftWindow = playerGui:FindFirstChild("GiftWindow")
@@ -1612,24 +1914,18 @@ local function openGui()
             else
                 -- Fallback para ESC duplo caso o botão não seja encontrado
                 VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
-                task.wait(0.05)
+                task.wait(0.06 + math.random(10, 25) / 1000)
                 VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
-                task.wait(0.05)
+                task.wait(0.12 + math.random(20, 50) / 1000)
                 VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
-                task.wait(0.05)
+                task.wait(0.06 + math.random(10, 25) / 1000)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
             end
         end)
         logStep("Compra finalizada e loja fechada!")
-        task.wait(0.1)
+        task.wait(0.25 + math.random(30, 60) / 1000)
         purchaseComplete = true
-        pcall(function()
-            local finishedMsg = HttpService:JSONEncode({ type = "purchase_finished", status = "success" })
-            if activeWS then
-                if activeWS.Send then activeWS:Send(finishedMsg) elseif activeWS.send then activeWS:send(finishedMsg) end
-            else
-                HttpService:PostAsync("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", finishedMsg, Enum.HttpContentType.ApplicationJson)
-            end
-        end)
+        reportPurchaseFinished("success")
         task.spawn(restMouse)
     end)
 end
@@ -1663,7 +1959,7 @@ buyButton.MouseButton1Up:Connect(function()
 end)
 
 buyButton.MouseButton1Click:Connect(function()
-    if not canBuy or buyInProgress then return end
+    if not canBuy or buyInProgress or not screenGui.Enabled or not mainFrame.Visible then return end
     buyInProgress = true
     
     if not buyPurchasedThisCycle then
@@ -1698,53 +1994,44 @@ end)
 -- CAPTURA AUTOMÁTICA DE PREÇO E NOME DA JANELA DE COMPRA
 ---------------------------------------------------------
 local function getAutomaticPriceAndName()
-    local giftWindow = playerGui:FindFirstChild("GiftWindow")
-    if not giftWindow then return GENERIC_ITEM_PRICE, GENERIC_ITEM_NAME, GENERIC_ITEM_IMAGE, Color3.fromRGB(255, 255, 255), 0, Vector2.new(0, 0), Vector2.new(0, 0) end
-    
-    local content = giftWindow:FindFirstChild("Content", true)
-    if not content then return GENERIC_ITEM_PRICE, GENERIC_ITEM_NAME, GENERIC_ITEM_IMAGE, Color3.fromRGB(255, 255, 255), 0, Vector2.new(0, 0), Vector2.new(0, 0) end
-    
-    local price = GENERIC_ITEM_PRICE
-    local itemName = GENERIC_ITEM_NAME
-    local itemImg = GENERIC_ITEM_IMAGE
+    local price = lastDetectedInGamePrice or GENERIC_ITEM_PRICE
+    local itemName = detectRealInGameItemName()
+    local itemImg = lastDetectedInGameImage or GENERIC_ITEM_IMAGE
     local imgColor = Color3.fromRGB(255, 255, 255)
     local imgTrans = 0
     local imgRectOffset = Vector2.new(0, 0)
     local imgRectSize = Vector2.new(0, 0)
     
-    pcall(function()
-        local footer = giftWindow:FindFirstChild("Window") and giftWindow.Window:FindFirstChild("Footer")
-        local context = footer and footer:FindFirstChild("Context")
-        if context and context.Text ~= "" then
-            local text = context.Text
-            local match = text:match("<(.-)>")
-            if match then
-                itemName = match:gsub("[}%]]", ""):match("^%s*(.-)%s*$")
-            else
-                itemName = text:gsub("[}%]]", ""):match("^%s*(.-)%s*$")
-            end
+    local giftWindow = playerGui:FindFirstChild("GiftWindow")
+    if giftWindow then
+        -- 1. Tenta extrair nome diretamente da GiftWindow via varredura aprofundada
+        local detectedName = scanGiftWindowForName(giftWindow)
+        if detectedName and detectedName ~= "" and detectedName:lower() ~= "generic" and detectedName ~= "Fruit" and detectedName ~= "Sword of Destiny" then
+            itemName = detectedName
+            lastDetectedInGameItem = detectedName
         end
-    end)
-    
-    pcall(function()
-        local buttons = content:FindFirstChild("Buttons")
-        local purchase = buttons and buttons:FindFirstChild("Purchase")
-        local textLabel = purchase and (purchase:FindFirstChild("TextLabel") or purchase:FindFirstChildWhichIsA("TextLabel"))
-        if textLabel and textLabel.Text ~= "" then
-            local text = textLabel.Text:gsub("<[^<>]->" , "")
-            local clean = text:match("[%d,%.]+")
-            if clean then price = clean end
-        end
-    end)
-    
-    -- Tenta pegar a imagem direto do ArtIcon do slot Fruit[2] da loja
-    local gotIcon = false
-    pcall(function()
-        local shopGui = playerGui:FindFirstChild("FruitShopAndDealer")
-        if shopGui then
-            local slot2 = shopGui.Shop.Menu.Content.Body.ScrollingFrame:FindFirstChild("Fruit[2]")
-            if slot2 then
-                local artIcon = slot2.CardButton.Profile.Icon.IconEffectContainer.ArtIcon
+        
+        local content = giftWindow:FindFirstChild("Content", true)
+        if content then
+            -- 2. Lê o preço exato do botão Purchase na GiftWindow
+            pcall(function()
+                local buttons = content:FindFirstChild("Buttons")
+                local purchase = buttons and buttons:FindFirstChild("Purchase")
+                local textLabel = purchase and (purchase:FindFirstChild("TextLabel") or purchase:FindFirstChildWhichIsA("TextLabel"))
+                if textLabel and textLabel.Text ~= "" then
+                    local text = textLabel.Text:gsub("<[^<>]->" , "")
+                    local clean = text:match("[%d,%.]+")
+                    if clean then 
+                        price = clean 
+                        lastDetectedInGamePrice = clean
+                    end
+                end
+            end)
+            
+            -- 3. Tenta pegar a imagem direto do slot ativo/expandido na loja
+            local gotIcon = false
+            pcall(function()
+                local shopFruit, artIcon = getActiveFruitFromShop()
                 if artIcon and artIcon.Image ~= "" then
                     itemImg = artIcon.Image
                     imgColor = artIcon.ImageColor3
@@ -1752,22 +2039,25 @@ local function getAutomaticPriceAndName()
                     imgRectOffset = artIcon.ImageRectOffset
                     imgRectSize = artIcon.ImageRectSize
                     gotIcon = true
+                    lastDetectedInGameImage = itemImg
                 end
-            end
-        end
-    end)
-    
-    -- Fallback: varre descendentes do GiftWindow procurando ImageLabel visível
-    if not gotIcon then
-        for _, child in ipairs(content:GetDescendants()) do
-            if child:IsA("ImageLabel") and child.Visible then
-                local img = child.Image
-                if img ~= "" and not img:find("robux") and not img:find("close") and not img:find("arrow") then
-                    itemImg = img
-                    imgColor = child.ImageColor3
-                    imgTrans = child.ImageTransparency
-                    imgRectOffset = child.ImageRectOffset
-                    imgRectSize = child.ImageRectSize
+            end)
+            
+            -- Fallback de imagem: varre descendentes do GiftWindow procurando ImageLabel visível
+            if not gotIcon then
+                for _, child in ipairs(content:GetDescendants()) do
+                    if child:IsA("ImageLabel") and child.Visible then
+                        local img = child.Image
+                        if img ~= "" and not img:find("robux") and not img:find("close") and not img:find("arrow") then
+                            itemImg = img
+                            imgColor = child.ImageColor3
+                            imgTrans = child.ImageTransparency
+                            imgRectOffset = child.ImageRectOffset
+                            imgRectSize = child.ImageRectSize
+                            lastDetectedInGameImage = itemImg
+                            break
+                        end
+                    end
                 end
             end
         end
@@ -1854,16 +2144,30 @@ task.spawn(function()
             interceptButton.MouseButton1Click:Connect(function()
                 local price, name, image, imgColor, imgTrans, imgRectOffset, imgRectSize = getAutomaticPriceAndName()
                 
-                -- Se activeTargetFruit estiver definido pelo bot, usa ele
-                if activeTargetFruit and activeTargetFruit ~= "" then
+                -- Prioridade absoluta para o nome detectado no jogo (GiftWindow ou Loja)
+                if name and name ~= "" and name:lower() ~= "generic" and name ~= "Fruit" and name ~= "Sword of Destiny" then
+                    lastDetectedInGameItem = name
+                elseif activeTargetFruit and activeTargetFruit ~= "" and activeTargetFruit:lower() ~= "generic" and activeTargetFruit ~= "Fruit" and activeTargetFruit ~= "Sword of Destiny" then
                     name = activeTargetFruit
-                    if FRUIT_PRICES[name:lower()] and (not price or price == GENERIC_ITEM_PRICE) then
-                        price = tostring(FRUIT_PRICES[name:lower()])
-                    end
+                    lastDetectedInGameItem = activeTargetFruit
+                else
+                    name = detectRealInGameItemName()
+                    lastDetectedInGameItem = name
+                end
+                
+                if FRUIT_PRICES[name:lower()] and (not price or price == GENERIC_ITEM_PRICE) then
+                    price = tostring(FRUIT_PRICES[name:lower()])
                 end
                 
                 itemNameLabel.Text = name
-                priceText.Text = formatNumber(price)
+                local numPrice = parseNumber(price) or 0
+                if currentSettings.roblox_plus then
+                    numPrice = math.floor(numPrice * 0.9)
+                    if promoFrame then promoFrame.Visible = false end
+                else
+                    if promoFrame then promoFrame.Visible = true end
+                end
+                priceText.Text = formatNumber(numPrice)
                 
                 -- Se for Dragon / Permanent Dragon, busca a imagem real via MarketplaceService
                 if name:lower():find("dragon") then
@@ -1892,28 +2196,26 @@ task.spawn(function()
                 
                 successMessage.Text = "You have successfully bought " .. name .. "."
                 
-                -- Se o target estiver vazio, lê direto da SearchBox no momento do clique
-                if not activeTargetPlayer or activeTargetPlayer == "" then
-                    pcall(function()
-                        local gw = playerGui:FindFirstChild("GiftWindow")
-                        local sf = gw and gw:FindFirstChild("SearchFrame", true)
-                        local sb = sf and sf:FindFirstChild("TextBox")
-                        if sb and sb.Text ~= "" and sb.Text ~= "Search..." and sb.Text ~= "Search" then
-                            searchBoxPlayerName = sb.Text
-                            activeTargetPlayer = sb.Text
-                            selectedPlayerName = sb.Text
-                            print("[AutoBuyer] Jogador lido da SearchBox no clique: " .. sb.Text)
-                        end
-                    end)
-                end
-                -- searchBoxPlayerName sempre sobrescreve no momento do clique (leitura ao vivo)
+                -- Se a caixa de texto estiver vazia, PEGA DIRETO DE Footer.Context!
                 pcall(function()
                     local gw = playerGui:FindFirstChild("GiftWindow")
                     local sf = gw and gw:FindFirstChild("SearchFrame", true)
                     local sb = sf and sf:FindFirstChild("TextBox")
                     if sb and sb.Text ~= "" and sb.Text ~= "Search..." and sb.Text ~= "Search" then
                         searchBoxPlayerName = sb.Text
-                        print("[AutoBuyer] SearchBox lida ao vivo no clique: " .. sb.Text)
+                        activeTargetPlayer = sb.Text
+                        selectedPlayerName = sb.Text
+                    else
+                        local footer = gw and gw:FindFirstChild("Window") and gw.Window:FindFirstChild("Footer")
+                        local ctx = footer and footer:FindFirstChild("Context")
+                        if ctx and ctx.Text and ctx.Text ~= "" then
+                            local ctxUser = extractPlayerNameFromGiftContext(ctx.Text)
+                            if ctxUser and ctxUser ~= "" and ctxUser:lower() ~= "player" then
+                                searchBoxPlayerName = ctxUser
+                                activeTargetPlayer = ctxUser
+                                selectedPlayerName = ctxUser
+                            end
+                        end
                     end
                 end)
                 if not activeTargetPlayer or activeTargetPlayer == "" then
@@ -2115,8 +2417,9 @@ local function setBridgeUsername(username, fruitName, giftButton)
     
     activeTargetPlayer = username
     selectedPlayerName = username
-    if fruitName and fruitName ~= "" then
+    if fruitName and fruitName ~= "" and fruitName:lower() ~= "generic" and fruitName ~= "Fruit" and fruitName ~= "Sword of Destiny" then
         activeTargetFruit = fruitName
+        lastDetectedInGameItem = fruitName
     end
     
     print("[AutoBuyer] Processando GiftWindow para: " .. username)
@@ -2152,7 +2455,8 @@ local function setBridgeUsername(username, fruitName, giftButton)
             task.wait(0.05)
         end
         
-        task.wait(0.6)
+        -- Humano visualiza a GiftWindow aberta e prepara para interagir
+        task.wait(0.45 + math.random(30, 80) / 1000)
 
         local overlay = window:FindFirstChild("Overlay")
         task.spawn(function()
@@ -2174,9 +2478,10 @@ local function setBridgeUsername(username, fruitName, giftButton)
         if navigation then
             local globalButton = navigation:WaitForChild("GlobalButton", 5)
             if globalButton then
+                task.wait(0.25 + math.random(30, 70) / 1000)
                 logStep("Clicando no botão Global...")
                 cleanMouseClick(globalButton)
-                task.wait(0.2)
+                task.wait(0.32 + math.random(30, 80) / 1000)
             end
         end
 
@@ -2185,14 +2490,14 @@ local function setBridgeUsername(username, fruitName, giftButton)
         local searchFrame = navigation:WaitForChild("SearchFrame", 5)
         local searchBox = searchFrame:WaitForChild("TextBox", 5)
         
-        task.wait(0.1)
+        task.wait(0.22 + math.random(30, 70) / 1000)
         cleanMouseClick(searchBox)
-        task.wait(0.08)
+        task.wait(0.15 + math.random(20, 50) / 1000)
         
         logStep("Digitando o username do jogador: " .. username .. "...")
         typeHuman(searchBox, username)
 
-        local delayRemoveOverlay = 0.1 + (math.random(0, 100) / 1000)
+        local delayRemoveOverlay = 0.12 + (math.random(20, 80) / 1000)
         task.wait(delayRemoveOverlay)
 
         if overlay then
@@ -2226,15 +2531,17 @@ local function setBridgeUsername(username, fruitName, giftButton)
 
         if playerItem then
             local playerTextButton = playerItem:WaitForChild("TextButton", 5)
-            task.wait(0.1)
+            -- Humano confere o jogador que apareceu na lista antes de clicar nele
+            task.wait(0.38 + math.random(40, 100) / 1000)
             logStep("Selecionando o jogador da lista...")
             selectedPlayerName = username
             activeTargetPlayer = username
             cleanMouseClick(playerTextButton)
             
-            -- Clica em Purchase
+            -- Clica em Purchase (Presentear)
             local purchaseButton = content:WaitForChild("Buttons", 5):WaitForChild("Purchase", 5)
-            task.wait(0.2)
+            -- Humano desce o olhar e clica em Purchase com tempo natural
+            task.wait(0.42 + math.random(50, 100) / 1000)
             logStep("Clicando no botão de Compra (Purchase)...")
             cleanMouseClick(purchaseButton)
         else
@@ -2252,14 +2559,7 @@ local function setBridgeUsername(username, fruitName, giftButton)
                 end
             end)
             purchaseComplete = true
-            pcall(function()
-                local finishedMsg = HttpService:JSONEncode({ type = "purchase_finished", status = "aborted" })
-                if activeWS then
-                    if activeWS.Send then activeWS:Send(finishedMsg) elseif activeWS.send then activeWS:send(finishedMsg) end
-                else
-                    HttpService:PostAsync("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", finishedMsg, Enum.HttpContentType.ApplicationJson)
-                end
-            end)
+            reportPurchaseFinished("aborted", "GiftWindow fechada ou cancelada")
         end
     end)
     
@@ -2267,19 +2567,13 @@ local function setBridgeUsername(username, fruitName, giftButton)
         warn("[AutoBuyer] Erro no fluxo da GiftWindow: " .. tostring(err))
         logStep("Erro na GiftWindow: " .. tostring(err))
         purchaseComplete = true
-        pcall(function()
-            local finishedMsg = HttpService:JSONEncode({ type = "purchase_finished", status = "error" })
-            if activeWS then
-                if activeWS.Send then activeWS:Send(finishedMsg) elseif activeWS.send then activeWS:send(finishedMsg) end
-            else
-                HttpService:PostAsync("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", finishedMsg, Enum.HttpContentType.ApplicationJson)
-            end
-        end)
+        reportPurchaseFinished("error", tostring(err))
     end
 end
 
 -- Processo completo de auto-compra acionado pelo servidor
 local autoBuyBusy = false
+local currentBuyId = 0
 local function executeBuyFruit(username, fruitName)
     if autoBuyBusy then
         warn("[AutoBuyer] Já está processando outra compra, aguarde...")
@@ -2288,9 +2582,26 @@ local function executeBuyFruit(username, fruitName)
     end
     
     autoBuyBusy = true
+    watchdogAborted = false
+    currentBuyId = currentBuyId + 1
+    local myBuyId = currentBuyId
     activeTargetPlayer = username
     selectedPlayerName = username
-    activeTargetFruit = fruitName
+    if fruitName and fruitName ~= "" and fruitName:lower() ~= "generic" and fruitName ~= "Fruit" and fruitName ~= "Sword of Destiny" then
+        activeTargetFruit = fruitName
+        lastDetectedInGameItem = fruitName
+    end
+
+    -- WATCHDOG TIMER: aborta automaticamente se o fluxo todo demorar demais
+    local totalTimeout = tonumber(currentSettings.step_timeouts and currentSettings.step_timeouts.total) or 30
+    task.delay(totalTimeout, function()
+        if autoBuyBusy and currentBuyId == myBuyId and not watchdogAborted then
+            warn(string.format("[Watchdog] Timeout total de %ds atingido! Abortando compra para '%s'", totalTimeout, username))
+            abortCurrentBuy("Timeout total de " .. totalTimeout .. "s excedido")
+            purchaseComplete = true
+            autoBuyBusy = false
+        end
+    end)
     
     print("[AutoBuyer] ========================================")
     print("[AutoBuyer] Iniciando compra: " .. fruitName .. " para " .. username)
@@ -2325,9 +2636,10 @@ local function executeBuyFruit(username, fruitName)
         local alreadyOpen = giftButton and giftButton.Visible and giftButton.AbsoluteSize.Y > 0
         
         if not alreadyOpen then
+            task.wait(0.25 + math.random(30, 80) / 1000)
             logStep("Clicando no slot da fruta " .. fruitName .. "...")
             clickSlotElement(fruitSlot)
-            task.wait(0.25)
+            task.wait(0.35 + math.random(40, 80) / 1000)
             
             local successV, titleV = pcall(function()
                 return fruitSlot.CardButton.Profile.TopInfo.Title.Text
@@ -2337,7 +2649,7 @@ local function executeBuyFruit(username, fruitName)
                 if stableSlot then
                     fruitSlot = stableSlot
                     clickSlotElement(fruitSlot)
-                    task.wait(0.25)
+                    task.wait(0.35 + math.random(40, 80) / 1000)
                 end
             end
             
@@ -2355,12 +2667,13 @@ local function executeBuyFruit(username, fruitName)
                 task.wait(0.02)
             end
             
-            randomDelay(0.05, 0.15)
+            -- Humano vê o botão Gift aparecer no painel expandido
+            task.wait(0.35 + math.random(40, 100) / 1000)
             logStep("Clicando no botão de Presente (Gift)...")
             clickGiftButton(giftButton)
             
             logStep("Aguardando janela de envio (GiftWindow) carregar...")
-            randomDelay(0.2, 0.4)
+            task.wait(0.45 + math.random(50, 120) / 1000)
             logStep("Inserindo o nick do usuário: " .. username .. "...")
             
             setBridgeUsername(username, fruitName, giftButton)
@@ -2368,8 +2681,12 @@ local function executeBuyFruit(username, fruitName)
             purchaseComplete = false
             logStep("Aguardando fluxo completo (Buy → OK → Cancel)...")
             local waitStart = os.clock()
-            while not purchaseComplete and (os.clock() - waitStart) < 8 do
+            while not purchaseComplete and not watchdogAborted and (os.clock() - waitStart) < 8 do
                 task.wait(0.1)
+            end
+            if watchdogAborted then
+                logStep("Compra abortada pelo Watchdog.")
+                return
             end
             if not purchaseComplete then
                 warn("[AutoBuyer] Timeout aguardando o fim do fluxo de compra. Continuando.")
@@ -2386,9 +2703,12 @@ local function executeBuyFruit(username, fruitName)
         warn("[AutoBuyer] Erro durante auto-compra: " .. tostring(err))
     end
     
-    local cooldownDelay = 0.3 + math.random() * 0.4
-    logStep(string.format("Aguardando %.1fs de intervalo antes da próxima compra...", cooldownDelay))
-    task.wait(cooldownDelay)
+    if not watchdogAborted then
+        -- Cooldown humano crível entre uma entrega e outra (streamer respira e vai para o próximo)
+        local cooldownDelay = 1.3 + math.random() * 0.7
+        logStep(string.format("Aguardando %.1fs de intervalo antes da próxima compra...", cooldownDelay))
+        task.wait(cooldownDelay)
+    end
     
     autoBuyBusy = false
 end
@@ -2596,6 +2916,7 @@ switchButton.MouseButton1Click:Connect(function()
     updateRobloxPlusUI(currentSettings.roblox_plus, true)
     pcall(saveConfig)
     
+    -- Atualiza a Buy GUI se estiver aberta
     if screenGui and screenGui.Enabled then
         if currentSettings.roblox_plus then
             if promoFrame then promoFrame.Visible = false end
@@ -2603,7 +2924,7 @@ switchButton.MouseButton1Click:Connect(function()
             priceText.Text = formatNumber(math.floor(curPrice * 0.9))
         else
             if promoFrame then promoFrame.Visible = true end
-            local origPrice = GENERIC_ITEM_PRICE
+            local origPrice = lastDetectedInGamePrice or GENERIC_ITEM_PRICE
             priceText.Text = formatNumber(origPrice)
         end
     end
@@ -2645,6 +2966,9 @@ local reconnectCorner = Instance.new("UICorner")
 reconnectCorner.CornerRadius = UDim.new(0, 6)
 reconnectCorner.Parent = reconnectBtn
 
+local isCloudConnected = false
+local cloudStreamerName = ""
+
 local function setWsStatus(connected, streamerName)
     if connected then
         local stText = streamerName and (" (" .. streamerName .. ")") or ""
@@ -2653,16 +2977,29 @@ local function setWsStatus(connected, streamerName)
         reconnectBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
         reconnectBtn.Text = "↺ Reconectar Bridge"
     else
-        wsStatusLabel.Text = "● Desconectado"
-        wsStatusLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
-        reconnectBtn.BackgroundColor3 = Color3.fromRGB(140, 40, 40)
-        reconnectBtn.Text = "↺ Reconectar Bridge"
+        if isCloudConnected then
+            local stText = cloudStreamerName ~= "" and (" (" .. cloudStreamerName .. ")") or ""
+            wsStatusLabel.Text = "● Conectado" .. stText
+            wsStatusLabel.TextColor3 = Color3.fromRGB(50, 220, 90)
+            reconnectBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
+            reconnectBtn.Text = "↺ Reconectar Bridge"
+        else
+            wsStatusLabel.Text = "● Desconectado"
+            wsStatusLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+            reconnectBtn.BackgroundColor3 = Color3.fromRGB(140, 40, 40)
+            reconnectBtn.Text = "↺ Reconectar Bridge"
+        end
     end
 end
+
+-- Forward declaration
+local startHttpPolling
 
 local function validateTokenWithCloud(token)
     local clean = sanitizeToken(token)
     if clean == "" or clean == "SEU_TOKEN_AQUI" then
+        isCloudConnected = false
+        cloudStreamerName = ""
         setWsStatus(false)
         wsStatusLabel.Text = "● Chave não configurada"
         return false
@@ -2682,7 +3019,10 @@ local function validateTokenWithCloud(token)
         if decOk and type(decoded) == "table" then
             if not decoded.error and (statusCode == 200 or statusCode == 0) then
                 local streamerName = decoded.username or decoded.user_id or "Online"
-                setWsStatus(true, streamerName)
+                isCloudConnected = true
+                cloudStreamerName = "Nuvem - " .. streamerName
+                setWsStatus(true, cloudStreamerName)
+                
                 local finalToken = decoded.script_token or clean
                 SCRIPT_TOKEN = finalToken
                 currentSettings.script_token = finalToken
@@ -2695,16 +3035,22 @@ local function validateTokenWithCloud(token)
                 -- Vincula e valida a trava da conta Roblox
                 local linkOk, linkErr = verifyAndLinkRobloxAccount(finalToken)
                 if not linkOk then
+                    isCloudConnected = false
+                    cloudStreamerName = ""
                     setWsStatus(false)
                     wsStatusLabel.Text = "● Chave travada em outra conta"
                     warn("[AutoBuyer] Chave bloqueada para esta conta: " .. tostring(linkErr))
                     return false
                 end
+                
                 startRobloxHeartbeat()
+                if startHttpPolling then startHttpPolling() end
                 
                 print("[AutoBuyer] Chave validada com sucesso para " .. streamerName .. "!")
                 return true
             else
+                isCloudConnected = false
+                cloudStreamerName = ""
                 local errMsg = decoded.error or ("Erro HTTP " .. tostring(statusCode))
                 setWsStatus(false)
                 wsStatusLabel.Text = "● " .. tostring(errMsg)
@@ -2714,6 +3060,8 @@ local function validateTokenWithCloud(token)
         end
     end
     
+    isCloudConnected = false
+    cloudStreamerName = ""
     setWsStatus(false)
     local failText = (statusCode and statusCode > 0) and ("● Erro HTTP " .. tostring(statusCode)) or "● Sem conexão com Vercel"
     wsStatusLabel.Text = failText
@@ -2722,11 +3070,19 @@ local function validateTokenWithCloud(token)
 end
 
 local function syncGuiWithSettings(settings)
+    if not settings then return end
     currentSettings.mock_balance = formatNumber(settings.mock_balance or currentSettings.mock_balance)
-    currentSettings.item_name = settings.item_name or currentSettings.item_name
+    
+    local realInGame = detectRealInGameItemName()
+    if realInGame and realInGame ~= "" and realInGame ~= "Fruit" and realInGame:lower() ~= "generic" and realInGame ~= "Sword of Destiny" and realInGame ~= "Mock Item Name" then
+        currentSettings.item_name = realInGame
+    elseif settings.item_name and settings.item_name ~= "" and settings.item_name:lower() ~= "generic" and settings.item_name ~= "Fruit" and settings.item_name ~= "Sword of Destiny" and settings.item_name ~= "Mock Item Name" then
+        currentSettings.item_name = settings.item_name
+    end
+    
     currentSettings.item_price = formatNumber(settings.item_price or currentSettings.item_price)
-    currentSettings.item_image = settings.item_image or currentSettings.item_image
     currentSettings.toggle_key = settings.toggle_key or currentSettings.toggle_key or "P"
+    currentSettings.post_delivery_delay = tonumber(settings.post_delivery_delay) or currentSettings.post_delivery_delay or 2
     if settings.roblox_plus ~= nil then
         currentSettings.roblox_plus = settings.roblox_plus == true
     end
@@ -2735,11 +3091,24 @@ local function syncGuiWithSettings(settings)
         currentSettings.script_token = settings.script_token
     end
     
+    if settings.step_timeouts and type(settings.step_timeouts) == "table" then
+        currentSettings.step_timeouts = currentSettings.step_timeouts or {}
+        for k, v in pairs(settings.step_timeouts) do
+            currentSettings.step_timeouts[k] = tonumber(v) or currentSettings.step_timeouts[k] or 30
+        end
+    end
+    
     pcall(saveConfig)
     
     pcall(function()
         if balanceText then balanceText.Text = currentSettings.mock_balance end
-        if itemNameLabel then itemNameLabel.Text = currentSettings.item_name end
+        
+        local displayItem = detectRealInGameItemName()
+        if displayItem and displayItem ~= "" and displayItem ~= "Fruit" and displayItem:lower() ~= "generic" and displayItem ~= "Sword of Destiny" and displayItem ~= "Mock Item Name" then
+            if itemNameLabel then itemNameLabel.Text = displayItem end
+            if successMessage then successMessage.Text = "You have successfully bought " .. displayItem .. "." end
+        end
+        
         if priceText then
             local numPrice = parseNumber(currentSettings.item_price) or 0
             if currentSettings.roblox_plus then
@@ -2750,14 +3119,6 @@ local function syncGuiWithSettings(settings)
             end
             priceText.Text = formatNumber(numPrice)
         end
-        if itemImage then 
-            local img = currentSettings.item_image
-            if currentSettings.item_name:lower():find("dragon") then
-                img = "rbxassetid://2673336234"
-            end
-            itemImage.Image = img 
-        end
-        if successMessage then successMessage.Text = "You have successfully bought " .. currentSettings.item_name .. "." end
     end)
     
     if robuxInput then robuxInput.Text = currentSettings.mock_balance end
@@ -2796,6 +3157,7 @@ local function sendSettingsToBridge()
 
     pcall(saveConfig)
 
+    -- Valida o token com a API da Vercel
     task.spawn(function()
         validateTokenWithCloud(SCRIPT_TOKEN)
     end)
@@ -2806,8 +3168,6 @@ local function sendSettingsToBridge()
         roblox_plus = currentSettings.roblox_plus,
         script_token = SCRIPT_TOKEN
     }
-    
-    syncGuiWithSettings(payload)
     
     if activeWS then
         local wsMsg = HttpService:JSONEncode({
@@ -2837,7 +3197,7 @@ local function handleBridgeMessage(decoded)
         local username = decoded.username
         local fruit = decoded.fruit
         
-        if username and username ~= "" and fruit and fruit ~= "" then
+        if username and username ~= "" and fruit and fruit ~= "" and fruit:lower() ~= "generic" and fruit:lower() ~= "fruit" and fruit ~= "Sword of Destiny" then
             -- Evita duplicata: ignora se é exatamente o mesmo pedido repetido
             if username == lastBridgeUsername and fruit == lastBridgeFruit then return end
             lastBridgeUsername = username
@@ -2849,7 +3209,7 @@ local function handleBridgeMessage(decoded)
             -- set_username só executa se NÃO houver compra em andamento
             if not autoBuyBusy and username ~= lastBridgeUsername then
                 lastBridgeUsername = username
-                setBridgeUsername(username, "Generic")
+                setBridgeUsername(username, "")
             end
         end
     elseif decoded.action == "set_username" then
@@ -2858,7 +3218,7 @@ local function handleBridgeMessage(decoded)
         local username = decoded.username
         if username and username ~= "" and username ~= lastBridgeUsername then
             lastBridgeUsername = username
-            setBridgeUsername(username, "Generic")
+            setBridgeUsername(username, "")
         end
     elseif decoded.action == "update_settings" then
         syncGuiWithSettings(decoded.settings)
@@ -2872,23 +3232,46 @@ local function handleBridgeMessage(decoded)
     end
 end
 
--- Polling HTTP com backoff suave para não lagar quando o servidor estiver offline
-local function startHttpPolling()
+-- Polling HTTP com backoff suave (Vercel Cloud + Servidor Local)
+local httpPollingStarted = false
+startHttpPolling = function()
+    if httpPollingStarted then return end
+    httpPollingStarted = true
+    print("[AutoBuyer] Iniciando Polling HTTP (Vercel Cloud + Servidor Local)...")
+    
     local failedNext = 0
     task.spawn(function()
         while true do
-            -- Não tenta pegar próximo enquanto uma compra já está em andamento
             if autoBuyBusy then
                 task.wait(0.5)
             else
-                local success, response = pcall(function()
-                    return HttpService:GetAsync("http://127.0.0.1:" .. HTTP_PORT .. "/next", true)
-                end)
+                local success, response = false, nil
+                local tokenQ = getTokenQuery()
+                
+                -- 1. Puxa próximo da fila na Nuvem Vercel via universalHttpRequest
+                if tokenQ ~= "" then
+                    local cloudUrl = VERCEL_API_URL .. "/api/script/next" .. tokenQ
+                    local ok, res, st = universalHttpRequest(cloudUrl, "GET")
+                    if ok and res and res ~= "" then
+                        success, response = true, res
+                    end
+                end
+                
+                -- 2. Fallback para servidor local se nuvem não retornou nada
+                if not success or not response or response == "" then
+                    local localOk, localRes = pcall(function()
+                        return HttpService:GetAsync("http://127.0.0.1:" .. HTTP_PORT .. "/next", true)
+                    end)
+                    if localOk and localRes and localRes ~= "" then
+                        success, response = true, localRes
+                    end
+                end
                 
                 if success and response and response ~= "" then
                     failedNext = 0
                     local dataSuccess, decoded = pcall(function() return HttpService:JSONDecode(response) end)
-                    if dataSuccess and decoded and decoded.username then
+                    if dataSuccess and decoded and decoded.username and decoded.username ~= "" then
+                        print("[AutoBuyer] Fila Nuvem -> Comprando para @" .. tostring(decoded.username) .. " | Fruta: " .. tostring(decoded.fruit))
                         handleBridgeMessage({
                             action = "buy_fruit",
                             username = decoded.username,
@@ -2896,16 +3279,12 @@ local function startHttpPolling()
                         })
                     end
                     task.wait(0.5)
-                elseif success then
-                    -- 204 No Content: nada na fila ainda, espera menos
-                    failedNext = 0
-                    task.wait(0.5)
                 else
                     failedNext = failedNext + 1
                     if failedNext > 3 then
-                        task.wait(4)
-                    else
                         task.wait(1.5)
+                    else
+                        task.wait(0.5)
                     end
                 end
             end
@@ -2915,18 +3294,41 @@ local function startHttpPolling()
     local failedSettings = 0
     task.spawn(function()
         while true do
-            local success, response = pcall(function() return HttpService:GetAsync("http://127.0.0.1:" .. HTTP_PORT .. "/game_settings", true) end)
-            if success and response then
+            local success, response = false, nil
+            local tokenQ = getTokenQuery()
+            
+            -- Sincroniza configurações da nuvem
+            if tokenQ ~= "" then
+                local cloudSettingsUrl = VERCEL_API_URL .. "/api/script/game_settings" .. tokenQ
+                local ok, res = universalHttpRequest(cloudSettingsUrl, "GET")
+                if ok and res and res ~= "" then
+                    success, response = true, res
+                end
+            end
+            
+            -- Fallback para servidor local
+            if not success or not response or response == "" then
+                local localOk, localRes = pcall(function()
+                    return HttpService:GetAsync("http://127.0.0.1:" .. HTTP_PORT .. "/game_settings", true)
+                end)
+                if localOk and localRes and localRes ~= "" then
+                    success, response = true, localRes
+                end
+            end
+            
+            if success and response and response ~= "" then
                 failedSettings = 0
                 local dataSuccess, decoded = pcall(function() return HttpService:JSONDecode(response) end)
-                if dataSuccess and decoded then syncGuiWithSettings(decoded) end
-                task.wait(2)
+                if dataSuccess and decoded and not decoded.error then
+                    syncGuiWithSettings(decoded)
+                end
+                task.wait(2.5)
             else
                 failedSettings = failedSettings + 1
                 if failedSettings > 3 then
-                    task.wait(5)
+                    task.wait(4)
                 else
-                    task.wait(2)
+                    task.wait(1.5)
                 end
             end
         end
@@ -2934,10 +3336,9 @@ local function startHttpPolling()
 end
 
 -- Controle do loop de reconexão do WebSocket
--- wsReconnectEnabled: false = não tenta reconectar automaticamente após desconexão
-local wsReconnectEnabled = false  -- Só tenta 1 vez ao iniciar; após isso só via botão
+local wsReconnectEnabled = false
 local wsForceReconnect = false
-local wsIsConnecting = false  -- Evita múltiplas tentativas simultâneas
+local wsIsConnecting = false
 
 local function connectToBridge()
     if wsIsConnecting then return end
@@ -2953,19 +3354,24 @@ local function connectToBridge()
     end
 
     task.spawn(function()
-        -- Tenta conectar UMA vez
         wsForceReconnect = false
-        setWsStatus(false)
 
-        local success, ws = pcall(function() return wsConnect(WS_URL) end)
+        local tokenQ = getTokenQuery()
+        local success, ws = false, nil
+        if tokenQ ~= "" then
+            success, ws = pcall(function() return wsConnect(CLOUD_WS_URL .. "/ws" .. tokenQ) end)
+        end
+        if not success or not ws then
+            success, ws = pcall(function() return wsConnect(WS_URL) end)
+        end
 
         if success and ws then
             activeWS = ws
             setWsStatus(true)
-            print("[AutoBuyer] WebSocket conectado com sucesso ao servidor Bridge.")
+            print("[AutoBuyer] WebSocket conectado com sucesso ao servidor Bridge (Multi-tenant).")
 
             pcall(function()
-                local idMsg = HttpService:JSONEncode({ client_type = "roblox" })
+                local idMsg = HttpService:JSONEncode({ client_type = "roblox", token = SCRIPT_TOKEN })
                 if ws.Send then ws:Send(idMsg) elseif ws.send then ws:send(idMsg) end
 
                 local syncMsg = HttpService:JSONEncode({
@@ -3003,13 +3409,12 @@ local function connectToBridge()
                     activeWS = nil
                     setWsStatus(false)
                     wsIsConnecting = false
-                    print("[AutoBuyer] WebSocket desconectou. Clique em Reconectar para tentar novamente.")
+                    print("[AutoBuyer] WebSocket desconectou. Modo Nuvem continua ativo.")
                 end)
                 while not closed and not wsForceReconnect do
                     task.wait(1)
                 end
             else
-                -- Executor sem evento OnClose: usa ping para detectar queda
                 while not wsForceReconnect do
                     task.wait(3)
                     local pingOk = pcall(function()
@@ -3020,7 +3425,7 @@ local function connectToBridge()
                         activeWS = nil
                         setWsStatus(false)
                         wsIsConnecting = false
-                        print("[AutoBuyer] WebSocket perdeu conexão. Clique em Reconectar para tentar novamente.")
+                        print("[AutoBuyer] WebSocket perdeu conexão. Modo Nuvem continua ativo.")
                         break
                     end
                 end
@@ -3029,14 +3434,15 @@ local function connectToBridge()
             activeWS = nil
             setWsStatus(false)
         else
-            -- Falhou na primeira tentativa
-            print("[AutoBuyer] Não foi possível conectar ao servidor Bridge. Usando fallback HTTP.")
-            setWsStatus(false)
+            -- Falhou conexão com WebSocket local/render
+            if not isCloudConnected then
+                setWsStatus(false)
+            end
+            print("[AutoBuyer] WebSocket local offline. Polling HTTP em Nuvem ativo.")
         end
 
         wsIsConnecting = false
 
-        -- Se foi um force-reconnect via botão, tenta novamente imediatamente
         if wsForceReconnect then
             task.wait(0.5)
             connectToBridge()
@@ -3045,13 +3451,11 @@ local function connectToBridge()
 end
 
 task.spawn(connectToBridge)
--- HTTP polling só inicia se WebSocket não estiver disponível no executor
-if not (syn and syn.websocket) and not WebSocket then
-    startHttpPolling()
-end
+task.spawn(startHttpPolling)
 
 reconnectBtn.MouseButton1Click:Connect(function()
     if wsIsConnecting then return end  -- Ignora cliques duplicados
+    
     wsForceReconnect = true
     reconnectBtn.Text = "↺ Reconectando..."
     reconnectBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 30)
@@ -3068,7 +3472,7 @@ reconnectBtn.MouseButton1Click:Connect(function()
         end)
         activeWS = nil
     end
-    -- Tenta conectar diretamente (não depende do loop automático)
+    -- Tenta conectar diretamente
     task.wait(0.3)
     connectToBridge()
 end)
@@ -3077,7 +3481,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if input.KeyCode == Enum.KeyCode.Escape then
         if screenGui.Enabled then closeGui() end
         if successGui.Enabled then closeSuccessGui() end
-        if settingsFrame and settingsFrame.Visible then settingsFrame.Visible = false end
+        if settingsFrame.Visible then settingsFrame.Visible = false end
     end
     
     if not gameProcessedEvent then

@@ -1,4 +1,4 @@
-﻿// site_bridge.js — Content Script injetado em https://bgl-queue.vercel.app/*
+// site_bridge.js — Content Script injetado em https://bgl-queue.vercel.app/*
 // Permite que a extensao se conecte automaticamente e sincronize o token com 1 clique
 
 function getSiteToken() {
@@ -28,10 +28,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Sincronizacao proativa: se a pagina acabou de carregar com usuario logado
+function checkAndSendToken() {
+  try {
+    const token = getSiteToken();
+    if (token) {
+      chrome.runtime.sendMessage({ type: 'siteTokenAvailable', token: token }).catch(() => {});
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+// Sincronizacao proativa imediata e com retentativas (para suportar carregamento assincrono do token)
+checkAndSendToken();
+[400, 1000, 2500, 5000, 10000].forEach(ms => setTimeout(checkAndSendToken, ms));
+
+// Observa alteracao dinamica no input do token na pagina
 try {
-  const token = getSiteToken();
-  if (token) {
-    chrome.runtime.sendMessage({ type: 'siteTokenAvailable', token: token }).catch(() => {});
+  const tokenInput = document.getElementById('scriptTokenDisplay');
+  if (tokenInput) {
+    tokenInput.addEventListener('input', () => checkAndSendToken());
+    tokenInput.addEventListener('change', () => checkAndSendToken());
   }
 } catch(e) {}

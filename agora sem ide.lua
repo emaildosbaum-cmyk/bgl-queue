@@ -286,11 +286,15 @@ local function universalHttpRequest(url, method, body, headers)
         headers["Content-Type"] = "application/json"
     end
     
-    -- 1. Executores modernos (request / http_request / syn.request / http.request)
+    -- 1. Executores modernos: busca por request / http_request / syn.request / http.request / fluxus.request
+    local genv = (getgenv and type(getgenv) == "function") and getgenv() or _G or {}
     local req = (type(request) == "function" and request)
         or (type(http_request) == "function" and http_request)
+        or (type(genv.request) == "function" and genv.request)
+        or (type(genv.http_request) == "function" and genv.http_request)
         or (syn and type(syn.request) == "function" and syn.request)
         or (http and type(http.request) == "function" and http.request)
+        or (fluxus and type(fluxus.request) == "function" and fluxus.request)
         
     if req then
         local reqData = {
@@ -308,36 +312,37 @@ local function universalHttpRequest(url, method, body, headers)
         
         local ok, res = pcall(req, reqData)
         if ok and res then
-            if type(res) == "string" and res ~= "" then
+            if type(res) == "string" then
                 return true, res, 200
             elseif type(res) == "table" then
-                local resBody = res.Body or res.body or res.Data or res.data
+                local resBody = res.Body or res.body or res.Data or res.data or ""
                 local statusCode = tonumber(res.StatusCode or res.status_code or res.statusCode) or 200
-                if resBody and type(resBody) == "string" then
-                    return (statusCode >= 200 and statusCode < 300), resBody, statusCode
-                end
+                return (statusCode >= 200 and statusCode < 300), tostring(resBody), statusCode
             end
         end
     end
     
     -- 2. Métodos nativos de executor game:HttpGet / game:HttpGetAsync
     if method == "GET" then
-        local getOk, getRes = pcall(function()
-            return game:HttpGet(url)
-        end)
-        if getOk and getRes and type(getRes) == "string" and getRes ~= "" then
+        local getOk, getRes = pcall(function() return game:HttpGet(url) end)
+        if getOk and getRes and type(getRes) == "string" then
             return true, getRes, 200
         end
-        
-        local getAsyncOk, getAsyncRes = pcall(function()
-            return game:HttpGetAsync(url)
-        end)
-        if getAsyncOk and getAsyncRes and type(getAsyncRes) == "string" and getAsyncRes ~= "" then
+        local getAsyncOk, getAsyncRes = pcall(function() return game:HttpGetAsync(url) end)
+        if getAsyncOk and getAsyncRes and type(getAsyncRes) == "string" then
             return true, getAsyncRes, 200
         end
     end
     
-    -- 3. Fallback HttpService (Roblox Studio ou executores com bridge)
+    -- 3. Fallback POST para executores com suporte apenas a HttpGet
+    if method == "POST" then
+        local getOk, getRes = pcall(function() return game:HttpGet(url) end)
+        if getOk and getRes and type(getRes) == "string" then
+            return true, getRes, 200
+        end
+    end
+    
+    -- 4. Fallback HttpService (Roblox Studio ou servidor local 127.0.0.1)
     local hsOk, hsRes = pcall(function()
         if method == "GET" then
             return HttpService:GetAsync(url, true)
@@ -345,8 +350,8 @@ local function universalHttpRequest(url, method, body, headers)
             return HttpService:PostAsync(url, body or "", Enum.HttpContentType.ApplicationJson)
         end
     end)
-    if hsOk and hsRes and type(hsRes) == "string" and hsRes ~= "" then
-        return true, hsRes, 200
+    if hsOk and hsRes then
+        return true, tostring(hsRes), 200
     end
     
     return false, "Nenhum método HTTP disponível ou conexão recusada", 0
@@ -364,7 +369,14 @@ local function verifyAndLinkRobloxAccount(token)
     local robloxDisplayName = tostring(localPlayer.DisplayName)
     local robloxAvatar = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. robloxUserId .. "&size=150x150&format=Png&isCircular=true"
     
-    local linkUrl = VERCEL_API_URL .. "/api/script/link_roblox"
+    local queryParams = string.format("?token=%s&roblox_user_id=%s&roblox_username=%s&roblox_display_name=%s&roblox_avatar_url=%s",
+        HttpService:UrlEncode(clean),
+        HttpService:UrlEncode(robloxUserId),
+        HttpService:UrlEncode(robloxUsername),
+        HttpService:UrlEncode(robloxDisplayName),
+        HttpService:UrlEncode(robloxAvatar)
+    )
+    local linkUrl = VERCEL_API_URL .. "/api/script/link_roblox" .. queryParams
     local linkBody = HttpService:JSONEncode({
         token = clean,
         roblox_user_id = robloxUserId,
@@ -499,31 +511,8 @@ local function abortCurrentBuy(reason)
         end
     end)
     
-    -- Notifica o servidor que abortou
-    pcall(function()
-        local hs = game:GetService("HttpService")
-        local finishedMsg = hs:JSONEncode({ type = "purchase_finished", status = "aborted", reason = reason })
-        if activeWS then
-            if activeWS.Send then activeWS:Send(finishedMsg) elseif activeWS.send then activeWS:send(finishedMsg) end
-        end
-        local tokenQ = getTokenQuery()
-        local sent = false
-        if tokenQ ~= "" then
-            pcall(function()
-                hs:PostAsync(VERCEL_API_URL .. "/api/script/purchase_finished" .. tokenQ, finishedMsg, Enum.HttpContentType.ApplicationJson)
-                sent = true
-            end)
-            if not sent then
-                pcall(function()
-                    hs:PostAsync(CLOUD_SERVER_URL .. "/purchase_finished" .. tokenQ, finishedMsg, Enum.HttpContentType.ApplicationJson)
-                    sent = true
-                end)
-            end
-        end
-        if not sent then
-            hs:PostAsync("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", finishedMsg, Enum.HttpContentType.ApplicationJson)
-        end
-    end)
+    -- Notifica o servidor e a nuvem que abortou
+    reportPurchaseFinished("aborted", reason)
 end
 
 ---------------------------------------------------------
@@ -614,45 +603,56 @@ local function createCloseIcon(parent, size)
     return btn
 end
 
-local function logStep(stepName)
-    print("[AutoBuyer - Passo] " .. stepName)
+local function reportPurchaseFinished(status, reason)
+    print(string.format("[AutoBuyer] Status da compra: %s (Motivo: %s)", tostring(status), tostring(reason or "none")))
+    local payload = HttpService:JSONEncode({
+        type = "purchase_finished",
+        status = status,
+        reason = reason or "",
+        token = SCRIPT_TOKEN
+    })
     pcall(function()
         if activeWS then
-            local msg = HttpService:JSONEncode({
-                type = "automation_step",
-                step = stepName
-            })
-            if activeWS.Send then
-                activeWS:Send(msg)
-            elseif activeWS.send then
-                activeWS:send(msg)
-            end
+            if activeWS.Send then activeWS:Send(payload) elseif activeWS.send then activeWS:send(payload) end
         end
     end)
     task.spawn(function()
+        local tokenQ = getTokenQuery()
+        if tokenQ ~= "" then
+            pcall(function()
+                local cloudUrl = VERCEL_API_URL .. "/api/script/purchase_finished" .. tokenQ .. "&status=" .. HttpService:UrlEncode(tostring(status))
+                universalHttpRequest(cloudUrl, "POST", payload)
+            end)
+        end
         pcall(function()
-            local payload = HttpService:JSONEncode({ step = stepName })
-            local tokenQ = getTokenQuery()
-            local sent = false
-            if tokenQ ~= "" then
-                pcall(function()
-                    HttpService:PostAsync(VERCEL_API_URL .. "/api/script/automation_step" .. tokenQ, payload, Enum.HttpContentType.ApplicationJson)
-                    sent = true
-                end)
-                if not sent then
-                    pcall(function()
-                        HttpService:PostAsync(CLOUD_SERVER_URL .. "/automation_step" .. tokenQ, payload, Enum.HttpContentType.ApplicationJson)
-                        sent = true
-                    end)
-                end
-            end
-            if not sent then
-                HttpService:PostAsync(
-                    "http://127.0.0.1:" .. HTTP_PORT .. "/automation_step",
-                    payload,
-                    Enum.HttpContentType.ApplicationJson
-                )
-            end
+            universalHttpRequest("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", "POST", payload)
+        end)
+    end)
+end
+
+local function logStep(stepName)
+    print("[AutoBuyer - Passo] " .. tostring(stepName))
+    local payload = HttpService:JSONEncode({
+        type = "automation_step",
+        step = stepName,
+        step_name = stepName,
+        token = SCRIPT_TOKEN
+    })
+    pcall(function()
+        if activeWS then
+            if activeWS.Send then activeWS:Send(payload) elseif activeWS.send then activeWS:send(payload) end
+        end
+    end)
+    task.spawn(function()
+        local tokenQ = getTokenQuery()
+        if tokenQ ~= "" then
+            pcall(function()
+                local cloudUrl = VERCEL_API_URL .. "/api/script/automation_step" .. tokenQ .. "&step=" .. HttpService:UrlEncode(tostring(stepName))
+                universalHttpRequest(cloudUrl, "POST", payload)
+            end)
+        end
+        pcall(function()
+            universalHttpRequest("http://127.0.0.1:" .. HTTP_PORT .. "/automation_step", "POST", payload)
         end)
     end)
 end
@@ -1925,14 +1925,7 @@ local function openGui()
         logStep("Compra finalizada e loja fechada!")
         task.wait(0.25 + math.random(30, 60) / 1000)
         purchaseComplete = true
-        pcall(function()
-            local finishedMsg = HttpService:JSONEncode({ type = "purchase_finished", status = "success" })
-            if activeWS then
-                if activeWS.Send then activeWS:Send(finishedMsg) elseif activeWS.send then activeWS:send(finishedMsg) end
-            else
-                HttpService:PostAsync("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", finishedMsg, Enum.HttpContentType.ApplicationJson)
-            end
-        end)
+        reportPurchaseFinished("success")
         task.spawn(restMouse)
     end)
 end
@@ -2566,14 +2559,7 @@ local function setBridgeUsername(username, fruitName, giftButton)
                 end
             end)
             purchaseComplete = true
-            pcall(function()
-                local finishedMsg = HttpService:JSONEncode({ type = "purchase_finished", status = "aborted" })
-                if activeWS then
-                    if activeWS.Send then activeWS:Send(finishedMsg) elseif activeWS.send then activeWS:send(finishedMsg) end
-                else
-                    HttpService:PostAsync("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", finishedMsg, Enum.HttpContentType.ApplicationJson)
-                end
-            end)
+            reportPurchaseFinished("aborted", "GiftWindow fechada ou cancelada")
         end
     end)
     
@@ -2581,14 +2567,7 @@ local function setBridgeUsername(username, fruitName, giftButton)
         warn("[AutoBuyer] Erro no fluxo da GiftWindow: " .. tostring(err))
         logStep("Erro na GiftWindow: " .. tostring(err))
         purchaseComplete = true
-        pcall(function()
-            local finishedMsg = HttpService:JSONEncode({ type = "purchase_finished", status = "error" })
-            if activeWS then
-                if activeWS.Send then activeWS:Send(finishedMsg) elseif activeWS.send then activeWS:send(finishedMsg) end
-            else
-                HttpService:PostAsync("http://127.0.0.1:" .. HTTP_PORT .. "/purchase_finished", finishedMsg, Enum.HttpContentType.ApplicationJson)
-            end
-        end)
+        reportPurchaseFinished("error", tostring(err))
     end
 end
 
@@ -2987,6 +2966,9 @@ local reconnectCorner = Instance.new("UICorner")
 reconnectCorner.CornerRadius = UDim.new(0, 6)
 reconnectCorner.Parent = reconnectBtn
 
+local isCloudConnected = false
+local cloudStreamerName = ""
+
 local function setWsStatus(connected, streamerName)
     if connected then
         local stText = streamerName and (" (" .. streamerName .. ")") or ""
@@ -2995,16 +2977,29 @@ local function setWsStatus(connected, streamerName)
         reconnectBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
         reconnectBtn.Text = "↺ Reconectar Bridge"
     else
-        wsStatusLabel.Text = "● Desconectado"
-        wsStatusLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
-        reconnectBtn.BackgroundColor3 = Color3.fromRGB(140, 40, 40)
-        reconnectBtn.Text = "↺ Reconectar Bridge"
+        if isCloudConnected then
+            local stText = cloudStreamerName ~= "" and (" (" .. cloudStreamerName .. ")") or ""
+            wsStatusLabel.Text = "● Conectado" .. stText
+            wsStatusLabel.TextColor3 = Color3.fromRGB(50, 220, 90)
+            reconnectBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
+            reconnectBtn.Text = "↺ Reconectar Bridge"
+        else
+            wsStatusLabel.Text = "● Desconectado"
+            wsStatusLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+            reconnectBtn.BackgroundColor3 = Color3.fromRGB(140, 40, 40)
+            reconnectBtn.Text = "↺ Reconectar Bridge"
+        end
     end
 end
+
+-- Forward declaration
+local startHttpPolling
 
 local function validateTokenWithCloud(token)
     local clean = sanitizeToken(token)
     if clean == "" or clean == "SEU_TOKEN_AQUI" then
+        isCloudConnected = false
+        cloudStreamerName = ""
         setWsStatus(false)
         wsStatusLabel.Text = "● Chave não configurada"
         return false
@@ -3024,7 +3019,10 @@ local function validateTokenWithCloud(token)
         if decOk and type(decoded) == "table" then
             if not decoded.error and (statusCode == 200 or statusCode == 0) then
                 local streamerName = decoded.username or decoded.user_id or "Online"
-                setWsStatus(true, streamerName)
+                isCloudConnected = true
+                cloudStreamerName = "Nuvem - " .. streamerName
+                setWsStatus(true, cloudStreamerName)
+                
                 local finalToken = decoded.script_token or clean
                 SCRIPT_TOKEN = finalToken
                 currentSettings.script_token = finalToken
@@ -3037,16 +3035,22 @@ local function validateTokenWithCloud(token)
                 -- Vincula e valida a trava da conta Roblox
                 local linkOk, linkErr = verifyAndLinkRobloxAccount(finalToken)
                 if not linkOk then
+                    isCloudConnected = false
+                    cloudStreamerName = ""
                     setWsStatus(false)
                     wsStatusLabel.Text = "● Chave travada em outra conta"
                     warn("[AutoBuyer] Chave bloqueada para esta conta: " .. tostring(linkErr))
                     return false
                 end
+                
                 startRobloxHeartbeat()
+                if startHttpPolling then startHttpPolling() end
                 
                 print("[AutoBuyer] Chave validada com sucesso para " .. streamerName .. "!")
                 return true
             else
+                isCloudConnected = false
+                cloudStreamerName = ""
                 local errMsg = decoded.error or ("Erro HTTP " .. tostring(statusCode))
                 setWsStatus(false)
                 wsStatusLabel.Text = "● " .. tostring(errMsg)
@@ -3056,6 +3060,8 @@ local function validateTokenWithCloud(token)
         end
     end
     
+    isCloudConnected = false
+    cloudStreamerName = ""
     setWsStatus(false)
     local failText = (statusCode and statusCode > 0) and ("● Erro HTTP " .. tostring(statusCode)) or "● Sem conexão com Vercel"
     wsStatusLabel.Text = failText
@@ -3226,54 +3232,59 @@ local function handleBridgeMessage(decoded)
     end
 end
 
--- Polling HTTP ultra rápido (0.1s) com fallback
-local function startHttpPolling()
+-- Polling HTTP com backoff suave (Vercel Cloud + Servidor Local)
+local httpPollingStarted = false
+startHttpPolling = function()
+    if httpPollingStarted then return end
+    httpPollingStarted = true
+    print("[AutoBuyer] Iniciando Polling HTTP (Vercel Cloud + Servidor Local)...")
+    
     local failedNext = 0
     task.spawn(function()
         while true do
-            -- Se WebSocket estiver conectado ou compra em andamento, espera 0.1s
             if autoBuyBusy then
-                task.wait(0.1)
+                task.wait(0.5)
             else
                 local success, response = false, nil
                 local tokenQ = getTokenQuery()
+                
+                -- 1. Puxa próximo da fila na Nuvem Vercel via universalHttpRequest
                 if tokenQ ~= "" then
-                    success, response = pcall(function()
-                        return HttpService:GetAsync(VERCEL_API_URL .. "/api/script/next" .. tokenQ, true)
-                    end)
-                    if not success or not response then
-                        success, response = pcall(function()
-                            return HttpService:GetAsync(CLOUD_SERVER_URL .. "/next" .. tokenQ, true)
-                        end)
+                    local cloudUrl = VERCEL_API_URL .. "/api/script/next" .. tokenQ
+                    local ok, res, st = universalHttpRequest(cloudUrl, "GET")
+                    if ok and res and res ~= "" then
+                        success, response = true, res
                     end
                 end
-                if not success or not response then
-                    success, response = pcall(function()
+                
+                -- 2. Fallback para servidor local se nuvem não retornou nada
+                if not success or not response or response == "" then
+                    local localOk, localRes = pcall(function()
                         return HttpService:GetAsync("http://127.0.0.1:" .. HTTP_PORT .. "/next", true)
                     end)
+                    if localOk and localRes and localRes ~= "" then
+                        success, response = true, localRes
+                    end
                 end
                 
                 if success and response and response ~= "" then
                     failedNext = 0
                     local dataSuccess, decoded = pcall(function() return HttpService:JSONDecode(response) end)
-                    if dataSuccess and decoded and decoded.username then
+                    if dataSuccess and decoded and decoded.username and decoded.username ~= "" then
+                        print("[AutoBuyer] Fila Nuvem -> Comprando para @" .. tostring(decoded.username) .. " | Fruta: " .. tostring(decoded.fruit))
                         handleBridgeMessage({
                             action = "buy_fruit",
                             username = decoded.username,
                             fruit = decoded.fruit or ""
                         })
                     end
-                    task.wait(0.1)
-                elseif success then
-                    -- 204 No Content: fila vazia no momento
-                    failedNext = 0
-                    task.wait(0.1)
+                    task.wait(0.5)
                 else
                     failedNext = failedNext + 1
                     if failedNext > 3 then
                         task.wait(1.5)
                     else
-                        task.wait(0.4)
+                        task.wait(0.5)
                     end
                 end
             end
@@ -3285,26 +3296,33 @@ local function startHttpPolling()
         while true do
             local success, response = false, nil
             local tokenQ = getTokenQuery()
+            
+            -- Sincroniza configurações da nuvem
             if tokenQ ~= "" then
-                success, response = pcall(function()
-                    return HttpService:GetAsync(VERCEL_API_URL .. "/api/script/game_settings" .. tokenQ, true)
-                end)
-                if not success or not response then
-                    success, response = pcall(function()
-                        return HttpService:GetAsync(CLOUD_SERVER_URL .. "/game_settings" .. tokenQ, true)
-                    end)
+                local cloudSettingsUrl = VERCEL_API_URL .. "/api/script/game_settings" .. tokenQ
+                local ok, res = universalHttpRequest(cloudSettingsUrl, "GET")
+                if ok and res and res ~= "" then
+                    success, response = true, res
                 end
             end
-            if not success or not response then
-                success, response = pcall(function()
+            
+            -- Fallback para servidor local
+            if not success or not response or response == "" then
+                local localOk, localRes = pcall(function()
                     return HttpService:GetAsync("http://127.0.0.1:" .. HTTP_PORT .. "/game_settings", true)
                 end)
+                if localOk and localRes and localRes ~= "" then
+                    success, response = true, localRes
+                end
             end
-            if success and response then
+            
+            if success and response and response ~= "" then
                 failedSettings = 0
                 local dataSuccess, decoded = pcall(function() return HttpService:JSONDecode(response) end)
-                if dataSuccess and decoded then syncGuiWithSettings(decoded) end
-                task.wait(1.5)
+                if dataSuccess and decoded and not decoded.error then
+                    syncGuiWithSettings(decoded)
+                end
+                task.wait(2.5)
             else
                 failedSettings = failedSettings + 1
                 if failedSettings > 3 then
@@ -3318,10 +3336,9 @@ local function startHttpPolling()
 end
 
 -- Controle do loop de reconexão do WebSocket
--- wsReconnectEnabled: false = não tenta reconectar automaticamente após desconexão
-local wsReconnectEnabled = false  -- Só tenta 1 vez ao iniciar; após isso só via botão
+local wsReconnectEnabled = false
 local wsForceReconnect = false
-local wsIsConnecting = false  -- Evita múltiplas tentativas simultâneas
+local wsIsConnecting = false
 
 local function connectToBridge()
     if wsIsConnecting then return end
@@ -3337,9 +3354,7 @@ local function connectToBridge()
     end
 
     task.spawn(function()
-        -- Tenta conectar UMA vez
         wsForceReconnect = false
-        setWsStatus(false)
 
         local tokenQ = getTokenQuery()
         local success, ws = false, nil
@@ -3394,13 +3409,12 @@ local function connectToBridge()
                     activeWS = nil
                     setWsStatus(false)
                     wsIsConnecting = false
-                    print("[AutoBuyer] WebSocket desconectou. Clique em Reconectar para tentar novamente.")
+                    print("[AutoBuyer] WebSocket desconectou. Modo Nuvem continua ativo.")
                 end)
                 while not closed and not wsForceReconnect do
                     task.wait(1)
                 end
             else
-                -- Executor sem evento OnClose: usa ping para detectar queda
                 while not wsForceReconnect do
                     task.wait(3)
                     local pingOk = pcall(function()
@@ -3411,7 +3425,7 @@ local function connectToBridge()
                         activeWS = nil
                         setWsStatus(false)
                         wsIsConnecting = false
-                        print("[AutoBuyer] WebSocket perdeu conexão. Clique em Reconectar para tentar novamente.")
+                        print("[AutoBuyer] WebSocket perdeu conexão. Modo Nuvem continua ativo.")
                         break
                     end
                 end
@@ -3420,14 +3434,15 @@ local function connectToBridge()
             activeWS = nil
             setWsStatus(false)
         else
-            -- Falhou na primeira tentativa
-            print("[AutoBuyer] Não foi possível conectar ao servidor Bridge. Usando fallback HTTP.")
-            setWsStatus(false)
+            -- Falhou conexão com WebSocket local/render
+            if not isCloudConnected then
+                setWsStatus(false)
+            end
+            print("[AutoBuyer] WebSocket local offline. Polling HTTP em Nuvem ativo.")
         end
 
         wsIsConnecting = false
 
-        -- Se foi um force-reconnect via botão, tenta novamente imediatamente
         if wsForceReconnect then
             task.wait(0.5)
             connectToBridge()

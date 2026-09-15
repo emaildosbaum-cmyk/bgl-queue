@@ -11,14 +11,14 @@ module.exports = async (req, res) => {
 ${token ? `_G.BGL_TOKEN = "${token}"` : `-- Nenhum token passado no link, lendo de bgl_token.txt se existir`}
 
 local ok, code = pcall(function()
-    return game:HttpGet("https://raw.githubusercontent.com/emaildosbaum-cmyk/bgl-queue/main/safe.lua")
+    return game:HttpGet("https://raw.githubusercontent.com/emaildosbaum-cmyk/bgl-queue/main/safe.lua?t=" .. tostring(os.time()))
 end)
 
 if ok and code and code ~= "" then
     loadstring(code)()
 else
     local fallbackOk, fallbackCode = pcall(function()
-        return game:HttpGet("https://bgl-queue.vercel.app/safe.lua")
+        return game:HttpGet("https://bgl-queue.vercel.app/safe.lua?t=" .. tostring(os.time()))
     end)
     if fallbackOk and fallbackCode and fallbackCode ~= "" then
         loadstring(fallbackCode)()

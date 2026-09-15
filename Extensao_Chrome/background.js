@@ -401,6 +401,24 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   if (changes.queueServerUrl || changes.queueServerEnabled) connectQueueSocket();
 });
 
+function parseUserId(raw) {
+  if (!raw) return null;
+  let s = String(raw).trim();
+  if (!s) return null;
+  if (s.includes('token=')) {
+    const match = s.match(/token=([^&]+)/);
+    if (match) s = match[1];
+  } else if (s.includes('uid=')) {
+    const match = s.match(/uid=([^&]+)/);
+    if (match) s = match[1];
+  }
+  if (s.startsWith('bgl_')) {
+    const parts = s.split('_');
+    if (parts[1]) return parts[1];
+  }
+  return s.replace(/[^0-9a-zA-Z_-]/g, '');
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return false;
 
@@ -411,6 +429,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     subscribeSupabaseRealtime();
     fetchQueueFromSupabase();
     fetchConfigFromSupabase();
+    sendExtensionHeartbeat();
+    sendResponse({ ok: true, userId: currentUserId });
+    return true;
+  }
+
+  if (message.type === 'siteTokenAvailable' && message.token) {
+    const raw = String(message.token).trim();
+    const cleanId = parseUserId(raw);
+    currentUserId = cleanId;
+    currentRawToken = raw;
+    try {
+      chrome.storage.local.set({ bglRawToken: raw, bglUserId: cleanId });
+    } catch(e) {}
+    console.log('[Extensao] Token do site sincronizado automaticamente:', raw, 'UserID:', cleanId);
+    subscribeSupabaseRealtime();
+    fetchQueueFromSupabase();
+    fetchConfigFromSupabase();
+    sendExtensionHeartbeat();
     sendResponse({ ok: true, userId: currentUserId });
     return true;
   }
