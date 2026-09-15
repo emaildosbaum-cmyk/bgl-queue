@@ -179,9 +179,9 @@ local FRUIT_PRICES = {
 
 local currentSettings = {
     mock_balance = "5,420",
-    item_name = "Sword of Destiny",
-    item_price = "1,250",
-    item_image = "rbxassetid://6071895945",
+    item_name = "Rocket",
+    item_price = "50",
+    item_image = "rbxassetid://16335379958",
     toggle_key = "P",
     step_timeouts = {
         total = 30
@@ -1807,6 +1807,68 @@ closeGui = function()
     GuiBusy = false
 end
 
+local function updateBuyGuiImage(fruitName)
+    if not itemImage then return end
+    local fruit = fruitName or activeTargetFruit or detectRealInGameItemName() or ""
+    local cleanFruit = fruit:lower():gsub(" fruit", ""):gsub(" fruta", ""):gsub(" perm", ""):gsub(" permanente", ""):gsub("%s+", "")
+
+    -- 1. Se for Dragon, busca imagem oficial via MarketplaceService
+    if cleanFruit:find("dragon") then
+        local ok, pInfo = pcall(function()
+            return MarketplaceService:GetProductInfo(1131547469, Enum.InfoType.Product)
+        end)
+        if ok and pInfo and pInfo.IconImageAssetId then
+            itemImage.Image = "rbxassetid://" .. pInfo.IconImageAssetId
+            itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            itemImage.ImageTransparency = 0
+            itemImage.ImageRectOffset = Vector2.new(0, 0)
+            itemImage.ImageRectSize = Vector2.new(0, 0)
+            itemImage.ScaleType = Enum.ScaleType.Fit
+            return
+        end
+    end
+
+    -- 2. Busca do cache ou varre a loja diretamente
+    local iconData = FRUIT_ICONS_CACHE[cleanFruit] or findFruitIconInShop(cleanFruit)
+    if iconData and iconData.Image and iconData.Image ~= "" and iconData.Image ~= "rbxassetid://16335379958" then
+        itemImage.Image = iconData.Image
+        itemImage.ImageColor3 = iconData.Color or Color3.fromRGB(255, 255, 255)
+        itemImage.ImageTransparency = iconData.Transparency or 0
+        itemImage.ImageRectOffset = iconData.RectOffset or Vector2.new(0, 0)
+        itemImage.ImageRectSize = iconData.RectSize or Vector2.new(0, 0)
+        if iconData.RectSize and iconData.RectSize.X > 0 and iconData.RectSize.Y > 0 then
+            itemImage.ScaleType = Enum.ScaleType.Stretch
+        else
+            itemImage.ScaleType = Enum.ScaleType.Fit
+        end
+        return
+    end
+
+    -- 3. Se temos lastDetectedInGameImage válido de uma fruta
+    if lastDetectedInGameImage and lastDetectedInGameImage ~= "" and lastDetectedInGameImage ~= "rbxassetid://16335379958" 
+        and not lastDetectedInGameImage:find("headshot") and not lastDetectedInGameImage:find("avatar") and not lastDetectedInGameImage:find("search") then
+        itemImage.Image = lastDetectedInGameImage
+        itemImage.ImageColor3 = lastDetectedInGameImageColor or Color3.fromRGB(255, 255, 255)
+        itemImage.ImageTransparency = lastDetectedInGameImageTrans or 0
+        itemImage.ImageRectOffset = lastDetectedInGameImageOffset or Vector2.new(0, 0)
+        itemImage.ImageRectSize = lastDetectedInGameImageSize or Vector2.new(0, 0)
+        if lastDetectedInGameImageSize and lastDetectedInGameImageSize.X > 0 then
+            itemImage.ScaleType = Enum.ScaleType.Stretch
+        else
+            itemImage.ScaleType = Enum.ScaleType.Fit
+        end
+        return
+    end
+
+    -- 4. Fallback padrão limpo e oficial de fruta Blox Fruits (ícone de Blox Fruit, NUNCA espada!)
+    itemImage.Image = "rbxassetid://16335379958"
+    itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    itemImage.ImageTransparency = 0
+    itemImage.ImageRectOffset = Vector2.new(0, 0)
+    itemImage.ImageRectSize = Vector2.new(0, 0)
+    itemImage.ScaleType = Enum.ScaleType.Fit
+end
+
 local function openGui()
     if GuiBusy or screenGui.Enabled then return end
     GuiBusy = true
@@ -1820,6 +1882,11 @@ local function openGui()
         if itemNameLabel then itemNameLabel.Text = realItem end
         if successMessage then successMessage.Text = "You have successfully bought " .. realItem .. "." end
     end
+
+    -- Garante que o Buy GUI exiba a imagem da fruta correta
+    pcall(function()
+        updateBuyGuiImage(realItem)
+    end)
 
     -- Suporte a ROBLOX PLUS: 10% de desconto no preço e oculta o aviso promocional
     pcall(function()
@@ -2037,11 +2104,11 @@ local function getAutomaticPriceAndName()
                 end
             end)
             
-            -- 3. Tenta pegar a imagem direto do slot ativo/expandido na loja
+            -- 3. Tenta pegar a imagem direto do slot ativo/expandido na loja ou pelo nome da fruta
             local gotIcon = false
             pcall(function()
                 local shopFruit, artIcon = getActiveFruitFromShop()
-                if artIcon and artIcon.Image ~= "" then
+                if artIcon and artIcon.Image ~= "" and artIcon.Image ~= "rbxassetid://16335379958" then
                     itemImg = artIcon.Image
                     imgColor = artIcon.ImageColor3
                     imgTrans = artIcon.ImageTransparency
@@ -2049,24 +2116,27 @@ local function getAutomaticPriceAndName()
                     imgRectSize = artIcon.ImageRectSize
                     gotIcon = true
                     lastDetectedInGameImage = itemImg
+                    lastDetectedInGameImageColor = imgColor
+                    lastDetectedInGameImageTrans = imgTrans
+                    lastDetectedInGameImageOffset = imgRectOffset
+                    lastDetectedInGameImageSize = imgRectSize
                 end
             end)
             
-            -- Fallback de imagem: varre descendentes do GiftWindow procurando ImageLabel visível
             if not gotIcon then
-                for _, child in ipairs(content:GetDescendants()) do
-                    if child:IsA("ImageLabel") and child.Visible then
-                        local img = child.Image
-                        if img ~= "" and not img:find("robux") and not img:find("close") and not img:find("arrow") then
-                            itemImg = img
-                            imgColor = child.ImageColor3
-                            imgTrans = child.ImageTransparency
-                            imgRectOffset = child.ImageRectOffset
-                            imgRectSize = child.ImageRectSize
-                            lastDetectedInGameImage = itemImg
-                            break
-                        end
-                    end
+                local iconData = findFruitIconInShop(itemName or activeTargetFruit)
+                if iconData and iconData.Image and iconData.Image ~= "" then
+                    itemImg = iconData.Image
+                    imgColor = iconData.Color or Color3.fromRGB(255, 255, 255)
+                    imgTrans = iconData.Transparency or 0
+                    imgRectOffset = iconData.RectOffset or Vector2.new(0, 0)
+                    imgRectSize = iconData.RectSize or Vector2.new(0, 0)
+                    gotIcon = true
+                    lastDetectedInGameImage = itemImg
+                    lastDetectedInGameImageColor = imgColor
+                    lastDetectedInGameImageTrans = imgTrans
+                    lastDetectedInGameImageOffset = imgRectOffset
+                    lastDetectedInGameImageSize = imgRectSize
                 end
             end
         end
