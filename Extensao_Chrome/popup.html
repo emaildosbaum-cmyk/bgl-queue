@@ -725,7 +725,10 @@ body::after{
         <input id="tenantInputLic" type="text" placeholder="Discord ID ou Token" spellcheck="false" style="flex: 1; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text); padding: 0 10px; font-size: 11.5px; font-family: 'Geist Mono', monospace; outline: none;">
         <button id="tenantSaveBtnLic" type="button" style="height: 36px; padding: 0 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap;">Salvar ID</button>
       </div>
-      <div style="font-size: 10.5px; color: var(--text-dim); margin-top: 5px; display: flex; align-items: center; gap: 6px;">
+      <button id="syncFromSiteBtnLic" type="button" style="width: 100%; margin-top: 8px; height: 34px; border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 10px; background: rgba(59, 130, 246, 0.12); color: #60a5fa; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+        <span>⚡</span> <span>Conectar com o Site (1 Clique)</span>
+      </button>
+      <div style="font-size: 10.5px; color: var(--text-dim); margin-top: 6px; display: flex; align-items: center; gap: 6px;">
         <span id="tenantDotLic" style="width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); display: inline-block;"></span>
         <span id="tenantStatusTextLic">Modo Geral (Fila Pública)</span>
       </div>
@@ -767,6 +770,9 @@ body::after{
         <input id="tenantInputDash" type="text" placeholder="Discord ID ou Token" spellcheck="false" style="flex: 1; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); padding: 0 10px; font-size: 11.5px; font-family: 'Geist Mono', monospace; outline: none;">
         <button id="tenantSaveBtnDash" type="button" style="height: 36px; padding: 0 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap;">Salvar ID</button>
       </div>
+      <button id="syncFromSiteBtnDash" type="button" style="width: 100%; height: 34px; border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 10px; background: rgba(59, 130, 246, 0.12); color: #60a5fa; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+        <span>⚡</span> <span>Conectar com o Site (1 Clique)</span>
+      </button>
       <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 2px;">
         <div style="font-size: 10.5px; color: var(--text-dim); display: flex; align-items: center; gap: 6px;">
           <span id="tenantDotDash" style="width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); display: inline-block;"></span>

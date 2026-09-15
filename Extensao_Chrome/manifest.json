@@ -11,13 +11,22 @@
     "https://economy.roblox.com/*",
     "https://catalog.roblox.com/*",
     "https://ojjfwxjirlttpxcjhlho.supabase.co/*",
-    "wss://ojjfwxjirlttpxcjhlho.supabase.co/*"
+    "wss://ojjfwxjirlttpxcjhlho.supabase.co/*",
+    "https://bgl-queue.vercel.app/*",
+    "http://localhost:*/*"
   ],
-  "content_scripts": [{
-    "matches": ["https://www.roblox.com/*"],
-    "js": ["audio/keyboard/keyboard_pack.js", "content.js"],
-    "run_at": "document_start"
-  }],
+  "content_scripts": [
+    {
+      "matches": ["https://www.roblox.com/*"],
+      "js": ["audio/keyboard/keyboard_pack.js", "content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://bgl-queue.vercel.app/*", "http://localhost:*/*"],
+      "js": ["site_bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "web_accessible_resources": [{
     "resources": ["audio/keyboard/*"],
     "matches": ["https://www.roblox.com/*"]

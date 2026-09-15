@@ -254,6 +254,45 @@
       if (tenantInputDash) tenantInputDash.value = '';
       saveTenantId('');
     });
+  }
+
+  function syncFromSite() {
+    showToast('⚡', 'Conectando ao site...', 'Buscando token ativo', true);
+
+    chrome.tabs.query({ url: ['https://bgl-queue.vercel.app/*', 'http://localhost:*/*'] }, (tabs) => {
+      if (tabs && tabs.length > 0) {
+        const activeTab = tabs[0];
+        chrome.tabs.sendMessage(activeTab.id, { type: 'getSiteToken' }, (res) => {
+          if (chrome.runtime.lastError || !res || !res.token) {
+            chrome.tabs.sendMessage(activeTab.id, { type: 'getSiteToken' });
+            showToast('⚠️', 'Faça login no site', 'Entre no painel e tente novamente', false);
+          } else {
+            saveTenantId(res.token);
+          }
+        });
+      } else {
+        chrome.tabs.create({ url: 'https://bgl-queue.vercel.app' });
+        showToast('🌐', 'Site aberto!', 'Faça login e clique novamente', true);
+      }
+    });
+  }
+
+  const syncFromSiteBtnLic = document.getElementById('syncFromSiteBtnLic');
+  const syncFromSiteBtnDash = document.getElementById('syncFromSiteBtnDash');
+  if (syncFromSiteBtnLic) syncFromSiteBtnLic.addEventListener('click', syncFromSite);
+  if (syncFromSiteBtnDash) syncFromSiteBtnDash.addEventListener('click', syncFromSite);
+
+  // Escuta token detectado proativamente por site_bridge.js
+  chrome.runtime.onMessage.addListener((req) => {
+    if (req.type === 'siteTokenAvailable' && req.token) {
+      chrome.storage.local.get(['bglRawToken'], (data) => {
+        if (!data || !data.bglRawToken) {
+          saveTenantId(req.token);
+        }
+      });
+    }
+  });
+
   if (activateBtn) activateBtn.addEventListener('click', activate);
 
   document.getElementById('pauseOnce')?.addEventListener('click', () => showToast('⏸', 'Paused for this visit', 'Will resume on next page load', true));

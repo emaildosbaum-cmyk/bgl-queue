@@ -613,3 +613,16 @@ chrome.storage.local.get(['licenseValid'], (data) => {
     chrome.storage.local.set({ licenseValid: true, licenseKey: 'JOAOLEGAL' });
   }
 });
+
+// Heartbeat de presença da Extensão para o Dashboard da Live
+async function sendExtensionHeartbeat() {
+  const token = currentRawToken || currentUserId;
+  if (!token) return;
+  try {
+    const url = `https://bgl-queue.vercel.app/api/script/heartbeat?source=extension&token=${encodeURIComponent(token)}`;
+    await fetch(url);
+  } catch (e) {}
+}
+setInterval(sendExtensionHeartbeat, 15000);
+setTimeout(sendExtensionHeartbeat, 2000);
+

@@ -172,7 +172,8 @@ local FRUIT_PRICES = {
     ["phoenix"] = 2000, ["portal"] = 2000, ["rumble"] = 2100, ["pain"] = 2200,
     ["blizzard"] = 2250, ["gravity"] = 2300, ["mammoth"] = 2350, ["t-rex"] = 2350,
     ["dough"] = 2400, ["shadow"] = 2425, ["venom"] = 2450, ["control"] = 2500,
-    ["spirit"] = 2550, ["dragon"] = 2600, ["leopard"] = 3000, ["kitsune"] = 4000
+    ["spirit"] = 2550, ["dragon"] = 2600, ["leopard"] = 3000, ["kitsune"] = 4000,
+    ["gas"] = 2500, ["yeti"] = 3000, ["magnet"] = 3500
 }
 
 local currentSettings = {
@@ -242,9 +243,9 @@ end
 -- =========================================================
 -- SISTEMA MULTI-TENANT BGL QUEUE (PLAYER 1 / PLAYER 2)
 -- =========================================================
-local SCRIPT_TOKEN = "SEU_TOKEN_AQUI" -- Cole o token gerado no site https://bgl-queue.vercel.app
+local SCRIPT_TOKEN = _G.BGL_TOKEN or "SEU_TOKEN_AQUI" -- Cole o token gerado no site https://bgl-queue.vercel.app
 pcall(function()
-    if readfile and isfile and isfile("bgl_token.txt") then
+    if (not SCRIPT_TOKEN or SCRIPT_TOKEN == "SEU_TOKEN_AQUI") and readfile and isfile and isfile("bgl_token.txt") then
         local t = readfile("bgl_token.txt")
         if t and t:match("%S+") then SCRIPT_TOKEN = t:gsub("%s+", "") end
     end
@@ -345,6 +346,66 @@ local function universalHttpRequest(url, method, body, headers)
     end
     
     return false, "Nenhum método HTTP disponível ou conexão recusada", 0
+end
+
+local isRobloxAccountLocked = false
+local function verifyAndLinkRobloxAccount(token)
+    if not token or token == "" or token == "SEU_TOKEN_AQUI" then return true end
+    local clean = sanitizeToken(token)
+    local localPlayer = Players.LocalPlayer
+    if not localPlayer then return true end
+    
+    local robloxUserId = tostring(localPlayer.UserId)
+    local robloxUsername = tostring(localPlayer.Name)
+    local robloxDisplayName = tostring(localPlayer.DisplayName)
+    local robloxAvatar = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. robloxUserId .. "&size=150x150&format=Png&isCircular=true"
+    
+    local linkUrl = VERCEL_API_URL .. "/api/script/link_roblox"
+    local linkBody = HttpService:JSONEncode({
+        token = clean,
+        roblox_user_id = robloxUserId,
+        roblox_username = robloxUsername,
+        roblox_display_name = robloxDisplayName,
+        roblox_avatar_url = robloxAvatar
+    })
+    
+    local ok, res, statusCode = universalHttpRequest(linkUrl, "POST", linkBody)
+    if res and res ~= "" then
+        local decOk, decoded = pcall(function() return HttpService:JSONDecode(res) end)
+        if decOk and decoded then
+            if decoded.locked then
+                isRobloxAccountLocked = true
+                warn("[AutoBuyer] CHAVE BLOQUEADA: " .. tostring(decoded.error))
+                pcall(function()
+                    sendLocalChatMessage("⚠️ [BGL Queue] " .. tostring(decoded.error))
+                end)
+                return false, decoded.error
+            end
+            if decoded.ok then
+                isRobloxAccountLocked = false
+                print("[AutoBuyer] Conta Roblox @" .. robloxUsername .. " (" .. robloxDisplayName .. ") vinculada com sucesso!")
+                return true
+            end
+        end
+    end
+    return true
+end
+
+local heartbeatRunning = false
+local function startRobloxHeartbeat()
+    if heartbeatRunning then return end
+    heartbeatRunning = true
+    task.spawn(function()
+        while true do
+            if SCRIPT_TOKEN and SCRIPT_TOKEN ~= "" and SCRIPT_TOKEN ~= "SEU_TOKEN_AQUI" and not isRobloxAccountLocked then
+                pcall(function()
+                    local hbUrl = VERCEL_API_URL .. "/api/script/heartbeat?token=" .. HttpService:UrlEncode(SCRIPT_TOKEN) .. "&source=roblox"
+                    universalHttpRequest(hbUrl, "GET")
+                end)
+            end
+            task.wait(15)
+        end
+    end)
 end
 
 local function updateInstancePorts(instNum)
@@ -1877,7 +1938,8 @@ local FRUIT_ORDER = {
     ["spider"] = 21, ["sound"] = 22, ["phoenix"] = 23, ["portal"] = 24, ["rumble"] = 25,
     ["pain"] = 26, ["blizzard"] = 27, ["gravity"] = 28, ["mammoth"] = 29, ["t-rex"] = 30,
     ["dough"] = 31, ["shadow"] = 32, ["venom"] = 33, ["control"] = 34, ["spirit"] = 35,
-    ["dragon"] = 36, ["leopard"] = 37, ["kitsune"] = 38
+    ["dragon"] = 36, ["leopard"] = 37, ["kitsune"] = 38,
+    ["gas"] = 39, ["yeti"] = 40, ["magnet"] = 41
 }
 
 local function scrollAndFindFruit(scrollingFrame, fruitName)
@@ -2629,6 +2691,17 @@ local function validateTokenWithCloud(token)
                     if writefile then writefile("bgl_token.txt", finalToken) end
                 end)
                 pcall(saveConfig)
+                
+                -- Vincula e valida a trava da conta Roblox
+                local linkOk, linkErr = verifyAndLinkRobloxAccount(finalToken)
+                if not linkOk then
+                    setWsStatus(false)
+                    wsStatusLabel.Text = "● Chave travada em outra conta"
+                    warn("[AutoBuyer] Chave bloqueada para esta conta: " .. tostring(linkErr))
+                    return false
+                end
+                startRobloxHeartbeat()
+                
                 print("[AutoBuyer] Chave validada com sucesso para " .. streamerName .. "!")
                 return true
             else

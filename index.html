@@ -1181,10 +1181,28 @@
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
           <input type="text" id="scriptTokenDisplay" readonly value="bgl_default_master" style="flex: 1; min-width: 260px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; color: #60a5fa; font-family: monospace; font-size: 13px; font-weight: 700;">
-          <button type="button" onclick="copyScriptToken()" class="btn-primary" style="padding: 9px 16px; font-size: 13px; white-space: nowrap;">📋 Copiar Token</button>
+          <button type="button" onclick="copyScriptToken()" class="btn-secondary" style="padding: 9px 14px; font-size: 13px; white-space: nowrap;">📋 Copiar Token</button>
+          <button type="button" onclick="copyOneLineLoader(this)" class="btn-primary" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-color: #059669; padding: 9px 16px; font-size: 13px; font-weight: 700; white-space: nowrap;">🚀 Copiar Script (1 Linha)</button>
         </div>
         <div style="font-size: 12px; color: var(--text-muted); margin-top: -2px;">
-          Cole este token no início do seu script do Roblox (variável <code>SCRIPT_TOKEN</code>) para que sua conta não misture compras nem nicks com outros jogadores.
+          Cole o script de 1 linha diretamente no seu executor (Delta, Wave, Fluxus) para rodar e atualizar automaticamente sem precisar colar arquivos gigantes!
+        </div>
+
+        <!-- Perfil Roblox Vinculado com Trava de Segurança -->
+        <div id="roblox-linked-container" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="position: relative;">
+              <img id="robloxUserAvatar" src="https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=1&size=150x150&format=Png&isCircular=true" alt="Roblox Avatar" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #3b82f6; background: #1e293b; object-fit: cover;">
+              <div id="robloxOnlineBadge" style="position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; border-radius: 50%; background: #ef4444; border: 2px solid #0f172a;" title="Status de conexão"></div>
+            </div>
+            <div>
+              <div id="robloxDisplayName" style="font-size: 15px; font-weight: 700; color: #ffffff;">Aguardando Execução no Roblox...</div>
+              <div id="robloxUsername" style="font-size: 12px; color: #9ca3af; font-weight: 500;">Nenhuma conta vinculada a esta chave</div>
+            </div>
+          </div>
+          <button type="button" onclick="resetScriptKey()" class="btn-secondary" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171; padding: 7px 14px; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+            <span>🔄</span> <span>Resetar Chave / Desvincular</span>
+          </button>
         </div>
       </div>
 
@@ -1253,6 +1271,36 @@
       <div id="paused-banner" style="display: none; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.35); border-radius: var(--radius-md); padding: 12px 18px; color: #fca5a5; font-size: 13.5px; font-weight: 700; align-items: center; justify-content: space-between; gap: 10px;">
         <span>⏸️ <strong>Fila Pausada:</strong> Novos nicks acumulam na fila, mas nada é enviado ao Roblox até você reativar um modo.</span>
         <button onclick="setOperationMode('FULL')" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">▶ Retomar no FULL</button>
+      </div>
+
+      <!-- Card: Ação Rápida de Fruta (Update 30) & Saldo -->
+      <div class="card" style="border-color: rgba(245, 158, 11, 0.35); background: linear-gradient(180deg, rgba(245, 158, 11, 0.07) 0%, rgba(15, 23, 42, 0.5) 100%);">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div class="card-title" style="color: #fbbf24; display: flex; align-items: center; gap: 8px;">
+            <span>🍎</span>
+            <span>Fruta da Próxima Entrega (Blox Fruits Update 30)</span>
+          </div>
+          <span style="font-size: 11px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.15); padding: 3px 8px; border-radius: 999px;">Update Recente</span>
+        </div>
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 4px;">
+          <!-- Fruta Selecionada + Botão de Abrir Menu -->
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" onclick="toggleFruitSelectorModal()" class="btn-secondary" style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 8px 16px; border-color: rgba(245, 158, 11, 0.45); color: #fbbf24; background: rgba(245, 158, 11, 0.12); cursor: pointer; border-radius: var(--radius-sm);">
+              <span>🍎</span>
+              <span>Fruta Atual: <b id="currentSelectedFruitName" style="color: #fff;">Kitsune</b></span>
+              <span style="font-size: 11px; opacity: 0.8;">▼</span>
+            </button>
+            <span id="currentSelectedFruitPrice" style="font-size: 12.5px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.15); padding: 4px 10px; border-radius: 6px;">4,000 R$</span>
+          </div>
+
+          <!-- Ação Rápida de Robux -->
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" onclick="rollRobuxFromWeb(this)" class="btn-secondary" style="font-size: 12px; padding: 8px 14px; display: flex; align-items: center; gap: 6px;">
+              <span>🎲</span> <span>Sortear Robux no Jogo (700k - 1M)</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Seletor de Modo de Operação -->
@@ -5421,8 +5469,20 @@
     renderLiveProofUI();
     loadSavedRecordings();
     restartFalasTimers();
-    runLiveProofTimerLoop();
     updateStatsUI();
+
+    try {
+      const savedFruit = localStorage.getItem('bgl_selected_fruit');
+      if (savedFruit) {
+        const parsed = JSON.parse(savedFruit);
+        if (parsed && parsed.name) {
+          const nameEl = document.getElementById('currentSelectedFruitName');
+          const priceEl = document.getElementById('currentSelectedFruitPrice');
+          if (nameEl) nameEl.textContent = parsed.name;
+          if (priceEl) priceEl.textContent = (parsed.price ? Number(parsed.price).toLocaleString() : '4,000') + ' R$';
+        }
+      }
+    } catch(e) {}
 
     const volSlider = document.getElementById('global-audio-volume');
     const volVal = document.getElementById('global-audio-volume-val');
@@ -5526,6 +5586,407 @@
     });
   }
 
+  // =========================================================
+  // BGL QUEUE — LOADER DE 1 LINHA, RESET DE CHAVE & ROBUX ROLL
+  // =========================================================
+  function copyScriptToken() {
+    const input = document.getElementById('scriptTokenDisplay');
+    if (input && input.value) {
+      copyDirectText(input.value);
+    }
+  }
+
+  function copyOneLineLoader(btn) {
+    const token = (document.getElementById('scriptTokenDisplay')?.value || (window.currentUser && window.currentUser.token) || localStorage.getItem('bgl_token') || '').trim();
+    const scriptCode = `loadstring(game:HttpGet("https://bgl-queue.vercel.app/loader.lua?token=${encodeURIComponent(token)}"))()`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(scriptCode).then(() => {
+        showCopyFeedback(btn, '🚀 Script Copiado!');
+      }).catch(() => {
+        fallbackCopyText(scriptCode, btn, '🚀 Script Copiado!');
+      });
+    } else {
+      fallbackCopyText(scriptCode, btn, '🚀 Script Copiado!');
+    }
+  }
+
+  function showCopyFeedback(btn, text) {
+    if (!btn) return;
+    const orig = btn.innerHTML;
+    btn.innerHTML = text || '✅ Copiado!';
+    btn.style.borderColor = 'var(--accent-green)';
+    btn.style.color = '#4ade80';
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.style.borderColor = '';
+      btn.style.color = '';
+    }, 2200);
+  }
+
+  function fallbackCopyText(text, btn, feedbackText) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      showCopyFeedback(btn, feedbackText);
+    } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  async function resetScriptKey() {
+    const token = (document.getElementById('scriptTokenDisplay')?.value || (window.currentUser && window.currentUser.token) || localStorage.getItem('bgl_token') || '').trim();
+    if (!token) {
+      alert("Nenhum token encontrado para resetar.");
+      return;
+    }
+
+    const confirmReset = confirm("⚠️ Tem certeza que deseja resetar a chave e desvincular a conta Roblox atual?\\n\\n- Sua conta Roblox vinculada será desvinculada.\\n- Uma nova chave segura será gerada.\\n- O script de 1 linha atual precisará ser copiado e executado novamente no Roblox.");
+    if (!confirmReset) return;
+
+    try {
+      const res = await fetch("/api/script/reset_key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token })
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        if (data.new_token) {
+          const tokenDisplay = document.getElementById("scriptTokenDisplay");
+          if (tokenDisplay) tokenDisplay.value = data.new_token;
+          if (window.currentUser) window.currentUser.token = data.new_token;
+          localStorage.setItem("bgl_token", data.new_token);
+        }
+        
+        const rbxAvatar = document.getElementById('robloxUserAvatar');
+        const rbxDisplay = document.getElementById('robloxDisplayName');
+        const rbxUser = document.getElementById('robloxUsername');
+        const rbxBadge = document.getElementById('robloxOnlineBadge');
+        if (rbxAvatar) rbxAvatar.src = 'https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=1&size=150x150&format=Png&isCircular=true';
+        if (rbxDisplay) rbxDisplay.textContent = 'Aguardando Execução no Roblox...';
+        if (rbxUser) rbxUser.textContent = 'Nenhuma conta vinculada a esta chave';
+        if (rbxBadge) rbxBadge.style.background = '#ef4444';
+
+        pollStatusChecklist();
+        alert("✅ Chave resetada com sucesso!\\n\\nCopie o novo Script de 1 Linha e execute no Roblox para vincular sua nova conta.");
+      } else {
+        alert("Erro ao resetar chave: " + (data.error || "Erro desconhecido"));
+      }
+    } catch (err) {
+      alert("Erro de conexão ao resetar chave: " + err.message);
+    }
+  }
+
+  async function rollRobuxFromWeb(btn) {
+    const min = 700000;
+    const max = 1000000;
+    const randomRobux = Math.floor(Math.random() * (max - min + 1)) + min;
+    const formatted = randomRobux.toLocaleString('en-US');
+    
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = `🎲 Sorteando...`;
+      btn.disabled = true;
+
+      try {
+        const token = (document.getElementById('scriptTokenDisplay')?.value || (window.currentUser && window.currentUser.token) || localStorage.getItem('bgl_token') || '').trim();
+        await fetch(`/api/script/game_settings${token ? `?token=${encodeURIComponent(token)}` : ''}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mock_balance: formatted })
+        });
+        btn.innerHTML = `✅ Sorteado: ${formatted} R$!`;
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.disabled = false;
+        }, 2500);
+      } catch (e) {
+        btn.innerHTML = `✅ Sorteado: ${formatted} R$!`;
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.disabled = false;
+        }, 2500);
+      }
+    }
+  }
+
+  // =========================================================
+  // CHECKLIST DE STATUS DA LIVE (CANTO INFERIOR ESQUERDO)
+  // =========================================================
+  function toggleStatusWidget(expand) {
+    const expanded = document.getElementById('status-card-expanded');
+    const minimized = document.getElementById('status-card-minimized');
+    if (expand) {
+      if (expanded) expanded.style.display = 'flex';
+      if (minimized) minimized.style.display = 'none';
+    } else {
+      if (expanded) expanded.style.display = 'none';
+      if (minimized) minimized.style.display = 'flex';
+    }
+  }
+
+  async function pollStatusChecklist() {
+    const token = (document.getElementById('scriptTokenDisplay')?.value || (window.currentUser && window.currentUser.token) || localStorage.getItem('bgl_token') || '').trim();
+    const discordUser = window.currentUser || JSON.parse(localStorage.getItem('bgl_discord_user') || 'null');
+    
+    // 1. Discord status
+    const discordName = (discordUser && (discordUser.name || discordUser.username)) || 'Conectado';
+    const stDiscord = document.getElementById('st-val-discord');
+    if (stDiscord) stDiscord.textContent = discordName;
+
+    // 2. Nuvem status (Vercel / Supabase)
+    const stCloud = document.getElementById('st-val-cloud');
+    const dotCloud = document.getElementById('st-dot-cloud');
+    const pillCloud = document.getElementById('pill-dot-cloud');
+    if (stCloud) stCloud.textContent = 'Online';
+    if (dotCloud) { dotCloud.style.background = '#10b981'; dotCloud.style.boxShadow = '0 0 8px #10b981'; }
+    if (pillCloud) pillCloud.style.background = '#10b981';
+
+    if (!token) return;
+
+    try {
+      const res = await fetch(`/api/script/heartbeat?token=${encodeURIComponent(token)}`);
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Extensão TikTok status
+        const extDot = document.getElementById('st-dot-ext');
+        const extVal = document.getElementById('st-val-ext');
+        const pillExt = document.getElementById('pill-dot-ext');
+        if (data.extension_online) {
+          if (extDot) { extDot.style.background = '#10b981'; extDot.style.boxShadow = '0 0 8px #10b981'; }
+          if (extVal) { extVal.textContent = 'Conectada'; extVal.style.color = '#10b981'; }
+          if (pillExt) pillExt.style.background = '#10b981';
+        } else {
+          if (extDot) { extDot.style.background = '#ef4444'; extDot.style.boxShadow = '0 0 8px #ef4444'; }
+          if (extVal) { extVal.textContent = 'Desconectada'; extVal.style.color = '#ef4444'; }
+          if (pillExt) pillExt.style.background = '#ef4444';
+        }
+
+        // Roblox Script status
+        const rbxDot = document.getElementById('st-dot-roblox');
+        const rbxVal = document.getElementById('st-val-roblox');
+        const pillRbx = document.getElementById('pill-dot-roblox');
+        if (data.roblox_online) {
+          const nick = data.roblox_username ? `@${data.roblox_username}` : 'Pronto';
+          if (rbxDot) { rbxDot.style.background = '#10b981'; rbxDot.style.boxShadow = '0 0 8px #10b981'; }
+          if (rbxVal) { rbxVal.textContent = `Rodando (${nick})`; rbxVal.style.color = '#10b981'; }
+          if (pillRbx) pillRbx.style.background = '#10b981';
+        } else {
+          if (rbxDot) { rbxDot.style.background = '#ef4444'; rbxDot.style.boxShadow = '0 0 8px #ef4444'; }
+          if (rbxVal) { rbxVal.textContent = 'Aguardando script...'; rbxVal.style.color = '#ef4444'; }
+          if (pillRbx) pillRbx.style.background = '#ef4444';
+        }
+
+        // Linked Roblox profile card
+        const rbxAvatar = document.getElementById('robloxUserAvatar');
+        const rbxDisplay = document.getElementById('robloxDisplayName');
+        const rbxUser = document.getElementById('robloxUsername');
+        const rbxBadge = document.getElementById('robloxOnlineBadge');
+
+        if (data.roblox_username) {
+          if (rbxAvatar) rbxAvatar.src = data.roblox_avatar_url || `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${data.roblox_user_id}&size=150x150&format=Png&isCircular=true`;
+          if (rbxDisplay) rbxDisplay.textContent = data.roblox_display_name || data.roblox_username;
+          if (rbxUser) rbxUser.textContent = `@${data.roblox_username}`;
+          if (rbxBadge) rbxBadge.style.background = data.roblox_online ? '#10b981' : '#ef4444';
+        } else {
+          if (rbxAvatar) rbxAvatar.src = 'https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=1&size=150x150&format=Png&isCircular=true';
+          if (rbxDisplay) rbxDisplay.textContent = 'Aguardando Execução no Roblox...';
+          if (rbxUser) rbxUser.textContent = 'Nenhuma conta vinculada a esta chave';
+          if (rbxBadge) rbxBadge.style.background = '#ef4444';
+        }
+
+        if (data.script_token && data.script_token !== token) {
+          const tokenInput = document.getElementById('scriptTokenDisplay');
+          if (tokenInput) tokenInput.value = data.script_token;
+          localStorage.setItem('bgl_token', data.script_token);
+        }
+      }
+    } catch (e) {}
+  }
+
+  // =========================================================
+  // SELETOR DE FRUTAS (BLOX FRUITS UPDATE 30)
+  // =========================================================
+  const ALL_BLOX_FRUITS = [
+    // Míticas
+    { name: "Magnet", price: 3500, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
+    { name: "Yeti", price: 3000, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
+    { name: "Gas", price: 2500, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
+    { name: "Kitsune", price: 4000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Leopard", price: 3000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Dragon", price: 2600, rarity: "Mítica", tag: "Rework", color: "#ec4899" },
+    { name: "Spirit", price: 2550, rarity: "Mítica", color: "#ec4899" },
+    { name: "Control", price: 2500, rarity: "Mítica", color: "#ec4899" },
+    { name: "Venom", price: 2450, rarity: "Mítica", color: "#ec4899" },
+    { name: "Shadow", price: 2425, rarity: "Mítica", color: "#ec4899" },
+    { name: "Dough", price: 2400, rarity: "Mítica", color: "#ec4899" },
+    { name: "T-Rex", price: 2350, rarity: "Mítica", color: "#ec4899" },
+    { name: "Mammoth", price: 2350, rarity: "Mítica", color: "#ec4899" },
+    { name: "Gravity", price: 2300, rarity: "Mítica", color: "#ec4899" },
+
+    // Lendárias
+    { name: "Blizzard", price: 2250, rarity: "Lendária", color: "#a855f7" },
+    { name: "Pain", price: 2200, rarity: "Lendária", color: "#a855f7" },
+    { name: "Rumble", price: 2100, rarity: "Lendária", color: "#a855f7" },
+    { name: "Portal", price: 2000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Phoenix", price: 2000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Sound", price: 1900, rarity: "Lendária", color: "#a855f7" },
+    { name: "Spider", price: 1800, rarity: "Lendária", color: "#a855f7" },
+    { name: "Love", price: 1700, rarity: "Lendária", color: "#a855f7" },
+    { name: "Buddha", price: 1650, rarity: "Lendária", color: "#a855f7" },
+    { name: "Quake", price: 1500, rarity: "Lendária", color: "#a855f7" },
+
+    // Raras
+    { name: "Magma", price: 1300, rarity: "Rara", color: "#3b82f6" },
+    { name: "Ghost", price: 1275, rarity: "Rara", color: "#3b82f6" },
+    { name: "Barrier", price: 1250, rarity: "Rara", color: "#3b82f6" },
+    { name: "Rubber", price: 1200, rarity: "Rara", color: "#3b82f6" },
+    { name: "Light", price: 1100, rarity: "Rara", color: "#3b82f6" },
+
+    // Incomuns
+    { name: "Diamond", price: 1000, rarity: "Incomum", color: "#10b981" },
+    { name: "Dark", price: 950, rarity: "Incomum", color: "#10b981" },
+    { name: "Sand", price: 850, rarity: "Incomum", color: "#10b981" },
+    { name: "Ice", price: 750, rarity: "Incomum", color: "#10b981" },
+    { name: "Falcon", price: 650, rarity: "Incomum", color: "#10b981" },
+    { name: "Flame", price: 550, rarity: "Incomum", color: "#10b981" },
+
+    // Comuns
+    { name: "Spike", price: 380, rarity: "Comum", color: "#94a3b8" },
+    { name: "Smoke", price: 250, rarity: "Comum", color: "#94a3b8" },
+    { name: "Bomb", price: 220, rarity: "Comum", color: "#94a3b8" },
+    { name: "Spring", price: 180, rarity: "Comum", color: "#94a3b8" },
+    { name: "Chop", price: 100, rarity: "Comum", color: "#94a3b8" },
+    { name: "Spin", price: 75, rarity: "Comum", color: "#94a3b8" },
+    { name: "Rocket", price: 50, rarity: "Comum", color: "#94a3b8" }
+  ];
+
+  function toggleFruitSelectorModal() {
+    const modal = document.getElementById('fruit-selector-modal');
+    if (!modal) return;
+    const isHidden = (modal.style.display === 'none' || !modal.style.display);
+    if (isHidden) {
+      renderFruitList(ALL_BLOX_FRUITS);
+      modal.style.display = 'flex';
+      setTimeout(() => {
+        document.getElementById('fruitSearchInput')?.focus();
+      }, 100);
+    } else {
+      modal.style.display = 'none';
+    }
+  }
+
+  function closeFruitModal() {
+    const modal = document.getElementById('fruit-selector-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function handleFruitModalOverlayClick(e) {
+    if (e.target.id === 'fruit-selector-modal') {
+      closeFruitModal();
+    }
+  }
+
+  function filterFruitList(query) {
+    const q = (query || "").toLowerCase().trim();
+    if (!q) {
+      renderFruitList(ALL_BLOX_FRUITS);
+      return;
+    }
+    const filtered = ALL_BLOX_FRUITS.filter(f => 
+      f.name.toLowerCase().includes(q) || 
+      f.rarity.toLowerCase().includes(q) || 
+      String(f.price).includes(q)
+    );
+    renderFruitList(filtered);
+  }
+
+  function renderFruitList(fruits) {
+    const container = document.getElementById('fruitListContainer');
+    if (!container) return;
+    if (!fruits || fruits.length === 0) {
+      container.innerHTML = '<div style="text-align: center; padding: 24px; color: var(--text-dim); font-size: 13px;">Nenhuma fruta encontrada.</div>';
+      return;
+    }
+
+    const groups = {};
+    fruits.forEach(f => {
+      if (!groups[f.rarity]) groups[f.rarity] = [];
+      groups[f.rarity].push(f);
+    });
+
+    let html = '';
+    for (const [rarity, items] of Object.entries(groups)) {
+      const rarityColor = items[0]?.color || '#fff';
+      html += `
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 11px; font-weight: 800; color: ${rarityColor}; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+            <span>●</span> <span>${rarity}</span> (${items.length})
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;">
+      `;
+      items.forEach(fruit => {
+        html += `
+          <div onclick="selectFruit('${fruit.name}', ${fruit.price}, '${fruit.rarity}')" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 6px; transition: all 0.18s ease;" onmouseenter="this.style.borderColor='${fruit.color}'; this.style.background='var(--bg-surface-hover)';" onmouseleave="this.style.borderColor='var(--border)'; this.style.background='var(--bg-input)';">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <div style="font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 4px;">
+                <span>${fruit.name}</span>
+                ${fruit.tag ? `<span style="font-size: 9px; padding: 1px 5px; border-radius: 4px; background: rgba(236,72,153,0.25); color: #f472b6; font-weight: 800;">${fruit.tag}</span>` : ''}
+              </div>
+              <div style="font-size: 11px; color: #10b981; font-weight: 600;">${fruit.price.toLocaleString()} R$</div>
+            </div>
+            <span style="font-size: 11px; opacity: 0.4;">▶</span>
+          </div>
+        `;
+      });
+      html += `</div></div>`;
+    }
+    container.innerHTML = html;
+  }
+
+  async function selectFruit(name, price, rarity) {
+    const nameEl = document.getElementById('currentSelectedFruitName');
+    const priceEl = document.getElementById('currentSelectedFruitPrice');
+    if (nameEl) nameEl.textContent = name;
+    if (priceEl) priceEl.textContent = price.toLocaleString() + ' R$';
+    
+    closeFruitModal();
+
+    const token = (document.getElementById('scriptTokenDisplay')?.value || (window.currentUser && window.currentUser.token) || localStorage.getItem('bgl_token') || '').trim();
+    try {
+      await fetch(`/api/script/game_settings${token ? `?token=${encodeURIComponent(token)}` : ''}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_name: name, item_price: String(price) })
+      });
+    } catch(e) {}
+
+    localStorage.setItem('bgl_selected_fruit', JSON.stringify({ name, price, rarity }));
+  }
+
+  // PostMessage listener para extensão do Chrome obter token sem digitação manual
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'BGL_REQUEST_ACTIVE_TOKEN') {
+      const activeToken = document.getElementById('scriptTokenDisplay')?.value || (window.currentUser && window.currentUser.token) || localStorage.getItem('bgl_token') || '';
+      const userId = (window.currentUser && window.currentUser.id) || '';
+      window.postMessage({
+        type: 'BGL_RESPONSE_ACTIVE_TOKEN',
+        token: activeToken,
+        userId: userId
+      }, '*');
+    }
+  });
+
+  // Inicia polling de status a cada 10s
+  setInterval(pollStatusChecklist, 10000);
+  setTimeout(pollStatusChecklist, 1500);
+
 </script>
 
   <!-- =========================================================
@@ -5611,6 +6072,96 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       CHECKLIST DE STATUS DA LIVE (CANTO INFERIOR ESQUERDO)
+       ========================================================= -->
+  <div id="live-status-checklist" style="position: fixed; bottom: 20px; left: 20px; z-index: 99999; font-family: 'Inter', sans-serif;">
+    <!-- Card Expandido -->
+    <div id="status-card-expanded" style="background: rgba(13, 16, 26, 0.92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: 0 16px 36px rgba(0,0,0,0.7); width: 290px; display: flex; flex-direction: column; gap: 10px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+        <div style="font-size: 12px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 6px;">
+          <span>🚦</span> <span>Status da Live</span>
+        </div>
+        <button type="button" onclick="toggleStatusWidget(false)" title="Minimizar status" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 2px 7px; border-radius: 4px; line-height: 1;">–</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 9px; font-size: 12px;">
+        <!-- 1. Discord -->
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="st-dot-discord" style="width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; flex-shrink: 0;"></span>
+            <span style="color: #e2e8f0; font-weight: 600;">Discord</span>
+          </div>
+          <span id="st-val-discord" style="color: #94a3b8; font-size: 11px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Conectado</span>
+        </div>
+
+        <!-- 2. Extensão TikTok -->
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="st-dot-ext" style="width: 9px; height: 9px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444; flex-shrink: 0;"></span>
+            <span style="color: #e2e8f0; font-weight: 600;">Extensão TikTok</span>
+          </div>
+          <span id="st-val-ext" style="color: #ef4444; font-size: 11px; font-weight: 600;">Desconectada</span>
+        </div>
+
+        <!-- 3. Roblox -->
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="st-dot-roblox" style="width: 9px; height: 9px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444; flex-shrink: 0;"></span>
+            <span style="color: #e2e8f0; font-weight: 600;">Roblox Script</span>
+          </div>
+          <span id="st-val-roblox" style="color: #ef4444; font-size: 11px; font-weight: 600;">Aguardando...</span>
+        </div>
+
+        <!-- 4. Nuvem -->
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="st-dot-cloud" style="width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; flex-shrink: 0;"></span>
+            <span style="color: #e2e8f0; font-weight: 600;">Nuvem</span>
+          </div>
+          <span id="st-val-cloud" style="color: #10b981; font-size: 11px; font-weight: 600;">Online</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pílula Minimizada -->
+    <div id="status-card-minimized" onclick="toggleStatusWidget(true)" style="display: none; background: rgba(13, 16, 26, 0.92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 7px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); cursor: pointer; align-items: center; gap: 8px; transition: transform 0.2s;">
+      <span>🚦</span>
+      <span style="font-size: 11.5px; font-weight: 700; color: #fff;">Status da Live</span>
+      <div style="display: flex; gap: 5px; align-items: center; margin-left: 2px;">
+        <span id="pill-dot-discord" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>
+        <span id="pill-dot-ext" style="width: 7px; height: 7px; border-radius: 50%; background: #ef4444;"></span>
+        <span id="pill-dot-roblox" style="width: 7px; height: 7px; border-radius: 50%; background: #ef4444;"></span>
+        <span id="pill-dot-cloud" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: SELETOR DE TODAS AS FRUTAS (BLOX FRUITS UPDATE 30)
+       ========================================================= -->
+  <div id="fruit-selector-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.82); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 20px;" onclick="handleFruitModalOverlayClick(event)">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-hover); border-radius: var(--radius-lg); width: 100%; max-width: 600px; max-height: 85vh; padding: 22px; box-shadow: var(--shadow-elevated); display: flex; flex-direction: column; gap: 14px;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <div style="font-size: 16px; font-weight: 800; color: #fbbf24; display: flex; align-items: center; gap: 8px;">
+          <span>🍎</span>
+          <span>Selecionar Fruta para Entrega (Update 30)</span>
+        </div>
+        <button type="button" onclick="closeFruitModal()" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 4px 10px; border-radius: 6px; transition: all 0.2s;">✕</button>
+      </div>
+
+      <!-- Barra de Pesquisa Rápida -->
+      <div style="position: relative;">
+        <input type="text" id="fruitSearchInput" placeholder="🔍 Digite para pesquisar (ex: Magnet, Yeti, Gas, Kitsune, Buddha)..." oninput="filterFruitList(this.value)" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: #fff; font-size: 13px; outline: none; transition: border-color 0.2s;">
+      </div>
+
+      <!-- Lista Rolável com Categorias -->
+      <div id="fruitListContainer" style="overflow-y: auto; max-height: 52vh; display: flex; flex-direction: column; gap: 14px; padding-right: 4px;">
+        <!-- Renderizado dinamicamente via renderFruitList() -->
       </div>
     </div>
   </div>
