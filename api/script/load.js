@@ -15,23 +15,13 @@ local ok, code = pcall(function()
 end)
 
 if ok and code and code ~= "" then
-    local fn, err = loadstring(code)
-    if fn then
-        fn()
-    else
-        warn("[BGL Queue] Erro ao compilar safe.lua: " .. tostring(err))
-    end
+    loadstring(code)()
 else
     local fallbackOk, fallbackCode = pcall(function()
         return game:HttpGet("https://bgl-queue.vercel.app/safe.lua?t=" .. tostring(os.time()))
     end)
     if fallbackOk and fallbackCode and fallbackCode ~= "" then
-        local fn, err = loadstring(fallbackCode)
-        if fn then
-            fn()
-        else
-            warn("[BGL Queue] Erro ao compilar fallback: " .. tostring(err))
-        end
+        loadstring(fallbackCode)()
     else
         warn("[BGL Queue] Erro ao carregar script da nuvem. Verifique sua conexão.")
     end

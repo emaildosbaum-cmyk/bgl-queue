@@ -2251,7 +2251,7 @@
     }
 
     // Exibe aba admin apenas para o dono/master
-    const ADMIN_IDS = ['1456785643211591994'];
+    const ADMIN_IDS = ['1324574347163078699'];
     const adminNav = document.getElementById('adminOnlyNav');
     if (adminNav) {
       adminNav.style.display = ADMIN_IDS.includes(currentUser?.uid) ? 'block' : 'none';
@@ -2309,7 +2309,7 @@
   function switchTab(name) {
     // Guard: aba users só para admin
     if (name === 'users') {
-      const ADMIN_IDS = ['1456785643211591994'];
+      const ADMIN_IDS = ['1324574347163078699'];
       if (!ADMIN_IDS.includes(currentUser?.uid)) { switchTab('queue'); return; }
     }
 
