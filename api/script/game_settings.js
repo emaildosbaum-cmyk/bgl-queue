@@ -121,9 +121,9 @@ module.exports = async (req, res) => {
       operation_mode: userCfg.operation_mode || "FULL",
       auto_send: userCfg.operation_mode === "FULL" || userCfg.operation_mode === "ENTREGA",
       step_timeouts: stepTimeouts,
-      mock_balance: gen.mock_balance || "5,420",
+      mock_balance: gen.mock_balance || null,
       item_name: gen.item_name || "Rocket",
-      item_price: gen.item_price || "100",
+      item_price: gen.item_price || null,
       post_delivery_delay: gen.post_delivery_delay || 2.0,
       live_proof: userCfg.live_proof || { enabled: true, duration: 4.0, message: "Tô ao vivo rapaziada, não é gravado!" }
     }));

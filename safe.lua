@@ -1199,128 +1199,29 @@ local function deductRobux(customPrice)
             )
         end)
     end)
+    -- Sincroniza novo saldo com a Nuvem Vercel para persistir
+    task.spawn(function()
+        pcall(function()
+            local tokenQ = getTokenQuery()
+            if tokenQ ~= "" then
+                universalHttpRequest(
+                    VERCEL_API_URL .. "/api/script/game_settings" .. tokenQ,
+                    "POST",
+                    HttpService:JSONEncode({ mock_balance = formattedBal })
+                )
+            end
+        end)
+    end)
 end
 
 ---------------------------------------------------------
--- NOTIFICAÇÕES NATIVAS DO BLOX FRUITS (RICH TEXT)
+-- NOTIFICAÇÕES DE COMPRA CONCLUÍDA
 ---------------------------------------------------------
 local function sendGiftNotifications(targetUser, targetFruit)
     local username = formatUsernameForNotification(targetUser or getCurrentPlayerName())
     local fruitName = formatFruitForNotification(targetFruit or getCurrentFruitName())
     
-    print("[AutoBuyer] Notificação: enviando presente de " .. fruitName .. " para " .. username)
-    
-    local notifications = playerGui:FindFirstChild("Notifications") or playerGui:WaitForChild("Notifications", 3)
-    local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-    
-    local function dispararNotificacaoNativa(textoFormatado)
-        if not notifications then return end
-        
-        local stack = notifications:FindFirstChild("NotificationStack") or notifications:WaitForChild("NotificationStack", 2) or notifications
-        local connections = {}
-        local handled = false
-        
-        -- Altera OS DOIS OBRIGATORIAMENTE:
-        -- 1) NotificationTemplate (o fundo)
-        -- 2) NotificationTemplate.TextLabel (o texto em si)
-        local function aplicarNosDois(fundoObj)
-            if not fundoObj then return end
-            
-            -- [1] Altera no FUNDO: NotificationTemplate
-            pcall(function()
-                fundoObj.Visible = true
-                if fundoObj:IsA("TextLabel") or pcall(function() return fundoObj.Text end) then
-                    fundoObj.RichText = true
-                    fundoObj.Text = textoFormatado
-                    fundoObj.TextTransparency = 0
-                end
-            end)
-            
-            -- [2] Altera no TEXTO EM SI: NotificationTemplate.TextLabel
-            local textoObj = fundoObj:FindFirstChild("TextLabel")
-            if textoObj then
-                pcall(function()
-                    textoObj.Visible = true
-                    textoObj.RichText = true
-                    textoObj.Text = textoFormatado
-                    textoObj.TextTransparency = 0
-                end)
-            end
-            
-            -- [3] Garante também em qualquer outro TextLabel/TextBox filho ou sombra
-            for _, desc in ipairs(fundoObj:GetDescendants()) do
-                if desc:IsA("TextLabel") or desc:IsA("TextBox") then
-                    pcall(function()
-                        desc.Visible = true
-                        desc.RichText = true
-                        desc.Text = textoFormatado
-                        desc.TextTransparency = 0
-                    end)
-                end
-            end
-        end
-        
-        local function handleNotificationItem(child)
-            if handled or not child then return end
-            
-            -- Se for a NotificationStack sendo instanciada
-            if child.Name == "NotificationStack" then
-                table.insert(connections, child.ChildAdded:Connect(function(newChild)
-                    handleNotificationItem(newChild)
-                end))
-                return
-            end
-            
-            -- Detecta NotificationTemplate ou qualquer notificação gerada nativamente
-            if child.Name == "NotificationTemplate" or child.Name:find("Notification") or child:FindFirstChild("TextLabel") or child:IsA("TextLabel") then
-                handled = true
-                for _, conn in ipairs(connections) do
-                    pcall(function() conn:Disconnect() end)
-                end
-                
-                -- Aplica nos dois (fundo e texto) repetidamente durante a transição
-                aplicarNosDois(child)
-                task.wait()
-                aplicarNosDois(child)
-                task.delay(0.04, function() aplicarNosDois(child) end)
-                task.delay(0.1, function() aplicarNosDois(child) end)
-                task.delay(0.2, function() aplicarNosDois(child) end)
-                
-                -- Deixa o script nativo do Blox Fruits gerenciar o tempo de tela e a animação
-                -- de saída deslizando para o lado (sem child:Destroy() forçado)
-            end
-        end
-        
-        -- Escuta em NotificationStack (onde as notificações são empilhadas pelo jogo)
-        if stack then
-            table.insert(connections, stack.ChildAdded:Connect(handleNotificationItem))
-        end
-        table.insert(connections, notifications.ChildAdded:Connect(handleNotificationItem))
-        table.insert(connections, notifications.DescendantAdded:Connect(handleNotificationItem))
-        
-        -- Timeout de segurança para desconectar os listeners
-        task.delay(3, function()
-            if not handled then
-                for _, conn in ipairs(connections) do
-                    pcall(function() conn:Disconnect() end)
-                end
-            end
-        end)
-        
-        -- Aciona o remote nativo para o Blox Fruits gerar a notificação animada
-        if commF then
-            pcall(function() commF:InvokeServer("activateTitle", "") end)
-        end
-    end
-
-    -- 1. Primeiro texto: ativa remote pro primeiro texto
-    local textoSending = string.format('Sending Gift <font color="rgb(240, 185, 20)">%s</font> to %s..', fruitName, username)
-    dispararNotificacaoNativa(textoSending)
-
-    -- 2. Segundo texto: ativa remote novamente após 0.8s para empilhar um embaixo do outro
-    task.delay(0.8, function()
-        dispararNotificacaoNativa('<font color="rgb(45, 195, 75)">Gift Sent Successfully!</font>')
-    end)
+    print(string.format("[AutoBuyer] Presente de %s enviado com sucesso para %s!", fruitName, username))
 end
 
 ---------------------------------------------------------
@@ -1998,15 +1899,16 @@ local function openGui()
         updateBuyGuiImage(realItem)
     end)
 
-    -- Suporte a ROBLOX PLUS: 10% de desconto no preço e oculta o aviso promocional
+    -- Preço SEMPRE baseado na fruta real sendo comprada via FRUIT_PRICES
     pcall(function()
-        local rawPrice = parseNumber(priceText.Text) or parseNumber(lastDetectedInGamePrice) or parseNumber(GENERIC_ITEM_PRICE) or 0
+        local rawPrice = (realItem and FRUIT_PRICES[realItem:lower()]) or parseNumber(lastDetectedInGamePrice) or (currentSettings.item_name and FRUIT_PRICES[currentSettings.item_name:lower()]) or parseNumber(currentSettings.item_price) or 50
         if currentSettings.roblox_plus then
             if promoFrame then promoFrame.Visible = false end
             local discounted = math.floor(rawPrice * 0.9)
             if priceText then priceText.Text = formatNumber(discounted) end
         else
             if promoFrame then promoFrame.Visible = true end
+            if priceText then priceText.Text = formatNumber(rawPrice) end
         end
     end)
     
@@ -3274,7 +3176,16 @@ end
 
 local function syncGuiWithSettings(settings)
     if not settings then return end
-    currentSettings.mock_balance = formatNumber(settings.mock_balance or currentSettings.mock_balance)
+
+    -- Atualiza mock_balance APENAS se o servidor enviou um valor válido (não nulo e não o fallback antigo 5,420)
+    -- e NUNCA durante uma compra ativa ou quando a buy GUI está aberta
+    if settings.mock_balance and tostring(settings.mock_balance) ~= "" and tostring(settings.mock_balance) ~= "null" and tostring(settings.mock_balance) ~= "5,420" then
+        if not autoBuyBusy and (not screenGui or not screenGui.Enabled) then
+            currentSettings.mock_balance = formatNumber(settings.mock_balance)
+            if balanceText then balanceText.Text = currentSettings.mock_balance end
+            if robuxInput then robuxInput.Text = currentSettings.mock_balance end
+        end
+    end
     
     local realInGame = detectRealInGameItemName()
     if realInGame and realInGame ~= "" and realInGame ~= "Fruit" and realInGame:lower() ~= "generic" and realInGame ~= "Sword of Destiny" and realInGame ~= "Mock Item Name" then
@@ -3283,7 +3194,10 @@ local function syncGuiWithSettings(settings)
         currentSettings.item_name = settings.item_name
     end
     
-    currentSettings.item_price = formatNumber(settings.item_price or currentSettings.item_price)
+    if settings.item_price and tostring(settings.item_price) ~= "" and tostring(settings.item_price) ~= "null" then
+        currentSettings.item_price = formatNumber(settings.item_price)
+    end
+
     currentSettings.toggle_key = settings.toggle_key or currentSettings.toggle_key or "P"
     currentSettings.post_delivery_delay = tonumber(settings.post_delivery_delay) or currentSettings.post_delivery_delay or 2
     if settings.roblox_plus ~= nil then
@@ -3304,27 +3218,33 @@ local function syncGuiWithSettings(settings)
     pcall(saveConfig)
     
     pcall(function()
-        if balanceText then balanceText.Text = currentSettings.mock_balance end
-        
-        local displayItem = detectRealInGameItemName()
-        if displayItem and displayItem ~= "" and displayItem ~= "Fruit" and displayItem:lower() ~= "generic" and displayItem ~= "Sword of Destiny" and displayItem ~= "Mock Item Name" then
-            if itemNameLabel then itemNameLabel.Text = displayItem end
-            if successMessage then successMessage.Text = "You have successfully bought " .. displayItem .. "." end
-        end
-        
-        if priceText then
-            local numPrice = parseNumber(currentSettings.item_price) or 0
-            if currentSettings.roblox_plus then
-                numPrice = math.floor(numPrice * 0.9)
-                if promoFrame then promoFrame.Visible = false end
-            else
-                if promoFrame then promoFrame.Visible = true end
+        -- Atualiza labels visuais apenas quando NÃO estiver em compra ativa
+        if not autoBuyBusy and (not screenGui or not screenGui.Enabled) then
+            if balanceText then balanceText.Text = currentSettings.mock_balance end
+            
+            local displayItem = currentSettings.item_name or detectRealInGameItemName()
+            if displayItem and displayItem ~= "" and displayItem ~= "Fruit" and displayItem:lower() ~= "generic" and displayItem ~= "Sword of Destiny" and displayItem ~= "Mock Item Name" then
+                if itemNameLabel then itemNameLabel.Text = displayItem end
+                if successMessage then successMessage.Text = "You have successfully bought " .. displayItem .. "." end
             end
-            priceText.Text = formatNumber(numPrice)
+            
+            if priceText then
+                local curFruit = currentSettings.item_name or "Rocket"
+                local numPrice = (curFruit and FRUIT_PRICES[curFruit:lower()]) or parseNumber(currentSettings.item_price) or 50
+                if currentSettings.roblox_plus then
+                    numPrice = math.floor(numPrice * 0.9)
+                    if promoFrame then promoFrame.Visible = false end
+                else
+                    if promoFrame then promoFrame.Visible = true end
+                end
+                priceText.Text = formatNumber(numPrice)
+            end
         end
     end)
     
-    if robuxInput then robuxInput.Text = currentSettings.mock_balance end
+    if not autoBuyBusy and (not screenGui or not screenGui.Enabled) and robuxInput then 
+        robuxInput.Text = currentSettings.mock_balance 
+    end
     if tokenInput and SCRIPT_TOKEN and SCRIPT_TOKEN ~= "SEU_TOKEN_AQUI" then tokenInput.Text = SCRIPT_TOKEN end
     if keybindInput then keybindInput.Text = currentSettings.toggle_key end
     updateRobloxPlusUI(currentSettings.roblox_plus == true, false)
