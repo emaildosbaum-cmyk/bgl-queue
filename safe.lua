@@ -810,7 +810,8 @@ local function scanGiftWindowForName(giftWindow)
     return nil
 end
 
--- Captura a fruta selecionada diretamente no painel aberto da loja do jogo (FruitShopAndDealer)
+-- -- Captura a fruta selecionada diretamente no painel aberto da loja do jogo (FruitShopAndDealer)
+-- Novo formato de slot: "FruitName-FruitName" (ex: "Magnet-Magnet", "Tiger-Tiger")
 local function getActiveFruitFromShop()
     local shopGui = playerGui:FindFirstChild("FruitShopAndDealer")
     if not shopGui then return nil, nil end
@@ -822,20 +823,31 @@ local function getActiveFruitFromShop()
     if not scrollingFrame then return nil, nil end
     
     for _, slot in ipairs(scrollingFrame:GetChildren()) do
-        if slot:IsA("GuiObject") and slot.Name:find("Fruit") then
-            local controlPanel = slot:FindFirstChild("ControlPanel")
-            if controlPanel and controlPanel.Visible and controlPanel.AbsoluteSize.Y > 0 then
-                local title = slot:FindFirstChild("CardButton")
-                    and slot.CardButton:FindFirstChild("Profile")
-                    and slot.CardButton.Profile:FindFirstChild("TopInfo")
-                    and slot.CardButton.Profile.TopInfo:FindFirstChild("Title")
-                local artIcon = slot:FindFirstChild("CardButton")
-                    and slot.CardButton:FindFirstChild("Profile")
-                    and slot.CardButton.Profile:FindFirstChild("Icon")
-                    and slot.CardButton.Profile.Icon:FindFirstChild("IconEffectContainer")
-                    and slot.CardButton.Profile.Icon.IconEffectContainer:FindFirstChild("ArtIcon")
-                if title and title.Text and title.Text ~= "" then
-                    local cleanName = title.Text:gsub("<[^<>]->", ""):gsub("[}%]{}\"]", ""):match("^%s*(.-)%s*$")
+        if slot:IsA("GuiObject") then
+            -- Novo formato: "FruitName-FruitName" — detecta pelo padrão "X-X"
+            local slotFruitName = slot.Name:match("^(.-)%-(.-)$") and slot.Name:match("^(.-)%-")
+            if not slotFruitName then
+                -- Fallback: formato antigo "Fruit[N]"
+                if not slot.Name:find("Fruit") then slotFruitName = nil end
+            end
+            if slotFruitName or slot.Name:find("Fruit") then
+                local controlPanel = slot:FindFirstChild("ControlPanel")
+                if controlPanel and controlPanel.Visible and controlPanel.AbsoluteSize.Y > 0 then
+                    local title = slot:FindFirstChild("CardButton")
+                        and slot.CardButton:FindFirstChild("Profile")
+                        and slot.CardButton.Profile:FindFirstChild("TopInfo")
+                        and slot.CardButton.Profile.TopInfo:FindFirstChild("Title")
+                    local artIcon = slot:FindFirstChild("CardButton")
+                        and slot.CardButton:FindFirstChild("Profile")
+                        and slot.CardButton.Profile:FindFirstChild("Icon")
+                        and slot.CardButton.Profile.Icon:FindFirstChild("IconEffectContainer")
+                        and slot.CardButton.Profile.Icon.IconEffectContainer:FindFirstChild("ArtIcon")
+                    -- Tenta pegar nome do título primeiro, senão usa o nome do slot
+                    local cleanName = slotFruitName
+                    if title and title.Text and title.Text ~= "" then
+                        local fromTitle = title.Text:gsub("<[^<>]->", ""):gsub('[}%]{}"]', ""):match("^%s*(.-)%s*$")
+                        if fromTitle and fromTitle ~= "" then cleanName = fromTitle end
+                    end
                     if cleanName and cleanName ~= "" then
                         return cleanName, artIcon
                     end
@@ -845,6 +857,7 @@ local function getActiveFruitFromShop()
     end
     return nil, nil
 end
+
 
 -- Variáveis globais de cache para o último item verificado diretamente no jogo
 local lastDetectedInGameItem = nil
@@ -870,31 +883,70 @@ local function findFruitIconInShop(targetFruitName)
         and shopGui.Shop.Menu.Content.Body:FindFirstChild("ScrollingFrame")
     if not scrollingFrame then return nil end
 
+    -- Tenta acesso direto pelo novo formato "FruitName-FruitName" primeiro (mais rápido)
+    local directSlot = scrollingFrame:FindFirstChild(targetFruitName .. "-" .. targetFruitName)
+    if not directSlot then
+        -- Tenta com a primeira letra maiúscula
+        local cap = targetFruitName:sub(1,1):upper() .. targetFruitName:sub(2)
+        directSlot = scrollingFrame:FindFirstChild(cap .. "-" .. cap)
+    end
+
+    local function extractIconFromSlot(slot)
+        local art = slot:FindFirstChild("ArtIcon", true)
+        if art and art:IsA("ImageLabel") and art.Image ~= "" and art.Image ~= "rbxassetid://16335379958" then
+            return {
+                Image = art.Image,
+                Color = art.ImageColor3,
+                Transparency = art.ImageTransparency,
+                RectOffset = art.ImageRectOffset,
+                RectSize = art.ImageRectSize
+            }
+        end
+        return nil
+    end
+
+    if directSlot then
+        local icon = extractIconFromSlot(directSlot)
+        if icon then
+            FRUIT_ICONS_CACHE[cleanTarget] = icon
+            return icon
+        end
+    end
+
+    -- Varredura completa como fallback
     for _, slot in ipairs(scrollingFrame:GetChildren()) do
-        if slot:IsA("GuiObject") and slot.Name:find("Fruit") then
-            local titleObj = slot:FindFirstChild("Title", true) or (slot:FindFirstChild("CardButton") and slot.CardButton:FindFirstChild("Profile") and slot.CardButton.Profile:FindFirstChild("TopInfo") and slot.CardButton.Profile.TopInfo:FindFirstChild("Title"))
-            local titleText = titleObj and titleObj.Text or ""
-            local cleanTitle = titleText:gsub("<[^<>]->", ""):match("^%s*(.-)%s*$"):lower():gsub("%s+", "")
-            local art = slot:FindFirstChild("ArtIcon", true)
-            
-            if art and art:IsA("ImageLabel") and art.Image ~= "" and art.Image ~= "rbxassetid://16335379958" then
-                if cleanTitle ~= "" then
-                    FRUIT_ICONS_CACHE[cleanTitle] = {
-                        Image = art.Image,
-                        Color = art.ImageColor3,
-                        Transparency = art.ImageTransparency,
-                        RectOffset = art.ImageRectOffset,
-                        RectSize = art.ImageRectSize
-                    }
-                end
-                if cleanTitle ~= "" and (cleanTitle == cleanTarget or cleanTitle:find(cleanTarget, 1, true) or cleanTarget:find(cleanTitle, 1, true)) then
-                    return FRUIT_ICONS_CACHE[cleanTitle]
+        if slot:IsA("GuiObject") then
+            -- Detecta novo formato "FruitName-FruitName" OU antigo "Fruit[N]"
+            local isNewFormat = slot.Name:match("^(.-)%-(.-)$") ~= nil
+            local isOldFormat = slot.Name:find("Fruit") ~= nil
+            if isNewFormat or isOldFormat then
+                -- Nome do slot: extrai a parte antes do "-" para o novo formato
+                local slotNameRaw = isNewFormat and (slot.Name:match("^(.-)%-") or slot.Name) or slot.Name
+                local titleObj = slot:FindFirstChild("Title", true) or (slot:FindFirstChild("CardButton") and slot.CardButton:FindFirstChild("Profile") and slot.CardButton.Profile:FindFirstChild("TopInfo") and slot.CardButton.Profile.TopInfo:FindFirstChild("Title"))
+                local titleText = (titleObj and titleObj.Text ~= "" and titleObj.Text) or slotNameRaw
+                local cleanTitle = titleText:gsub("<[^<>]->", ""):match("^%s*(.-)%s*$"):lower():gsub("%s+", "")
+                local art = slot:FindFirstChild("ArtIcon", true)
+                
+                if art and art:IsA("ImageLabel") and art.Image ~= "" and art.Image ~= "rbxassetid://16335379958" then
+                    if cleanTitle ~= "" then
+                        FRUIT_ICONS_CACHE[cleanTitle] = {
+                            Image = art.Image,
+                            Color = art.ImageColor3,
+                            Transparency = art.ImageTransparency,
+                            RectOffset = art.ImageRectOffset,
+                            RectSize = art.ImageRectSize
+                        }
+                    end
+                    if cleanTitle ~= "" and (cleanTitle == cleanTarget or cleanTitle:find(cleanTarget, 1, true) or cleanTarget:find(cleanTitle, 1, true)) then
+                        return FRUIT_ICONS_CACHE[cleanTitle]
+                    end
                 end
             end
         end
     end
     return nil
 end
+
 
 -- DETECÇÃO TOTALMENTE INDEPENDENTE DO SERVIDOR: SEMPRE PEGA O NOME REAL NO JOGO
 local function detectRealInGameItemName()
@@ -2407,163 +2459,100 @@ end
 local function scrollAndFindFruit(scrollingFrame, fruitName)
     local targetIdx = FRUIT_ORDER[fruitName:lower()]
     task.wait(0.3)
-    
-    local function checkActiveSlots()
-        for _, name in ipairs({"Fruit[1]", "Fruit[2]", "Fruit[3]", "Fruit[4]"}) do
-            local slot = scrollingFrame:FindFirstChild(name)
-            if slot then
-                local success, title = pcall(function()
-                    return slot.CardButton.Profile.TopInfo.Title.Text
-                end)
-                if success and title and title:lower() == fruitName:lower() then
-                    return slot
+
+    -- Utilitário: extrai nome de fruta de um slot (novo formato "Nome-Nome" ou antigo "Fruit[N]")
+    local function getSlotFruitName(slot)
+        -- Novo formato: "Magnet-Magnet" → "Magnet"
+        local fromName = slot.Name:match("^(.-)%-")
+        if fromName and fromName ~= "" then return fromName end
+        -- Antigo formato: tenta pelo título interno
+        local ok, title = pcall(function()
+            return slot.CardButton.Profile.TopInfo.Title.Text
+        end)
+        if ok and title and title ~= "" then
+            return title:gsub("<[^<>]->", ""):match("^%s*(.-)%s*$")
+        end
+        return nil
+    end
+
+    -- Encontra o slot alvo pelo nome direto (O(1), mais confiável)
+    local function findTargetSlot()
+        -- Novo formato: "Magnet-Magnet"
+        local cap = fruitName:sub(1,1):upper() .. fruitName:sub(2):lower()
+        local slot = scrollingFrame:FindFirstChild(cap .. "-" .. cap)
+            or scrollingFrame:FindFirstChild(fruitName .. "-" .. fruitName)
+            or scrollingFrame:FindFirstChild(fruitName:lower() .. "-" .. fruitName:lower())
+        if slot then return slot end
+        -- Varredura por title (fallback para frutas com nome diferente do slot)
+        for _, child in ipairs(scrollingFrame:GetChildren()) do
+            if child:IsA("GuiObject") then
+                local slotFruit = getSlotFruitName(child)
+                if slotFruit and slotFruit:lower() == fruitName:lower() then
+                    return child
                 end
             end
         end
         return nil
     end
 
-    local slot2 = scrollingFrame:WaitForChild("Fruit[2]", 5)
-    if not slot2 then
-        warn("[AutoBuyer] Slot Fruit[2] não foi encontrado.")
+    local function humanDelay()
+        local d = 0.045 + math.random() * 0.065
+        if math.random(1, 10) == 1 then d = d + 0.1 + math.random() * 0.15 end
+        return d
+    end
+
+    local function humanStep(base)
+        return math.max(8, base + math.random(-8, 8))
+    end
+
+    -- Tenta encontrar o slot
+    local targetSlot = findTargetSlot()
+    if not targetSlot then
+        warn("[AutoBuyer] Slot para '" .. fruitName .. "' não encontrado na loja.")
         return nil
     end
 
-    local function getSlot2Title()
-        local success, title = pcall(function()
-            return slot2.CardButton.Profile.TopInfo.Title.Text
-        end)
-        return success and title or ""
-    end
+    print("[AutoBuyer] Slot encontrado: " .. targetSlot.Name .. " → rolando até ele...")
 
-    local function alignToSlot2(foundSlot)
-        if not foundSlot then return nil end
-        if foundSlot.Name == "Fruit[2]" then
-            print("[AutoBuyer] Fruta '" .. fruitName .. "' já está perfeitamente no Fruit[2]!")
-            return slot2
-        end
-        
-        local alignDir = 1
-        if foundSlot.Name == "Fruit[1]" then
-            alignDir = -1
-        else
-            alignDir = 1
-        end
-        
-        print("[AutoBuyer] Fruta detectada no " .. foundSlot.Name .. ". Alinhando no Fruit[2]...")
-        local currentY = scrollingFrame.CanvasPosition.Y
-        local maxScroll = scrollingFrame.AbsoluteCanvasSize.Y - scrollingFrame.AbsoluteWindowSize.Y
-        
-        for _ = 1, 20 do
-            local jitter = math.random(-5, 5)
-            local moveAmt = (12 + jitter) * alignDir
-            currentY = math.clamp(currentY + moveAmt, 0, maxScroll)
-            scrollingFrame.CanvasPosition = Vector2.new(0, currentY)
-            task.wait(0.035 + math.random() * 0.045)
-            
-            if math.random(1, 8) == 1 then
-                task.wait(0.08 + math.random() * 0.12)
-            end
-            
-            if getSlot2Title():lower() == fruitName:lower() then
-                print("[AutoBuyer] Alinhamento concluído com sucesso!")
-                task.wait(0.08 + math.random() * 0.07)
-                return slot2
-            end
-        end
-        
-        return slot2
-    end
-
-    local found = checkActiveSlots()
-    if found then
-        return alignToSlot2(found)
-    end
-
-    local currentTitle = getSlot2Title()
-    local currentY = scrollingFrame.CanvasPosition.Y
+    -- Rola o ScrollingFrame até o slot ficar visível na área central
+    local maxAttempts = 80
     local maxScroll = scrollingFrame.AbsoluteCanvasSize.Y - scrollingFrame.AbsoluteWindowSize.Y
-    local step = 35
+    local currentY = scrollingFrame.CanvasPosition.Y
 
-    local direction = 1
-    local currentIdx = FRUIT_ORDER[currentTitle:lower()]
-    
-    if targetIdx and currentIdx then
-        if currentIdx > targetIdx then
-            direction = -1
-        elseif currentIdx < targetIdx then
-            direction = 1
-        end
-    else
-        scrollingFrame.CanvasPosition = Vector2.new(0, 0)
-        task.wait(0.15 + math.random() * 0.08)
-        currentY = 0
-        direction = 1
-    end
+    for _ = 1, maxAttempts do
+        -- Calcula posição relativa do slot dentro do scrollingFrame
+        local slotAbsY = targetSlot.AbsolutePosition.Y
+        local frameAbsY = scrollingFrame.AbsolutePosition.Y
+        local frameH = scrollingFrame.AbsoluteWindowSize.Y
+        local slotH = targetSlot.AbsoluteSize.Y
 
-    local function humanStep(remainingPixels)
-        local baseStep
-        if remainingPixels and remainingPixels < 150 then
-            baseStep = math.max(10, remainingPixels * 0.3)
-        else
-            baseStep = step
-        end
-        local jitter = math.random(-8, 8)
-        return math.max(8, baseStep + jitter)
-    end
-    
-    local function humanDelay()
-        local d = 0.045 + math.random() * 0.065
-        if math.random(1, 10) == 1 then
-            d = d + 0.1 + math.random() * 0.15
-        end
-        return d
-    end
-    
-    while true do
-        local remaining = math.abs(maxScroll * 0.5 - currentY)
-        local s = humanStep(remaining)
-        local nextY = currentY + (s * direction)
-        if nextY < 0 then nextY = 0 end
-        if nextY > maxScroll then nextY = maxScroll end
-        
-        scrollingFrame.CanvasPosition = Vector2.new(0, nextY)
-        task.wait(humanDelay())
-        
-        found = checkActiveSlots()
-        if found then
-            return alignToSlot2(found)
-        end
-        
-        if (direction == 1 and nextY >= maxScroll) or (direction == -1 and nextY <= 0) then
-            break 
-        end
-        
-        currentY = nextY
-        maxScroll = scrollingFrame.AbsoluteCanvasSize.Y - scrollingFrame.AbsoluteWindowSize.Y
-    end
+        -- Centro do slot em relação ao topo do frame visível
+        local slotCenterInFrame = slotAbsY - frameAbsY + slotH / 2
+        local frameCenterY = frameH / 2
 
-    warn("[AutoBuyer] Ajuste fino falhou. Iniciando varredura do topo...")
-    scrollingFrame.CanvasPosition = Vector2.new(0, 0)
-    task.wait(0.15 + math.random() * 0.1)
-    currentY = 0
-    while currentY < maxScroll do
-        local s = humanStep(nil)
-        currentY = math.min(currentY + s, maxScroll)
+        if math.abs(slotCenterInFrame - frameCenterY) < slotH * 0.4 then
+            -- Slot visível e centrado
+            print("[AutoBuyer] Fruta '" .. fruitName .. "' centralizada na loja!")
+            task.wait(0.08 + math.random() * 0.07)
+            return targetSlot
+        end
+
+        -- Direção e passo
+        local diff = slotCenterInFrame - frameCenterY
+        local step = humanStep(math.min(math.abs(diff) * 0.5, 45))
+        local direction = diff > 0 and 1 or -1
+        currentY = math.clamp(currentY + step * direction, 0, maxScroll)
         scrollingFrame.CanvasPosition = Vector2.new(0, currentY)
         task.wait(humanDelay())
-        
-        found = checkActiveSlots()
-        if found then
-            return alignToSlot2(found)
-        end
-        
+
         maxScroll = scrollingFrame.AbsoluteCanvasSize.Y - scrollingFrame.AbsoluteWindowSize.Y
-        if currentY >= maxScroll then break end
     end
 
-    return nil
+    -- Fallback: retorna o slot mesmo que não esteja perfeitamente centrado
+    warn("[AutoBuyer] Centralização não concluída, retornando slot encontrado mesmo assim.")
+    return targetSlot
 end
+
 
 local function clickGiftButton(giftButton)
     forceClick(giftButton)
@@ -2811,7 +2800,11 @@ local function executeBuyFruit(username, fruitName, queueItemId)
             
             if not fruitSlot then
                 warn("[AutoBuyer] Fruta '" .. finalFruit .. "' não encontrada. Tentando Rocket ou slot ativo...")
-                fruitSlot = scrollAndFindFruit(scrollingFrame, "Rocket") or scrollingFrame:FindFirstChild("Fruit[2]") or scrollingFrame:FindFirstChild("Fruit[1]")
+                fruitSlot = scrollAndFindFruit(scrollingFrame, "Rocket") or (function()
+                    for _, c in ipairs(scrollingFrame:GetChildren()) do
+                        if c:IsA("GuiObject") then return c end
+                    end
+                end)()
             end
             
             if not fruitSlot then
@@ -2838,7 +2831,9 @@ local function executeBuyFruit(username, fruitName, queueItemId)
             local successV, titleV = pcall(function()
                 return fruitSlot.CardButton.Profile.TopInfo.Title.Text
             end)
-            if not successV or not titleV or titleV:lower() ~= fruitName:lower() then
+            -- Aceita match pelo título OU pelo nome do slot (novo formato "Nome-Nome")
+            local slotNameMatch = fruitSlot.Name:match("^(.-)%-"):lower() == fruitName:lower()
+            if not slotNameMatch and (not successV or not titleV or titleV:lower() ~= fruitName:lower()) then
                 local stableSlot = scrollAndFindFruit(scrollingFrame, fruitName)
                 if stableSlot then
                     fruitSlot = stableSlot
