@@ -2694,9 +2694,12 @@
             if (payload.new && String(payload.new.discord_id) === String(currentUser.uid)) {
               const val = payload.new;
               if (val.operation_mode && currentMode !== val.operation_mode) {
-                currentMode = val.operation_mode;
-                localStorage.setItem("operationMode", currentMode);
-                applyOperationModeUI(currentMode);
+                // Só deixa o banco sobrescrever se o usuário não mudou localmente nos últimos 10s
+                if ((Date.now() - lastUserModeChangeTs) > 10000) {
+                  currentMode = val.operation_mode;
+                  localStorage.setItem("operationMode", currentMode);
+                  applyOperationModeUI(currentMode);
+                }
               }
               if (val.tiktok_username) {
                 updateTikTokStatusUI(val.tiktok_connected, false, val.tiktok_username);
@@ -2781,9 +2784,7 @@
               updateTikTokStatusUI(val.connected, val.connecting, val.username);
             }
             if (k === "operation_mode" && val && val.operation_mode) {
-              const remoteTs = val.updated_at || 0;
-              const isRecent = (Date.now() - lastUserModeChangeTs) < 12000;
-              if (!isRecent || remoteTs >= lastUserModeChangeTs) {
+              if ((Date.now() - lastUserModeChangeTs) > 10000) {
                 if (currentMode !== val.operation_mode) {
                   currentMode = val.operation_mode;
                   localStorage.setItem('operationMode', currentMode);
@@ -2875,7 +2876,9 @@
         if (userCfg) {
           if (userCfg.operation_mode) {
             const remoteTs = new Date(userCfg.updated_at || 0).getTime();
-            if ((Date.now() - lastUserModeChangeTs) > 8000 || remoteTs >= lastUserModeChangeTs) {
+            const timeSinceLocalChange = Date.now() - lastUserModeChangeTs;
+            // Só deixa o banco sobrescrever se o usuário não mudou localmente nos últimos 10s
+            if (timeSinceLocalChange > 10000) {
               if (currentMode !== userCfg.operation_mode) {
                 currentMode = userCfg.operation_mode;
                 localStorage.setItem("operationMode", currentMode);
@@ -2936,9 +2939,7 @@
         .eq("key", "operation_mode")
         .maybeSingle();
       if (cMode && cMode.value && cMode.value.operation_mode) {
-        const remoteTs = cMode.value.updated_at || 0;
-        const isRecent = (Date.now() - lastUserModeChangeTs) < 12000;
-        if (!isRecent || remoteTs >= lastUserModeChangeTs) {
+        if ((Date.now() - lastUserModeChangeTs) > 10000) {
           if (currentMode !== cMode.value.operation_mode) {
             currentMode = cMode.value.operation_mode;
             localStorage.setItem('operationMode', currentMode);
