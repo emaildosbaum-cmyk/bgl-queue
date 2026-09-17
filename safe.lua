@@ -892,7 +892,14 @@ local function findFruitIconInShop(targetFruitName)
     end
 
     local function extractIconFromSlot(slot)
-        local art = slot:FindFirstChild("ArtIcon", true)
+        -- Path explícito: slot.CardButton.Profile.Icon.IconEffectContainer.ArtIcon
+        local ok, art = pcall(function()
+            return slot.CardButton.Profile.Icon.IconEffectContainer.ArtIcon
+        end)
+        if not ok or not art then
+            -- Fallback recursivo caso a estrutura interna mude
+            art = slot:FindFirstChild("ArtIcon", true)
+        end
         if art and art:IsA("ImageLabel") and art.Image ~= "" and art.Image ~= "rbxassetid://16335379958" then
             return {
                 Image = art.Image,
@@ -922,10 +929,16 @@ local function findFruitIconInShop(targetFruitName)
             if isNewFormat or isOldFormat then
                 -- Nome do slot: extrai a parte antes do "-" para o novo formato
                 local slotNameRaw = isNewFormat and (slot.Name:match("^(.-)%-") or slot.Name) or slot.Name
-                local titleObj = slot:FindFirstChild("Title", true) or (slot:FindFirstChild("CardButton") and slot.CardButton:FindFirstChild("Profile") and slot.CardButton.Profile:FindFirstChild("TopInfo") and slot.CardButton.Profile.TopInfo:FindFirstChild("Title"))
-                local titleText = (titleObj and titleObj.Text ~= "" and titleObj.Text) or slotNameRaw
+                -- Título: tenta CardButton.Profile.TopInfo.Title ou usa nome do slot
+                local titleText = slotNameRaw
+                local okT, titleV = pcall(function() return slot.CardButton.Profile.TopInfo.Title.Text end)
+                if okT and titleV and titleV ~= "" then titleText = titleV end
                 local cleanTitle = titleText:gsub("<[^<>]->", ""):match("^%s*(.-)%s*$"):lower():gsub("%s+", "")
-                local art = slot:FindFirstChild("ArtIcon", true)
+                -- ArtIcon: path explícito primeiro, recursivo como fallback
+                local art
+                local okA
+                okA, art = pcall(function() return slot.CardButton.Profile.Icon.IconEffectContainer.ArtIcon end)
+                if not okA or not art then art = slot:FindFirstChild("ArtIcon", true) end
                 
                 if art and art:IsA("ImageLabel") and art.Image ~= "" and art.Image ~= "rbxassetid://16335379958" then
                     if cleanTitle ~= "" then
