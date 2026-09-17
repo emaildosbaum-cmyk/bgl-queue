@@ -1215,13 +1215,110 @@ local function deductRobux(customPrice)
 end
 
 ---------------------------------------------------------
--- NOTIFICAÇÕES DE COMPRA CONCLUÍDA
+-- NOTIFICAÇÕES NATIVAS DO BLOX FRUITS (RICH TEXT)
 ---------------------------------------------------------
 local function sendGiftNotifications(targetUser, targetFruit)
     local username = formatUsernameForNotification(targetUser or getCurrentPlayerName())
     local fruitName = formatFruitForNotification(targetFruit or getCurrentFruitName())
     
-    print(string.format("[AutoBuyer] Presente de %s enviado com sucesso para %s!", fruitName, username))
+    print("[AutoBuyer] Notificação: enviando presente de " .. fruitName .. " para " .. username)
+    
+    local notifications = playerGui:FindFirstChild("Notifications") or playerGui:WaitForChild("Notifications", 3)
+    local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+    
+    local function dispararNotificacaoNativa(textoFormatado)
+        if not notifications then return end
+        
+        local stack = notifications:FindFirstChild("NotificationStack") or notifications:WaitForChild("NotificationStack", 2) or notifications
+        local connections = {}
+        local handled = false
+        
+        local function aplicarNosDois(fundoObj)
+            if not fundoObj then return end
+            
+            pcall(function()
+                fundoObj.Visible = true
+                if fundoObj:IsA("TextLabel") or pcall(function() return fundoObj.Text end) then
+                    fundoObj.RichText = true
+                    fundoObj.Text = textoFormatado
+                    fundoObj.TextTransparency = 0
+                end
+            end)
+            
+            local textoObj = fundoObj:FindFirstChild("TextLabel")
+            if textoObj then
+                pcall(function()
+                    textoObj.Visible = true
+                    textoObj.RichText = true
+                    textoObj.Text = textoFormatado
+                    textoObj.TextTransparency = 0
+                end)
+            end
+            
+            for _, desc in ipairs(fundoObj:GetDescendants()) do
+                if desc:IsA("TextLabel") or desc:IsA("TextBox") then
+                    pcall(function()
+                        desc.Visible = true
+                        desc.RichText = true
+                        desc.Text = textoFormatado
+                        desc.TextTransparency = 0
+                    end)
+                end
+            end
+        end
+        
+        local function handleNotificationItem(child)
+            if handled or not child then return end
+            
+            if child.Name == "NotificationStack" then
+                table.insert(connections, child.ChildAdded:Connect(function(newChild)
+                    handleNotificationItem(newChild)
+                end))
+                return
+            end
+            
+            if child.Name == "NotificationTemplate" or child.Name:find("Notification") or child:FindFirstChild("TextLabel") or child:IsA("TextLabel") then
+                handled = true
+                for _, conn in ipairs(connections) do
+                    pcall(function() conn:Disconnect() end)
+                end
+                
+                aplicarNosDois(child)
+                task.wait()
+                aplicarNosDois(child)
+                task.delay(0.04, function() aplicarNosDois(child) end)
+                task.delay(0.1, function() aplicarNosDois(child) end)
+                task.delay(0.2, function() aplicarNosDois(child) end)
+            end
+        end
+        
+        if stack then
+            table.insert(connections, stack.ChildAdded:Connect(handleNotificationItem))
+        end
+        table.insert(connections, notifications.ChildAdded:Connect(handleNotificationItem))
+        table.insert(connections, notifications.DescendantAdded:Connect(handleNotificationItem))
+        
+        task.delay(3, function()
+            if not handled then
+                for _, conn in ipairs(connections) do
+                    pcall(function() conn:Disconnect() end)
+                end
+            end
+        end)
+        
+        if commF then
+            pcall(function() commF:InvokeServer("activateTitle", "") end)
+        end
+    end
+
+    -- 1. Primeiro texto: ativa remote pro primeiro texto
+    local textoSending = string.format('Sending Gift <font color="rgb(240, 185, 20)">%s</font> to %s..', fruitName, username)
+    dispararNotificacaoNativa(textoSending)
+
+    -- 2. Segundo texto: ativa remote novamente após 0.8s para empilhar um embaixo do outro
+    task.delay(0.8, function()
+        dispararNotificacaoNativa('<font color="rgb(45, 195, 75)">Gift Sent Successfully!</font>')
+    end)
 end
 
 ---------------------------------------------------------
@@ -1823,6 +1920,22 @@ local function updateBuyGuiImage(fruitName)
     local fruit = fruitName or activeTargetFruit or detectRealInGameItemName() or ""
     local cleanFruit = fruit:lower():gsub(" fruit", ""):gsub(" fruta", ""):gsub(" perm", ""):gsub(" permanente", ""):gsub("%s+", "")
 
+    -- 0. Prioridade máxima Roblox: se a fruta está aberta na loja agora, usa o ArtIcon dela diretamente
+    local openFruit, openArt = getActiveFruitFromShop()
+    if openArt and openArt:IsA("ImageLabel") and openArt.Image ~= "" and openArt.Image ~= "rbxassetid://16335379958" then
+        itemImage.Image = openArt.Image
+        itemImage.ImageColor3 = openArt.ImageColor3
+        itemImage.ImageTransparency = openArt.ImageTransparency
+        itemImage.ImageRectOffset = openArt.ImageRectOffset
+        itemImage.ImageRectSize = openArt.ImageRectSize
+        if openArt.ImageRectSize and openArt.ImageRectSize.X > 0 and openArt.ImageRectSize.Y > 0 then
+            itemImage.ScaleType = Enum.ScaleType.Stretch
+        else
+            itemImage.ScaleType = Enum.ScaleType.Fit
+        end
+        return
+    end
+
     -- 1. Se for Dragon, busca imagem oficial via MarketplaceService
     if cleanFruit:find("dragon") then
         local ok, pInfo = pcall(function()
@@ -2344,10 +2457,16 @@ local FRUIT_ORDER = {
 }
 
 local function resolveFruitToBuy(fruitName)
-    -- 1. Se o streamer já deixou uma fruta aberta na loja do jogo, usa ela!
+    -- 1. Prioridade MÁXIMA do Roblox: fruta detectada diretamente no jogo (GiftWindow aberta ou slot ativo)
+    local inGameItem = detectRealInGameItemName()
+    if inGameItem and inGameItem ~= "" and inGameItem ~= "Fruit" and inGameItem:lower() ~= "generic" and inGameItem ~= "Sword of Destiny" and FRUIT_ORDER[inGameItem:lower()] then
+        print("[AutoBuyer] Prioridade Roblox: usando fruta aberta no jogo: " .. inGameItem)
+        return inGameItem
+    end
+
     local openFruit, _ = getActiveFruitFromShop()
     if openFruit and openFruit ~= "" and FRUIT_ORDER[openFruit:lower()] then
-        print("[AutoBuyer] Usando fruta aberta na loja: " .. openFruit)
+        print("[AutoBuyer] Prioridade Roblox: usando fruta aberta na loja: " .. openFruit)
         return openFruit
     end
 
