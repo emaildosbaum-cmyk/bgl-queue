@@ -639,12 +639,15 @@ local function reportPurchaseFinished(status, reason, targetNick, fruitName, que
     end)
 end
 
-local function logStep(stepName)
-    print("[AutoBuyer - Passo] " .. tostring(stepName))
+local function logStep(stepName, explicitIdx)
+    local idxStr = explicitIdx and (" (Passo " .. tostring(explicitIdx) .. ")") or ""
+    print("[AutoBuyer - Passo] " .. tostring(stepName) .. idxStr)
     local payload = HttpService:JSONEncode({
         type = "automation_step",
         step = stepName,
         step_name = stepName,
+        step_index = explicitIdx,
+        username = activeTargetPlayer or "",
         token = SCRIPT_TOKEN
     })
     pcall(function()
@@ -656,7 +659,10 @@ local function logStep(stepName)
         local tokenQ = getTokenQuery()
         if tokenQ ~= "" then
             pcall(function()
-                local cloudUrl = VERCEL_API_URL .. "/api/script/automation_step" .. tokenQ .. "&step=" .. HttpService:UrlEncode(tostring(stepName))
+                local stepParam = "&step=" .. HttpService:UrlEncode(tostring(stepName))
+                local idxParam = explicitIdx and ("&step_index=" .. tostring(explicitIdx)) or ""
+                local userParam = (activeTargetPlayer and activeTargetPlayer ~= "") and ("&username=" .. HttpService:UrlEncode(activeTargetPlayer)) or ""
+                local cloudUrl = VERCEL_API_URL .. "/api/script/automation_step" .. tokenQ .. stepParam .. idxParam .. userParam
                 universalHttpRequest(cloudUrl, "POST", payload)
             end)
         end
@@ -2056,7 +2062,7 @@ local function openGui()
             return
         end
 
-        logStep("Clicando no botão de Compra (Buy)...")
+        logStep("Clicando no botão de Compra (Buy)...", 5)
         cleanMouseClick(buyButton)
 
         task.wait(0.08)
@@ -2123,7 +2129,7 @@ local function openGui()
                 VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
             end
         end)
-        logStep("Compra finalizada e loja fechada!")
+        logStep("Compra finalizada e loja fechada!", 6)
         task.wait(0.25 + math.random(30, 60) / 1000)
         purchaseComplete = true
         reportPurchaseFinished("success")
@@ -2669,7 +2675,7 @@ local function setBridgeUsername(username, fruitName, giftButton)
         end
 
         -- Clica na caixa de texto e digita letra por letra
-        logStep("Clicando na caixa de pesquisa...")
+        logStep("Pesquisando o username do jogador: " .. username .. "...", 3)
         local searchFrame = navigation:WaitForChild("SearchFrame", 5)
         local searchBox = searchFrame:WaitForChild("TextBox", 5)
         
@@ -2677,14 +2683,12 @@ local function setBridgeUsername(username, fruitName, giftButton)
         cleanMouseClick(searchBox)
         task.wait(0.15 + math.random(20, 50) / 1000)
         
-        logStep("Digitando o username do jogador: " .. username .. "...")
         typeHuman(searchBox, username)
 
         local delayRemoveOverlay = 0.12 + (math.random(20, 80) / 1000)
         task.wait(delayRemoveOverlay)
 
         if overlay then
-            logStep("Removendo overlays de bloqueio...")
             for _, child in ipairs(overlay:GetChildren()) do
                 child.Visible = false
                 if child:IsA("GuiObject") then
@@ -2694,7 +2698,6 @@ local function setBridgeUsername(username, fruitName, giftButton)
         end
 
         -- Aguarda o jogador surgir na PlayerList
-        logStep("Aguardando o jogador aparecer na lista...")
         local playerList = content:WaitForChild("PlayerList", 5)
         
         local playerItem = nil
@@ -2716,7 +2719,7 @@ local function setBridgeUsername(username, fruitName, giftButton)
             local playerTextButton = playerItem:WaitForChild("TextButton", 5)
             -- Humano confere o jogador que apareceu na lista antes de clicar nele
             task.wait(0.38 + math.random(40, 100) / 1000)
-            logStep("Selecionando o jogador da lista...")
+            logStep("Selecionando o jogador da lista...", 4)
             selectedPlayerName = username
             activeTargetPlayer = username
             cleanMouseClick(playerTextButton)
@@ -2725,7 +2728,7 @@ local function setBridgeUsername(username, fruitName, giftButton)
             local purchaseButton = content:WaitForChild("Buttons", 5):WaitForChild("Purchase", 5)
             -- Humano desce o olhar e clica em Purchase com tempo natural
             task.wait(0.42 + math.random(50, 100) / 1000)
-            logStep("Clicando no botão de Compra (Purchase)...")
+            logStep("Clicando no botão de Compra (Purchase)...", 5)
             cleanMouseClick(purchaseButton)
         else
             warn("[AutoBuyer] O jogador " .. username .. " não foi encontrado na lista a tempo.")
@@ -2790,8 +2793,9 @@ local function executeBuyFruit(username, fruitName, queueItemId)
     
     print("[AutoBuyer] ========================================")
     print(string.format("[AutoBuyer] Iniciando compra: %s para %s (ID: %s)", tostring(finalFruit), tostring(username), tostring(currentBuyItemId)))
-    print("[AutoBuyer] ========================================")
-    logStep("Iniciando compra da fruta " .. tostring(finalFruit) .. " para " .. tostring(username))
+    activeTargetPlayer = username
+    activeTargetFruit = finalFruit
+    logStep("Recebeu nick: " .. tostring(username), 1)
     
     local success, err = pcall(function()
         logStep("Verificando loja de frutas no Roblox...")
@@ -2892,7 +2896,7 @@ local function executeBuyFruit(username, fruitName, queueItemId)
             
             -- Humano vê o botão Gift aparecer no painel expandido
             task.wait(0.35 + math.random(40, 100) / 1000)
-            logStep("Clicando no botão de Presente (Gift)...")
+            logStep("Clicando no botão de Presente (Gift)...", 2)
             clickGiftButton(giftButton)
             
             logStep("Aguardando janela de envio (GiftWindow) carregar...")
