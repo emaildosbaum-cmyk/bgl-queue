@@ -3493,10 +3493,13 @@ startHttpPolling = function()
                 
                 -- 1. Puxa próximo da fila na Nuvem Vercel via universalHttpRequest
                 if tokenQ ~= "" then
-                    local cloudUrl = VERCEL_API_URL .. "/api/script/next" .. tokenQ
+                    local cloudUrl = VERCEL_API_URL .. "/api/script/next" .. tokenQ .. "&source=roblox"
                     local ok, res, st = universalHttpRequest(cloudUrl, "GET")
                     if ok and res and res ~= "" then
                         success, response = true, res
+                    elseif st == 429 then
+                        warn("[AutoBuyer] Roblox HttpService rate-limited (429)! Aplicando backoff de segurança...")
+                        task.wait(4.0)
                     end
                 end
                 
@@ -3526,11 +3529,8 @@ startHttpPolling = function()
                     task.wait(0.5)
                 else
                     failedNext = failedNext + 1
-                    if failedNext > 3 then
-                        task.wait(1.5)
-                    else
-                        task.wait(0.5)
-                    end
+                    local waitInterval = math.min(8.0, 0.8 * (1.5 ^ math.min(failedNext, 6)))
+                    task.wait(waitInterval)
                 end
             end
         end

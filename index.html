@@ -62,6 +62,23 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: url('/assets/bg_cyberpunk.jpg') no-repeat center center fixed;
+    background-size: cover;
+    opacity: 0.16;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
   }
 
   /* ═════════════════════════════════════════════════════════════
@@ -75,7 +92,7 @@
     justify-content: center;
     z-index: 99999;
     padding: 20px;
-    background: #090a10 url('icons/login_bg.jpg') center/cover no-repeat fixed;
+    background: #090a10 url('/assets/bg_cyberpunk.jpg') center/cover no-repeat fixed;
   }
 
   #login-screen::before {
@@ -1017,7 +1034,7 @@
   <div class="login-card" id="loginCard">
     <div class="login-header">
       <div class="login-logo">
-        <div class="login-logo-badge">🎁</div>
+        <img src="/assets/logo.jpg" alt="Logo" style="width: 58px; height: 58px; border-radius: 14px; box-shadow: 0 0 24px rgba(6, 182, 212, 0.45); object-fit: cover;">
       </div>
       <div class="login-title">
         BGL Queue
@@ -1062,8 +1079,8 @@
   <!-- SIDEBAR FIXA -->
   <aside id="sidebar">
     <div class="sidebar-brand">
-      <div class="brand-left">
-        <div class="brand-icon">🎁</div>
+      <div class="brand-left" style="display: flex; align-items: center; gap: 10px;">
+        <img src="/assets/logo.jpg" alt="Logo" style="width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 0 12px rgba(6, 182, 212, 0.45); object-fit: cover;">
         <span class="brand-name">BGL Queue</span>
       </div>
       <span class="badge-live">LIVE</span>
@@ -1169,6 +1186,12 @@
             <span id="headerUserName" style="font-size: 12.5px; font-weight: 700; color: #fff; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Player</span>
             <span id="headerUserRole" style="font-size: 9.5px; color: #60a5fa; font-weight: 700;">STREAMER ATIVO</span>
           </div>
+        </div>
+
+        <!-- Realtime Status Pill -->
+        <div id="realtimeStatusBadge" style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); padding: 5px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700; color: #34d399;" title="Supabase Realtime Ativo na Fila">
+          <span id="realtimeStatusDot" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+          <span id="realtimeStatusText">⚡ Realtime Ativo</span>
         </div>
 
         <button type="button" onclick="openLinksModal()" class="btn-secondary" style="display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-color: rgba(6, 182, 212, 0.45); color: #06b6d4; font-weight: 700; font-size: 13px; border-radius: 999px; background: rgba(6, 182, 212, 0.12); cursor: pointer; transition: all 0.2s;">
@@ -1305,8 +1328,8 @@
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 4px;">
           <!-- Fruta Selecionada + Botão de Abrir Menu -->
           <div style="display: flex; align-items: center; gap: 10px;">
-            <button type="button" onclick="toggleFruitSelectorModal()" class="btn-secondary" style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 8px 16px; border-color: rgba(245, 158, 11, 0.45); color: #fbbf24; background: rgba(245, 158, 11, 0.12); cursor: pointer; border-radius: var(--radius-sm);">
-              <span>🍎</span>
+            <button type="button" onclick="toggleFruitSelectorModal()" class="btn-secondary" style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 7px 14px; border-color: rgba(245, 158, 11, 0.45); color: #fbbf24; background: rgba(245, 158, 11, 0.12); cursor: pointer; border-radius: var(--radius-sm);">
+              <img id="currentSelectedFruitThumb" src="/assets/fruit_kitsune.jpg" onerror="this.src='/assets/logo.jpg'" alt="Fruta" style="width: 24px; height: 24px; border-radius: 6px; object-fit: cover; border: 1.5px solid #fbbf24; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);">
               <span>Fruta Atual: <b id="currentSelectedFruitName" style="color: #fff;">Kitsune</b></span>
               <span style="font-size: 11px; opacity: 0.8;">▼</span>
             </button>
@@ -2736,6 +2759,9 @@
                 _currentQueueCache[idx] = item;
               } else {
                 _currentQueueCache.push(item);
+                if (typeof showToast === "function") {
+                  showToast("🎁 Novo Pedido!", (item.nick || "Player") + " entrou na fila" + (item.robux ? " (" + item.robux.toLocaleString() + " R$)" : ""), "success");
+                }
               }
               renderQueue(_currentQueueCache);
             } else if (payload.eventType === "DELETE") {
@@ -2801,7 +2827,20 @@
               }
             }
           })
-          .subscribe();
+          .subscribe((status) => {
+            console.log("[Supabase Realtime Multi-Tenant Status]:", status);
+            const badge = document.getElementById("realtimeStatusBadge");
+            const dot = document.getElementById("realtimeStatusDot");
+            const text = document.getElementById("realtimeStatusText");
+            if (status === "SUBSCRIBED") {
+              if (badge) badge.style.display = "flex";
+              if (dot) { dot.style.background = "#10b981"; dot.style.boxShadow = "0 0 8px #10b981"; }
+              if (text) text.textContent = "⚡ Realtime Ativo";
+            } else if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+              if (dot) { dot.style.background = "#f59e0b"; dot.style.boxShadow = "none"; }
+              if (text) text.textContent = "⚡ Reconectando...";
+            }
+          });
 
         // Canal Público (compatibilidade / modo guest)
         supabaseClient
@@ -5865,6 +5904,14 @@
     restartFalasTimers();
     updateStatsUI();
 
+    function debounce(fn, wait = 300) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), wait);
+      };
+    }
+
     try {
       const savedFruit = localStorage.getItem('bgl_selected_fruit');
       if (savedFruit) {
@@ -5872,8 +5919,13 @@
         if (parsed && parsed.name) {
           const nameEl = document.getElementById('currentSelectedFruitName');
           const priceEl = document.getElementById('currentSelectedFruitPrice');
+          const thumbEl = document.getElementById('currentSelectedFruitThumb');
           if (nameEl) nameEl.textContent = parsed.name;
           if (priceEl) priceEl.textContent = (parsed.price ? Number(parsed.price).toLocaleString() : '4,000') + ' R$';
+          if (thumbEl && FRUIT_CUSTOM_IMAGES[parsed.name]) {
+            thumbEl.src = FRUIT_CUSTOM_IMAGES[parsed.name];
+            thumbEl.style.display = 'inline-block';
+          }
         }
       }
       const savedCd = localStorage.getItem('bgl_queue_cooldown');
@@ -5884,14 +5936,31 @@
       if (savedPd && document.getElementById('set-pickup-delay')) document.getElementById('set-pickup-delay').value = savedPd;
     } catch(e) {}
 
+    const saveVolDebounced = debounce(() => {
+      localStorage.setItem('falasGlobal', JSON.stringify(falasGlobal));
+      saveFalasAll();
+    }, 350);
+
     const volSlider = document.getElementById('global-audio-volume');
     const volVal = document.getElementById('global-audio-volume-val');
     if (volSlider && volVal) {
       volSlider.addEventListener('input', () => {
         volVal.innerText = Math.round(volSlider.value * 100) + '%';
         falasGlobal.globalVolume = volSlider.value;
+        saveVolDebounced();
       });
     }
+
+    const saveSettingsDebounced = debounce(() => {
+      saveSettings();
+    }, 600);
+
+    ['set-cooldown', 'set-max-queue', 'set-pickup-delay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', saveSettingsDebounced);
+      }
+    });
 
     const muteBox = document.getElementById('mute-status-badge');
     const muteCb = document.getElementById('mute-all-audio');
@@ -6225,6 +6294,13 @@
   // =========================================================
   // SELETOR DE FRUTAS (BLOX FRUITS UPDATE 30)
   // =========================================================
+  const FRUIT_CUSTOM_IMAGES = {
+    "Kitsune": "/assets/fruit_kitsune.jpg",
+    "Magnet": "/assets/fruit_magnet.jpg",
+    "Yeti": "/assets/fruit_yeti.jpg",
+    "Buddha": "/assets/fruit_buddha.jpg"
+  };
+
   const ALL_BLOX_FRUITS = [
     // Míticas
     { name: "Magnet", price: 3500, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
@@ -6344,14 +6420,18 @@
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;">
       `;
       items.forEach(fruit => {
+        const customImg = FRUIT_CUSTOM_IMAGES[fruit.name];
         html += `
-          <div onclick="selectFruit('${fruit.name}', ${fruit.price}, '${fruit.rarity}')" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 6px; transition: all 0.18s ease;" onmouseenter="this.style.borderColor='${fruit.color}'; this.style.background='var(--bg-surface-hover)';" onmouseleave="this.style.borderColor='var(--border)'; this.style.background='var(--bg-input)';">
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-              <div style="font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 4px;">
-                <span>${fruit.name}</span>
-                ${fruit.tag ? `<span style="font-size: 9px; padding: 1px 5px; border-radius: 4px; background: rgba(236,72,153,0.25); color: #f472b6; font-weight: 800;">${fruit.tag}</span>` : ''}
+          <div onclick="selectFruit('${fruit.name}', ${fruit.price}, '${fruit.rarity}')" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.18s ease;" onmouseenter="this.style.borderColor='${fruit.color}'; this.style.background='var(--bg-surface-hover)';" onmouseleave="this.style.borderColor='var(--border)'; this.style.background='var(--bg-input)';">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${customImg ? `<img src="${customImg}" alt="${fruit.name}" style="width: 28px; height: 28px; border-radius: 6px; object-fit: cover; border: 1px solid ${fruit.color}; flex-shrink: 0; box-shadow: 0 0 6px ${fruit.color}44;">` : `<span style="font-size: 18px; line-height: 1;">🍎</span>`}
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 4px;">
+                  <span>${fruit.name}</span>
+                  ${fruit.tag ? `<span style="font-size: 9px; padding: 1px 5px; border-radius: 4px; background: rgba(236,72,153,0.25); color: #f472b6; font-weight: 800;">${fruit.tag}</span>` : ''}
+                </div>
+                <div style="font-size: 11px; color: #10b981; font-weight: 600;">${fruit.price.toLocaleString()} R$</div>
               </div>
-              <div style="font-size: 11px; color: #10b981; font-weight: 600;">${fruit.price.toLocaleString()} R$</div>
             </div>
             <span style="font-size: 11px; opacity: 0.4;">▶</span>
           </div>
@@ -6365,8 +6445,17 @@
   async function selectFruit(name, price, rarity) {
     const nameEl = document.getElementById('currentSelectedFruitName');
     const priceEl = document.getElementById('currentSelectedFruitPrice');
+    const thumbEl = document.getElementById('currentSelectedFruitThumb');
     if (nameEl) nameEl.textContent = name;
     if (priceEl) priceEl.textContent = price.toLocaleString() + ' R$';
+    if (thumbEl) {
+      if (FRUIT_CUSTOM_IMAGES[name]) {
+        thumbEl.src = FRUIT_CUSTOM_IMAGES[name];
+        thumbEl.style.display = 'inline-block';
+      } else {
+        thumbEl.src = '/assets/logo.jpg';
+      }
+    }
     
     closeFruitModal();
 

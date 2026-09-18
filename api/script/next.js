@@ -51,6 +51,16 @@ module.exports = async (req, res) => {
     }
     const userId = profiles[0].discord_id;
 
+    // Atualiza ping de presença do Roblox automaticamente no perfil
+    const isRobloxReq = (urlObj.searchParams.get("source") === "roblox" || urlObj.searchParams.get("ping") === "roblox" || !urlObj.searchParams.get("source"));
+    if (isRobloxReq) {
+      fetch(SUPABASE_URL + "/rest/v1/bgl_user_profiles?discord_id=eq." + encodeURIComponent(userId), {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ roblox_last_ping: new Date().toISOString() })
+      }).catch(() => {});
+    }
+
     // 2. Verifica se a fila está pausada nas configs do usuário & pega fruta configurada
     let configuredFruit = "Rocket";
     const cfgResp = await fetch(SUPABASE_URL + "/rest/v1/bgl_user_configs?discord_id=eq." + encodeURIComponent(userId) + "&select=operation_mode,queue_paused,general_settings", { headers });
