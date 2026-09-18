@@ -1066,8 +1066,52 @@ local function findFruitIconInShop(targetFruitName)
 end
 
 
+---------------------------------------------------------
+-- CONFIGURAÇÃO E DADOS DE CHROMATIC BOXES (Developer Products)
+---------------------------------------------------------
+local CHROMATIC_BOXES_DATA = {
+    ["1520"] = { name = "x10 Chromatic Box", price = 1699, image = "rbxassetid://123233228480994", productId = 3709882498 },
+    ["1519"] = { name = "x3 Chromatic Box", price = 575, image = "rbxassetid://91824779572618", productId = 3709882329 },
+    ["1518"] = { name = "x1 Chromatic Box", price = 199, image = "rbxassetid://114422597299727", productId = 3709882216 }
+}
+
+local function getChromaticBoxConfig(fruitOrItemName)
+    if not fruitOrItemName then return nil end
+    local s = tostring(fruitOrItemName):lower()
+    if not (s:find("chromatic") or s:find("box") or s:find("1518") or s:find("1519") or s:find("1520")) then
+        return nil
+    end
+    -- Ordem estrita: checa 1520 / 10 antes de 1518 / 1 para evitar falso positivo de substring
+    if s:find("1520") or s:find("10") or s:find("x10") then
+        return CHROMATIC_BOXES_DATA["1520"]
+    elseif s:find("1519") or s:find("3") or s:find("x3") then
+        return CHROMATIC_BOXES_DATA["1519"]
+    else
+        return CHROMATIC_BOXES_DATA["1518"]
+    end
+end
+
+local function getActiveChromaticConfig()
+    if activeTargetFruit and activeTargetFruit ~= "" then
+        local cfg = getChromaticBoxConfig(activeTargetFruit)
+        if cfg then return cfg end
+    end
+    if currentSettings and currentSettings.item_name then
+        local cfg = getChromaticBoxConfig(currentSettings.item_name)
+        if cfg then return cfg end
+    end
+    return nil
+end
+
 -- DETECÇÃO TOTALMENTE INDEPENDENTE DO SERVIDOR: SEMPRE PEGA O NOME REAL NO JOGO
 local function detectRealInGameItemName()
+    -- 0. Se o item alvo for uma Chromatic Box (x1, x3, x10), preserva a caixa e quantidade exata
+    local chromTarget = getActiveChromaticConfig()
+    if chromTarget then
+        lastDetectedInGameItem = chromTarget.name
+        return chromTarget.name
+    end
+
     -- 1. Prioridade máxima: ler diretamente da GiftWindow aberta no jogo
     local giftWindow = playerGui:FindFirstChild("GiftWindow")
     if giftWindow and giftWindow.Enabled then
@@ -1121,16 +1165,9 @@ local function formatFruitForNotification(rawFruit)
         clean = "Fruit"
     end
     
-    local cLower = clean:lower()
-    -- Formatação exata para Chromatic Boxes (testa x10 primeiro para evitar que '1' dê match em '10')
-    if cLower:find("1520") or (cLower:find("chromatic") and (cLower:find("10") or cLower:find("x10"))) or cLower == "x10 chromatic box" then
-        return "x10 Chromatic Box"
-    elseif cLower:find("1519") or (cLower:find("chromatic") and (cLower:find("3") or cLower:find("x3"))) or cLower == "x3 chromatic box" then
-        return "x3 Chromatic Box"
-    elseif cLower:find("1518") or (cLower:find("chromatic") and (cLower:find("1") or cLower:find("x1"))) or cLower == "x1 chromatic box" then
-        return "x1 Chromatic Box"
-    elseif cLower:find("chromatic") and not cLower:find("fruit") then
-        return "x1 Chromatic Box"
+    local chromTarget = getChromaticBoxConfig(clean) or getActiveChromaticConfig()
+    if chromTarget then
+        return chromTarget.name
     end
 
     if clean:lower():sub(1, 6) == "fruit " then
@@ -1434,8 +1471,8 @@ local function sendGiftNotifications(targetUser, targetFruit)
     local textoSending = string.format('Sending Gift <font color="rgb(240, 185, 20)">%s</font> to %s..', fruitName, username)
     dispararNotificacaoNativa(textoSending)
 
-    -- 2. Segundo texto: ativa remote novamente após 0.8s para empilhar um embaixo do outro
-    task.delay(0.8, function()
+    -- 2. Segundo texto: ativa remote novamente após 1.4s para empilhar um embaixo do outro
+    task.delay(1.4, function()
         dispararNotificacaoNativa('<font color="rgb(45, 195, 75)">Gift Sent Successfully!</font>')
     end)
 end
@@ -2040,32 +2077,9 @@ local function updateBuyGuiImage(fruitName)
     local cleanFruit = fruit:lower():gsub(" fruit", ""):gsub(" fruta", ""):gsub(" perm", ""):gsub(" permanente", ""):gsub("%s+", "")
 
     -- 0. Chromatic Boxes: Assets oficiais do Roblox (Developer Products)
-    if cleanFruit:find("1520") or (cleanFruit:find("chromatic") and (cleanFruit:find("10") or cleanFruit:find("x10"))) or cleanFruit == "x10chromaticbox" then
-        itemImage.Image = "rbxassetid://123233228480994"
-        itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-        itemImage.ImageTransparency = 0
-        itemImage.ImageRectOffset = Vector2.new(0, 0)
-        itemImage.ImageRectSize = Vector2.new(0, 0)
-        itemImage.ScaleType = Enum.ScaleType.Fit
-        return
-    elseif cleanFruit:find("1519") or (cleanFruit:find("chromatic") and (cleanFruit:find("3") or cleanFruit:find("x3"))) or cleanFruit == "x3chromaticbox" then
-        itemImage.Image = "rbxassetid://91824779572618"
-        itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-        itemImage.ImageTransparency = 0
-        itemImage.ImageRectOffset = Vector2.new(0, 0)
-        itemImage.ImageRectSize = Vector2.new(0, 0)
-        itemImage.ScaleType = Enum.ScaleType.Fit
-        return
-    elseif cleanFruit:find("1518") or (cleanFruit:find("chromatic") and (cleanFruit:find("1") or cleanFruit:find("x1"))) or cleanFruit == "x1chromaticbox" then
-        itemImage.Image = "rbxassetid://114422597299727"
-        itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-        itemImage.ImageTransparency = 0
-        itemImage.ImageRectOffset = Vector2.new(0, 0)
-        itemImage.ImageRectSize = Vector2.new(0, 0)
-        itemImage.ScaleType = Enum.ScaleType.Fit
-        return
-    elseif cleanFruit:find("chromatic") then
-        itemImage.Image = "rbxassetid://114422597299727"
+    local chromCfg = getChromaticBoxConfig(cleanFruit) or getChromaticBoxConfig(fruit) or getActiveChromaticConfig()
+    if chromCfg then
+        itemImage.Image = chromCfg.image
         itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
         itemImage.ImageTransparency = 0
         itemImage.ImageRectOffset = Vector2.new(0, 0)
@@ -2358,6 +2372,11 @@ end)
 -- CAPTURA AUTOMÁTICA DE PREÇO E NOME DA JANELA DE COMPRA
 ---------------------------------------------------------
 local function getAutomaticPriceAndName()
+    local chromCfg = getActiveChromaticConfig()
+    if chromCfg then
+        return tostring(chromCfg.price), chromCfg.name, chromCfg.image, Color3.fromRGB(255, 255, 255), 0, Vector2.new(0, 0), Vector2.new(0, 0)
+    end
+
     local price = lastDetectedInGamePrice or GENERIC_ITEM_PRICE
     local itemName = (type(detectRealInGameItemName) == "function" and pcall(detectRealInGameItemName) and detectRealInGameItemName()) or activeTargetFruit or ""
     local itemImg = lastDetectedInGameImage or GENERIC_ITEM_IMAGE
@@ -2469,90 +2488,8 @@ local function bindPlayerList(playerList)
 end
 
 ---------------------------------------------------------
--- CONFIGURAÇÃO E HOOKS PARA CHROMATIC BOXES (ShopMenuRoot)
+-- CHROMATIC BOXES INTEGRADAS AO DEALER E GIFTWINDOW NORMAL
 ---------------------------------------------------------
-local CHROMATIC_BUTTONS_CONFIG = {
-    ["1518"] = { name = "x1 Chromatic Box", price = 199, image = "rbxassetid://114422597299727", productId = 3709882216 },
-    ["1519"] = { name = "x3 Chromatic Box", price = 575, image = "rbxassetid://91824779572618", productId = 3709882329 },
-    ["1520"] = { name = "x10 Chromatic Box", price = 1699, image = "rbxassetid://123233228480994", productId = 3709882498 }
-}
-
-local function hookChromaticButtons()
-    local shopRoot = playerGui:FindFirstChild("ShopMenuRoot")
-    if not shopRoot then return end
-    local scrollingFrame = shopRoot:FindFirstChild("Frame")
-        and shopRoot.Frame:FindFirstChild("Shop")
-        and shopRoot.Frame.Shop:FindFirstChild("Content")
-        and shopRoot.Frame.Shop.Content:FindFirstChild("ScrollingFrame")
-    if not scrollingFrame then return end
-
-    local children = scrollingFrame:GetChildren()
-    
-    -- 1. Verifica exatamente children[19] conforme especificação direta do usuário
-    local targetChild = children[19]
-    local purchaseButtonsFolder = targetChild and targetChild:FindFirstChild("More")
-        and targetChild.More:FindFirstChild("Component")
-        and targetChild.More.Component:FindFirstChild("PurchaseButtons")
-
-    -- 2. Fallback resiliente: varre qualquer slot caso a ordem varie em novos updates do jogo
-    if not purchaseButtonsFolder then
-        for _, c in ipairs(children) do
-            if c:FindFirstChild("More") and c.More:FindFirstChild("Component") and c.More.Component:FindFirstChild("PurchaseButtons") then
-                if c.More.Component.PurchaseButtons:FindFirstChild("1518") then
-                    purchaseButtonsFolder = c.More.Component.PurchaseButtons
-                    break
-                end
-            end
-        end
-    end
-
-    if not purchaseButtonsFolder then return end
-
-    for key, cfg in pairs(CHROMATIC_BUTTONS_CONFIG) do
-        local pItem = purchaseButtonsFolder:FindFirstChild(key)
-        local btn = pItem and pItem:FindFirstChild("Button")
-        if btn and not btn:FindFirstChild("InterceptButton") then
-            local interceptButton = Instance.new("TextButton")
-            interceptButton.Name = "InterceptButton"
-            interceptButton.Size = UDim2.new(1, 0, 1, 0)
-            interceptButton.BackgroundTransparency = 1
-            interceptButton.Text = ""
-            interceptButton.ZIndex = btn.ZIndex + 10
-            interceptButton.Parent = btn
-
-            interceptButton.MouseButton1Click:Connect(function()
-                print("[AutoBuyer] Clique interceptado na loja: " .. cfg.name .. " (" .. key .. ")")
-                lastDetectedInGameItem = cfg.name
-                activeTargetFruit = cfg.name
-                itemNameLabel.Text = cfg.name
-                local numPrice = cfg.price
-                if currentSettings.roblox_plus then
-                    numPrice = math.floor(numPrice * 0.9)
-                    if promoFrame then promoFrame.Visible = false end
-                else
-                    if promoFrame then promoFrame.Visible = true end
-                end
-                priceText.Text = formatNumber(numPrice)
-                itemImage.Image = cfg.image
-                itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-                itemImage.ImageTransparency = 0
-                itemImage.ImageRectOffset = Vector2.new(0, 0)
-                itemImage.ImageRectSize = Vector2.new(0, 0)
-                itemImage.ScaleType = Enum.ScaleType.Fit
-                successMessage.Text = "You have successfully bought " .. cfg.name .. "."
-                openGui()
-            end)
-        end
-    end
-end
-
--- Monitoramento contínuo da loja ShopMenuRoot em segundo plano
-task.spawn(function()
-    while true do
-        pcall(hookChromaticButtons)
-        task.wait(1)
-    end
-end)
 
 task.spawn(function()
     while true do
@@ -2605,19 +2542,32 @@ task.spawn(function()
             interceptButton.MouseButton1Click:Connect(function()
                 local price, name, image, imgColor, imgTrans, imgRectOffset, imgRectSize = getAutomaticPriceAndName()
                 
-                -- Prioridade absoluta para o nome detectado no jogo (GiftWindow ou Loja)
-                if name and name ~= "" and name:lower() ~= "generic" and name ~= "Fruit" and name ~= "Sword of Destiny" then
-                    lastDetectedInGameItem = name
-                elseif activeTargetFruit and activeTargetFruit ~= "" and activeTargetFruit:lower() ~= "generic" and activeTargetFruit ~= "Fruit" and activeTargetFruit ~= "Sword of Destiny" then
-                    name = activeTargetFruit
-                    lastDetectedInGameItem = activeTargetFruit
+                local chromCfg = getActiveChromaticConfig() or getChromaticBoxConfig(name)
+                if chromCfg then
+                    name = chromCfg.name
+                    price = tostring(chromCfg.price)
+                    image = chromCfg.image
+                    imgColor = Color3.fromRGB(255, 255, 255)
+                    imgTrans = 0
+                    imgRectOffset = Vector2.new(0, 0)
+                    imgRectSize = Vector2.new(0, 0)
+                    lastDetectedInGameItem = chromCfg.name
+                    activeTargetFruit = chromCfg.name
                 else
-                    name = detectRealInGameItemName()
-                    lastDetectedInGameItem = name
-                end
-                
-                if FRUIT_PRICES[name:lower()] and (not price or price == GENERIC_ITEM_PRICE) then
-                    price = tostring(FRUIT_PRICES[name:lower()])
+                    -- Prioridade absoluta para o nome detectado no jogo (GiftWindow ou Loja)
+                    if name and name ~= "" and name:lower() ~= "generic" and name ~= "Fruit" and name ~= "Sword of Destiny" then
+                        lastDetectedInGameItem = name
+                    elseif activeTargetFruit and activeTargetFruit ~= "" and activeTargetFruit:lower() ~= "generic" and activeTargetFruit ~= "Fruit" and activeTargetFruit ~= "Sword of Destiny" then
+                        name = activeTargetFruit
+                        lastDetectedInGameItem = activeTargetFruit
+                    else
+                        name = detectRealInGameItemName()
+                        lastDetectedInGameItem = name
+                    end
+                    
+                    if FRUIT_PRICES[name:lower()] and (not price or price == GENERIC_ITEM_PRICE) then
+                        price = tostring(FRUIT_PRICES[name:lower()])
+                    end
                 end
                 
                 itemNameLabel.Text = name
@@ -2631,7 +2581,7 @@ task.spawn(function()
                 priceText.Text = formatNumber(numPrice)
                 
                 -- Se for Dragon / Permanent Dragon, busca a imagem real via MarketplaceService
-                if name:lower():find("dragon") then
+                if not chromCfg and name:lower():find("dragon") then
                     -- Product ID da Dragon Fruit no Blox Fruits
                     local DRAGON_PRODUCT_ID = 1131547469
                     local ok, productInfo = pcall(function()
@@ -2654,6 +2604,9 @@ task.spawn(function()
                 itemImage.ImageTransparency = imgTrans or 0
                 itemImage.ImageRectOffset = imgRectOffset or Vector2.new(0, 0)
                 itemImage.ImageRectSize = imgRectSize or Vector2.new(0, 0)
+                if chromCfg then
+                    itemImage.ScaleType = Enum.ScaleType.Fit
+                end
                 
                 successMessage.Text = "You have successfully bought " .. name .. "."
                 
@@ -3054,114 +3007,6 @@ local function executeBuyFruit(username, fruitName, queueItemId)
     logStep("Recebeu nick: " .. tostring(username), 1)
     
     local success, err = pcall(function()
-        -- 0. Rota especial para Chromatic Boxes da Loja Geral (ShopMenuRoot)
-        local fCheck = tostring(finalFruit):lower()
-        local isChromaticBox = fCheck:find("chromatic") ~= nil or fCheck:find("box") ~= nil or fCheck:find("1518") ~= nil or fCheck:find("1519") ~= nil or fCheck:find("1520") ~= nil
-        if isChromaticBox then
-            local btnKey = "1518"
-            if fCheck:find("1520") or fCheck:find("10") then
-                btnKey = "1520"
-            elseif fCheck:find("1519") or fCheck:find("3") then
-                btnKey = "1519"
-            elseif fCheck:find("1518") or fCheck:find("1") then
-                btnKey = "1518"
-            end
-            local cfg = CHROMATIC_BUTTONS_CONFIG[btnKey] or CHROMATIC_BUTTONS_CONFIG["1518"]
-            finalFruit = cfg.name
-            activeTargetFruit = cfg.name
-            lastDetectedInGameItem = cfg.name
-
-            logStep("Verificando Loja (ShopMenuRoot) no Roblox...", 1)
-            local shopRoot = playerGui:FindFirstChild("ShopMenuRoot")
-            if not shopRoot then
-                logStep("Aviso: Abra a Loja (Shop) no Roblox!")
-                local startWait = os.clock()
-                while not shopRoot and (os.clock() - startWait) < 6 do
-                    task.wait(0.5)
-                    shopRoot = playerGui:FindFirstChild("ShopMenuRoot")
-                end
-            end
-
-            local targetButton = nil
-            if shopRoot then
-                local sFrame = shopRoot:FindFirstChild("Frame")
-                    and shopRoot.Frame:FindFirstChild("Shop")
-                    and shopRoot.Frame.Shop:FindFirstChild("Content")
-                    and shopRoot.Frame.Shop.Content:FindFirstChild("ScrollingFrame")
-                if sFrame then
-                    local children = sFrame:GetChildren()
-                    -- 1. Tenta exatamente children[19] conforme especificado pelo usuário
-                    if children[19] and children[19]:FindFirstChild("More") and children[19].More:FindFirstChild("Component") and children[19].More.Component:FindFirstChild("PurchaseButtons") then
-                        local pb = children[19].More.Component.PurchaseButtons:FindFirstChild(btnKey)
-                        if pb and pb:FindFirstChild("Button") then
-                            targetButton = pb.Button
-                        end
-                    end
-                    -- 2. Fallback robusto por todos os filhos
-                    if not targetButton then
-                        for _, c in ipairs(children) do
-                            if c:FindFirstChild("More") and c.More:FindFirstChild("Component") and c.More.Component:FindFirstChild("PurchaseButtons") then
-                                local pb = c.More.Component.PurchaseButtons:FindFirstChild(btnKey)
-                                if pb and pb:FindFirstChild("Button") then
-                                    targetButton = pb.Button
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-
-            if targetButton then
-                logStep("Clicando no botão da " .. cfg.name .. " (" .. btnKey .. ")...", 2)
-                task.wait(0.25 + math.random(30, 70) / 1000)
-                cleanMouseClick(targetButton)
-
-                -- Se a Buy GUI não abriu pelo interceptButton em 0.35s, aciona abertura direta
-                task.wait(0.35 + math.random(30, 60) / 1000)
-                if not screenGui.Enabled then
-                    itemNameLabel.Text = cfg.name
-                    local numPrice = cfg.price
-                    if currentSettings.roblox_plus then
-                        numPrice = math.floor(numPrice * 0.9)
-                        if promoFrame then promoFrame.Visible = false end
-                    else
-                        if promoFrame then promoFrame.Visible = true end
-                    end
-                    priceText.Text = formatNumber(numPrice)
-                    itemImage.Image = cfg.image
-                    itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-                    itemImage.ImageTransparency = 0
-                    itemImage.ImageRectOffset = Vector2.new(0, 0)
-                    itemImage.ImageRectSize = Vector2.new(0, 0)
-                    itemImage.ScaleType = Enum.ScaleType.Fit
-                    successMessage.Text = "You have successfully bought " .. cfg.name .. "."
-                    openGui()
-                end
-            else
-                warn("[AutoBuyer] Botão da Chromatic Box '" .. btnKey .. "' não encontrado!")
-                logStep("Erro: Botão não encontrado na loja")
-                reportPurchaseFinished("error", "Botão não encontrado", username, finalFruit, currentBuyItemId)
-                return
-            end
-
-            purchaseComplete = false
-            logStep("Aguardando fluxo completo da compra...")
-            local waitStart = os.clock()
-            while not purchaseComplete and not watchdogAborted and (os.clock() - waitStart) < 8 do
-                task.wait(0.1)
-            end
-            if watchdogAborted then
-                logStep("Compra abortada pelo Watchdog.")
-                return
-            end
-            if not purchaseComplete then
-                purchaseComplete = true
-            end
-            logStep("Compra de " .. cfg.name .. " para " .. username .. " finalizada com sucesso!")
-            return
-        end
-
         logStep("Verificando loja de frutas no Roblox...")
         local shopGui = playerGui:FindFirstChild("FruitShopAndDealer")
         
@@ -3226,21 +3071,25 @@ local function executeBuyFruit(username, fruitName, queueItemId)
         
         if not alreadyOpen then
             task.wait(0.25 + math.random(30, 80) / 1000)
-            logStep("Clicando no slot da fruta " .. fruitName .. "...")
+            logStep("Clicando no slot da fruta " .. finalFruit .. "...")
             clickSlotElement(fruitSlot)
             task.wait(0.35 + math.random(40, 80) / 1000)
             
-            local successV, titleV = pcall(function()
-                return fruitSlot.CardButton.Profile.TopInfo.Title.Text
-            end)
-            -- Aceita match pelo título OU pelo nome do slot (novo formato "Nome-Nome")
-            local slotNameMatch = fruitSlot.Name:match("^(.-)%-"):lower() == fruitName:lower()
-            if not slotNameMatch and (not successV or not titleV or titleV:lower() ~= fruitName:lower()) then
-                local stableSlot = scrollAndFindFruit(scrollingFrame, fruitName)
-                if stableSlot then
-                    fruitSlot = stableSlot
-                    clickSlotElement(fruitSlot)
-                    task.wait(0.35 + math.random(40, 80) / 1000)
+            -- Se for Chromatic Box, usa o slot da loja (Rocket ou fallback) como gatilho do GiftWindow
+            local chromCfg = getChromaticBoxConfig(finalFruit)
+            if not chromCfg then
+                local successV, titleV = pcall(function()
+                    return fruitSlot.CardButton.Profile.TopInfo.Title.Text
+                end)
+                -- Aceita match pelo título OU pelo nome do slot (novo formato "Nome-Nome")
+                local slotNameMatch = fruitSlot.Name:match("^(.-)%-"):lower() == finalFruit:lower()
+                if not slotNameMatch and (not successV or not titleV or titleV:lower() ~= finalFruit:lower()) then
+                    local stableSlot = scrollAndFindFruit(scrollingFrame, finalFruit)
+                    if stableSlot then
+                        fruitSlot = stableSlot
+                        clickSlotElement(fruitSlot)
+                        task.wait(0.35 + math.random(40, 80) / 1000)
+                    end
                 end
             end
             
@@ -3249,7 +3098,7 @@ local function executeBuyFruit(username, fruitName, queueItemId)
             buttons = content and content:WaitForChild("Buttons", 5)
             giftButton = buttons and buttons:WaitForChild("GiftButton", 5)
         else
-            logStep("Painel da fruta " .. fruitName .. " já está aberto. Pulando clique inicial.")
+            logStep("Painel da fruta " .. finalFruit .. " já está aberto. Pulando clique inicial.")
         end
         
         if giftButton then
@@ -3271,7 +3120,7 @@ local function executeBuyFruit(username, fruitName, queueItemId)
         end -- Fecha if not giftWindowOpen then
 
         logStep("Inserindo o nick do usuário: " .. username .. "...")
-        setBridgeUsername(username, fruitName, giftButton)
+        setBridgeUsername(username, finalFruit, giftButton)
         
         purchaseComplete = false
         logStep("Aguardando fluxo completo (Buy → OK → Cancel)...")
@@ -3302,6 +3151,7 @@ local function executeBuyFruit(username, fruitName, queueItemId)
         task.wait(cooldownDelay)
     end
     
+    activeTargetFruit = nil
     autoBuyBusy = false
 end
 
