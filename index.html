@@ -1127,12 +1127,12 @@
 
     <div class="sidebar-footer">
       <!-- PERFIL DO USUÁRIO DISCORD -->
-      <div class="sidebar-user-card" id="sidebarUserCard" style="display: none; padding: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <img id="userAvatarImg" src="" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; border: 2px solid #5865F2; object-fit: cover;">
+      <div class="sidebar-user-card" id="sidebarUserCard" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px; transition: border-color 0.2s;">
+        <div style="display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1;">
+          <img id="userAvatarImg" src="https://cdn.discordapp.com/embed/avatars/0.png" onerror="this.onerror=null; this.src='https://cdn.discordapp.com/embed/avatars/0.png';" alt="Avatar" style="width: 36px; height: 36px; border-radius: 50%; border: 2px solid #5865F2; object-fit: cover; flex-shrink: 0; background: #1e1f29;">
           <div style="display: flex; flex-direction: column; overflow: hidden; flex: 1;">
             <span id="userNameLabel" style="font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Player</span>
-            <span style="font-size: 10px; color: #5865F2; font-weight: 700;">Discord Conectado</span>
+            <span style="font-size: 10.5px; color: #818cf8; font-weight: 700; display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Discord Conectado</span>
           </div>
         </div>
       </div>
@@ -1162,6 +1162,15 @@
       </div>
 
       <div class="header-right">
+        <!-- User Pill in Topbar -->
+        <div class="header-user-pill" id="headerUserPill" style="display: flex; align-items: center; gap: 9px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); padding: 5px 12px 5px 6px; border-radius: 999px;">
+          <img id="headerUserAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" onerror="this.onerror=null; this.src='https://cdn.discordapp.com/embed/avatars/0.png';" alt="Avatar" style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid #5865F2; object-fit: cover; background: #1e1f29;">
+          <div style="display: flex; flex-direction: column; line-height: 1.15;">
+            <span id="headerUserName" style="font-size: 12.5px; font-weight: 700; color: #fff; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Player</span>
+            <span id="headerUserRole" style="font-size: 9.5px; color: #60a5fa; font-weight: 700;">STREAMER ATIVO</span>
+          </div>
+        </div>
+
         <button type="button" onclick="openLinksModal()" class="btn-secondary" style="display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-color: rgba(6, 182, 212, 0.45); color: #06b6d4; font-weight: 700; font-size: 13px; border-radius: 999px; background: rgba(6, 182, 212, 0.12); cursor: pointer; transition: all 0.2s;">
           <span>🔗</span>
           <span>Links / Overlay OBS</span>
@@ -1202,7 +1211,7 @@
         <div id="roblox-linked-container" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
           <div style="display: flex; align-items: center; gap: 12px;">
             <div style="position: relative;">
-              <img id="robloxUserAvatar" src="https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=1&size=150x150&format=Png&isCircular=true" alt="Roblox Avatar" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #3b82f6; background: #1e293b; object-fit: cover;">
+              <img id="robloxUserAvatar" src="/api/roblox_avatar?userId=1" onerror="this.onerror=null; this.src='https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular';" alt="Roblox Avatar" style="width: 48px; height: 48px; border-radius: 50%; border: 2.5px solid #3b82f6; background: #0f172a; object-fit: cover; box-shadow: 0 0 14px rgba(59, 130, 246, 0.35);">
               <div id="robloxOnlineBadge" style="position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; border-radius: 50%; background: #ef4444; border: 2px solid #0f172a;" title="Status de conexão"></div>
             </div>
             <div>
@@ -2087,13 +2096,29 @@
     currentUser = user;
     window.currentUser = user;
 
+    const userAvatarUrl = user.avatar || "https://cdn.discordapp.com/embed/avatars/0.png";
+
     // Atualiza card do usuário na sidebar
     const userCard = document.getElementById("sidebarUserCard");
     const avatarImg = document.getElementById("userAvatarImg");
     const nameLabel = document.getElementById("userNameLabel");
-    if (userCard) userCard.style.display = "block";
-    if (avatarImg && user.avatar) avatarImg.src = user.avatar;
+    if (userCard) userCard.style.display = "flex";
+    if (avatarImg) {
+      avatarImg.src = userAvatarUrl;
+      avatarImg.onerror = function() { this.onerror = null; this.src = "https://cdn.discordapp.com/embed/avatars/0.png"; };
+    }
     if (nameLabel) nameLabel.innerText = user.name || "Player";
+
+    // Atualiza pílula do cabeçalho
+    const headerAvatar = document.getElementById("headerUserAvatar");
+    const headerName = document.getElementById("headerUserName");
+    const headerPill = document.getElementById("headerUserPill");
+    if (headerPill) headerPill.style.display = "flex";
+    if (headerAvatar) {
+      headerAvatar.src = userAvatarUrl;
+      headerAvatar.onerror = function() { this.onerror = null; this.src = "https://cdn.discordapp.com/embed/avatars/0.png"; };
+    }
+    if (headerName) headerName.innerText = user.name || "Player";
 
     // Atualiza token de script do Roblox
     const tokenDisplay = document.getElementById("scriptTokenDisplay");
@@ -2101,7 +2126,7 @@
 
     // Atualiza links rápidos com o token do jogador
     const origin = window.location.origin;
-    const tokenParam = `token=${encodeURIComponent(user.token)}&uid=${encodeURIComponent(user.uid)}`;
+    const tokenParam = `token=${encodeURIComponent(user.token)}&uid=${encodeURIComponent(user.uid || '')}`;
     const overlayUrl = `${origin}/overlay.html?${tokenParam}`;
     const mobileUrl = `${origin}/mobile.html?${tokenParam}`;
 
@@ -2234,6 +2259,20 @@
               avatar: meData.user.avatar,
               token: meData.user.token
             });
+
+            if (meData.user.roblox_username) {
+              const rbxAvatar = document.getElementById('robloxUserAvatar');
+              const rbxDisplay = document.getElementById('robloxDisplayName');
+              const rbxUser = document.getElementById('robloxUsername');
+              const rbxBadge = document.getElementById('robloxOnlineBadge');
+              if (rbxAvatar) {
+                rbxAvatar.src = meData.user.roblox_avatar_url || `/api/roblox_avatar?userId=${meData.user.roblox_user_id}`;
+                rbxAvatar.onerror = function() { this.onerror = null; this.src = 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular'; };
+              }
+              if (rbxDisplay) rbxDisplay.textContent = meData.user.roblox_display_name || meData.user.roblox_username;
+              if (rbxUser) rbxUser.textContent = `@${meData.user.roblox_username}`;
+              if (rbxBadge) rbxBadge.style.background = meData.user.roblox_online ? '#10b981' : '#ef4444';
+            }
           }
         }
       } catch(e) {}
@@ -2250,8 +2289,34 @@
             avatar: p.avatar_url,
             token: p.script_token
           });
+
+          if (p.roblox_username) {
+            const rbxAvatar = document.getElementById('robloxUserAvatar');
+            const rbxDisplay = document.getElementById('robloxDisplayName');
+            const rbxUser = document.getElementById('robloxUsername');
+            const rbxBadge = document.getElementById('robloxOnlineBadge');
+            const rbxImgUrl = (p.roblox_avatar_url && p.roblox_avatar_url.startsWith('https://tr.rbxcdn.com')) 
+              ? p.roblox_avatar_url 
+              : (p.roblox_user_id ? `/api/roblox_avatar?userId=${p.roblox_user_id}` : 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular');
+            if (rbxAvatar) {
+              rbxAvatar.src = rbxImgUrl;
+              rbxAvatar.onerror = function() { this.onerror = null; this.src = 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular'; };
+            }
+            if (rbxDisplay) rbxDisplay.textContent = p.roblox_display_name || p.roblox_username;
+            if (rbxUser) rbxUser.textContent = `@${p.roblox_username}`;
+            if (rbxBadge) rbxBadge.style.background = '#10b981';
+          }
         }
       } catch(e) {}
+    }
+
+    if (!currentUser) {
+      setupDiscordUser({
+        uid: "master",
+        name: "Streamer Master",
+        avatar: "https://cdn.discordapp.com/embed/avatars/0.png",
+        token: "bgl_default_master"
+      });
     }
 
     if (typeof loadFromSupabase === "function") {
@@ -6002,7 +6067,10 @@
         const rbxDisplay = document.getElementById('robloxDisplayName');
         const rbxUser = document.getElementById('robloxUsername');
         const rbxBadge = document.getElementById('robloxOnlineBadge');
-        if (rbxAvatar) rbxAvatar.src = 'https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=1&size=150x150&format=Png&isCircular=true';
+        if (rbxAvatar) {
+          rbxAvatar.src = '/api/roblox_avatar?userId=1';
+          rbxAvatar.onerror = function() { this.onerror = null; this.src = 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular'; };
+        }
         if (rbxDisplay) rbxDisplay.textContent = 'Aguardando Execução no Roblox...';
         if (rbxUser) rbxUser.textContent = 'Nenhuma conta vinculada a esta chave';
         if (rbxBadge) rbxBadge.style.background = '#ef4444';
@@ -6125,12 +6193,21 @@
         const rbxBadge = document.getElementById('robloxOnlineBadge');
 
         if (data.roblox_username) {
-          if (rbxAvatar) rbxAvatar.src = data.roblox_avatar_url || `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${data.roblox_user_id}&size=150x150&format=Png&isCircular=true`;
+          const directAvatar = (data.roblox_avatar_url && data.roblox_avatar_url.startsWith('https://tr.rbxcdn.com')) 
+            ? data.roblox_avatar_url 
+            : (data.roblox_user_id ? `/api/roblox_avatar?userId=${data.roblox_user_id}` : 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular');
+          if (rbxAvatar) {
+            rbxAvatar.src = directAvatar;
+            rbxAvatar.onerror = function() { this.onerror = null; this.src = 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular'; };
+          }
           if (rbxDisplay) rbxDisplay.textContent = data.roblox_display_name || data.roblox_username;
           if (rbxUser) rbxUser.textContent = `@${data.roblox_username}`;
           if (rbxBadge) rbxBadge.style.background = data.roblox_online ? '#10b981' : '#ef4444';
         } else {
-          if (rbxAvatar) rbxAvatar.src = 'https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=1&size=150x150&format=Png&isCircular=true';
+          if (rbxAvatar) {
+            rbxAvatar.src = '/api/roblox_avatar?userId=1';
+            rbxAvatar.onerror = function() { this.onerror = null; this.src = 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular'; };
+          }
           if (rbxDisplay) rbxDisplay.textContent = 'Aguardando Execução no Roblox...';
           if (rbxUser) rbxUser.textContent = 'Nenhuma conta vinculada a esta chave';
           if (rbxBadge) rbxBadge.style.background = '#ef4444';
@@ -6416,13 +6493,16 @@
       const hasRobloxLinked = !!(user.roblox_user_id || user.roblox_username);
       const origin = window.location.origin;
       const loaderCode = `loadstring(game:HttpGet("${origin}/loader.lua?token=${user.script_token}"))()`;
+      const rbxAdminImg = (user.roblox_avatar_url && user.roblox_avatar_url.startsWith('https://tr.rbxcdn.com'))
+        ? user.roblox_avatar_url
+        : (user.roblox_user_id ? (`/api/roblox_avatar?userId=${user.roblox_user_id}`) : 'https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular');
 
       return `
         <div class="card" style="margin: 0; padding: 20px; background: rgba(13, 16, 26, 0.85); border: 1px solid ${isRbxOnline ? 'rgba(16, 185, 129, 0.4)' : 'var(--border)'}; border-radius: var(--radius-lg); transition: all 0.2s;">
           <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 16px;">
             <!-- Perfil Discord -->
             <div style="display: flex; align-items: center; gap: 14px;">
-              <img src="${user.avatar_url || 'https://cdn.discordapp.com/embed/avatars/0.png'}" alt="Avatar" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #5865F2; object-fit: cover; background: #1e1f29;">
+              <img src="${user.avatar_url || 'https://cdn.discordapp.com/embed/avatars/0.png'}" onerror="this.onerror=null; this.src='https://cdn.discordapp.com/embed/avatars/0.png';" alt="Avatar" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #5865F2; object-fit: cover; background: #1e1f29;">
               <div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span style="font-size: 16px; font-weight: 800; color: #fff;">${escapeHtml(user.username || 'Streamer')}</span>
@@ -6474,7 +6554,7 @@
 
               ${hasRobloxLinked ? `
                 <div style="display: flex; align-items: center; gap: 12px;">
-                  <img src="${user.roblox_avatar_url || ('https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=' + (user.roblox_user_id || '1') + '&size=150x150&format=Png&isCircular=true')}" alt="Roblox Avatar" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #10b981; object-fit: cover; background: #000;">
+                  <img src="${rbxAdminImg}" onerror="this.onerror=null; this.src='https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular';" alt="Roblox Avatar" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #10b981; object-fit: cover; background: #000;">
                   <div style="display: flex; flex-direction: column; overflow: hidden; flex: 1;">
                     <span style="font-size: 14px; font-weight: 700; color: #fff;">${escapeHtml(user.roblox_display_name || user.roblox_username)}</span>
                     <span style="font-size: 11px; color: #94a3b8;">@${escapeHtml(user.roblox_username || 'desconhecido')} (ID: ${user.roblox_user_id || '---'})</span>
@@ -6829,9 +6909,9 @@
   </div>
 
   <!-- =========================================================
-       CHECKLIST DE STATUS DA LIVE (CANTO INFERIOR ESQUERDO)
+       CHECKLIST DE STATUS DA LIVE (CANTO INFERIOR DIREITO)
        ========================================================= -->
-  <div id="live-status-checklist" style="position: fixed; bottom: 20px; left: 20px; z-index: 99999; font-family: 'Inter', sans-serif;">
+  <div id="live-status-checklist" style="position: fixed; bottom: 20px; right: 24px; z-index: 99999; font-family: 'Inter', sans-serif;">
     <!-- Card Expandido -->
     <div id="status-card-expanded" style="background: rgba(13, 16, 26, 0.92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: 0 16px 36px rgba(0,0,0,0.7); width: 290px; display: flex; flex-direction: column; gap: 10px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);">
       <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">

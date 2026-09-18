@@ -90,6 +90,15 @@ module.exports = async (req, res) => {
     const robloxOnline = robloxPingDate ? ((now.getTime() - robloxPingDate.getTime()) < 45000) : false;
     const extOnline = extPingDate ? ((now.getTime() - extPingDate.getTime()) < 45000) : false;
 
+    let robloxAvatar = profile.roblox_avatar_url;
+    if (!robloxAvatar || robloxAvatar.includes("thumbnails.roblox.com") || robloxAvatar.includes("roproxy.com")) {
+      if (profile.roblox_user_id) {
+        robloxAvatar = `/api/roblox_avatar?userId=${profile.roblox_user_id}`;
+      } else {
+        robloxAvatar = "https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular";
+      }
+    }
+
     res.statusCode = 200;
     return res.end(JSON.stringify({
       ok: true,
@@ -98,7 +107,7 @@ module.exports = async (req, res) => {
       roblox_user_id: profile.roblox_user_id,
       roblox_username: profile.roblox_username,
       roblox_display_name: profile.roblox_display_name,
-      roblox_avatar_url: profile.roblox_avatar_url,
+      roblox_avatar_url: robloxAvatar,
       script_token: profile.script_token
     }));
   } catch (err) {

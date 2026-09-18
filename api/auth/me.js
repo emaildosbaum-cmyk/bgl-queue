@@ -39,17 +39,26 @@ module.exports = async (req, res) => {
         const robloxPing = p.roblox_last_ping ? new Date(p.roblox_last_ping).getTime() : 0;
         const extPing = p.ext_last_ping ? new Date(p.ext_last_ping).getTime() : 0;
 
+        let robloxAvatar = p.roblox_avatar_url;
+        if (!robloxAvatar || robloxAvatar.includes("thumbnails.roblox.com") || robloxAvatar.includes("roproxy.com")) {
+          if (p.roblox_user_id) {
+            robloxAvatar = `/api/roblox_avatar?userId=${p.roblox_user_id}`;
+          } else {
+            robloxAvatar = "https://tr.rbxcdn.com/30day-avatar-headshot/150/150/AvatarHeadshot/Png/regular";
+          }
+        }
+
         return res.end(JSON.stringify({
           authenticated: true,
           user: {
             id: p.discord_id,
             name: p.username,
-            avatar: p.avatar_url,
+            avatar: p.avatar_url || "https://cdn.discordapp.com/embed/avatars/0.png",
             token: p.script_token,
             roblox_user_id: p.roblox_user_id,
             roblox_username: p.roblox_username,
             roblox_display_name: p.roblox_display_name,
-            roblox_avatar_url: p.roblox_avatar_url,
+            roblox_avatar_url: robloxAvatar,
             roblox_online: (now - robloxPing) < 45000,
             extension_online: (now - extPing) < 45000
           }

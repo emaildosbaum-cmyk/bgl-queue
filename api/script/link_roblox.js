@@ -95,7 +95,20 @@ module.exports = async (req, res) => {
         }));
       }
 
-      // Mesmo usuário: atualiza ping e dados se mudaram
+      // Resolve avatar CDN URL se for endpoint de JSON ou vazio
+      let resolvedAvatar = robloxAvatarUrl || profile.roblox_avatar_url || "";
+      if (!resolvedAvatar || resolvedAvatar.includes("thumbnails.roblox.com") || resolvedAvatar.includes("roproxy.com")) {
+        try {
+          const thumbResp = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${encodeURIComponent(linkedId)}&size=150x150&format=Png&isCircular=true`);
+          if (thumbResp.ok) {
+            const thumbData = await thumbResp.json();
+            if (thumbData && thumbData.data && thumbData.data[0] && thumbData.data[0].imageUrl) {
+              resolvedAvatar = thumbData.data[0].imageUrl;
+            }
+          }
+        } catch(e) {}
+      }
+
       await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?discord_id=eq.${encodeURIComponent(profile.discord_id)}`, {
         method: "PATCH",
         headers,
@@ -103,7 +116,7 @@ module.exports = async (req, res) => {
           roblox_last_ping: nowIso,
           roblox_username: robloxUsername || profile.roblox_username,
           roblox_display_name: robloxDisplayName || profile.roblox_display_name,
-          roblox_avatar_url: robloxAvatarUrl || profile.roblox_avatar_url
+          roblox_avatar_url: resolvedAvatar || `/api/roblox_avatar?userId=${linkedId}`
         })
       });
 
@@ -112,11 +125,28 @@ module.exports = async (req, res) => {
         ok: true,
         message: "Conta Roblox confirmada com sucesso",
         roblox_username: profile.roblox_username,
-        roblox_display_name: profile.roblox_display_name
+        roblox_display_name: profile.roblox_display_name,
+        roblox_avatar_url: resolvedAvatar
       }));
     }
 
     // Primeira vinculação: Trava a chave nesta conta Roblox
+    let directAvatarUrl = robloxAvatarUrl || "";
+    if (!directAvatarUrl || directAvatarUrl.includes("thumbnails.roblox.com") || directAvatarUrl.includes("roproxy.com")) {
+      try {
+        const thumbResp = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${encodeURIComponent(robloxUserId)}&size=150x150&format=Png&isCircular=true`);
+        if (thumbResp.ok) {
+          const thumbData = await thumbResp.json();
+          if (thumbData && thumbData.data && thumbData.data[0] && thumbData.data[0].imageUrl) {
+            directAvatarUrl = thumbData.data[0].imageUrl;
+          }
+        }
+      } catch(e) {}
+    }
+    if (!directAvatarUrl) {
+      directAvatarUrl = `/api/roblox_avatar?userId=${robloxUserId}`;
+    }
+
     await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_profiles?discord_id=eq.${encodeURIComponent(profile.discord_id)}`, {
       method: "PATCH",
       headers,
@@ -124,7 +154,7 @@ module.exports = async (req, res) => {
         roblox_user_id: String(robloxUserId),
         roblox_username: String(robloxUsername || ""),
         roblox_display_name: String(robloxDisplayName || robloxUsername || ""),
-        roblox_avatar_url: String(robloxAvatarUrl || `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${robloxUserId}&size=150x150&format=Png&isCircular=true`),
+        roblox_avatar_url: directAvatarUrl,
         roblox_last_ping: nowIso
       })
     });
