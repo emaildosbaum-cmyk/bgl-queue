@@ -3313,7 +3313,10 @@ local function syncGuiWithSettings(settings)
         currentSettings.item_name = settings.item_name
     end
     
-    if settings.item_price and tostring(settings.item_price) ~= "" and tostring(settings.item_price) ~= "null" then
+    local realPriceNum = (realInGame and FRUIT_PRICES[realInGame:lower()]) or parseNumber(lastDetectedInGamePrice)
+    if realPriceNum and realPriceNum > 0 then
+        currentSettings.item_price = formatNumber(realPriceNum)
+    elseif settings.item_price and tostring(settings.item_price) ~= "" and tostring(settings.item_price) ~= "null" and tostring(settings.item_price) ~= "1,250" and tostring(settings.item_price) ~= "1250" then
         currentSettings.item_price = formatNumber(settings.item_price)
     end
 
@@ -3341,15 +3344,15 @@ local function syncGuiWithSettings(settings)
         if not autoBuyBusy and (not screenGui or not screenGui.Enabled) then
             if balanceText then balanceText.Text = currentSettings.mock_balance end
             
-            local displayItem = currentSettings.item_name or detectRealInGameItemName()
+            local displayItem = realInGame or currentSettings.item_name
             if displayItem and displayItem ~= "" and displayItem ~= "Fruit" and displayItem:lower() ~= "generic" and displayItem ~= "Sword of Destiny" and displayItem ~= "Mock Item Name" then
                 if itemNameLabel then itemNameLabel.Text = displayItem end
                 if successMessage then successMessage.Text = "You have successfully bought " .. displayItem .. "." end
             end
             
             if priceText then
-                local curFruit = currentSettings.item_name or "Rocket"
-                local numPrice = (curFruit and FRUIT_PRICES[curFruit:lower()]) or parseNumber(currentSettings.item_price) or 50
+                local curFruit = realInGame or currentSettings.item_name or "Rocket"
+                local numPrice = (curFruit and FRUIT_PRICES[curFruit:lower()]) or parseNumber(lastDetectedInGamePrice) or parseNumber(currentSettings.item_price) or 50
                 if currentSettings.roblox_plus then
                     numPrice = math.floor(numPrice * 0.9)
                     if promoFrame then promoFrame.Visible = false end

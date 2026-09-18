@@ -84,10 +84,19 @@ module.exports = async (req, res) => {
       allowed.forEach(k => { if (body[k] !== undefined) newGen[k] = String(body[k]); });
 
       // Upsert na tabela bgl_user_configs
+      const updateData = { general_settings: newGen, updated_at: new Date().toISOString() };
+      if (body.operation_mode !== undefined) {
+        updateData.operation_mode = String(body.operation_mode);
+        updateData.queue_paused = (body.operation_mode === "PAUSED");
+      }
+      if (body.thank_nicks_enabled !== undefined) {
+        updateData.thank_nicks_enabled = Boolean(body.thank_nicks_enabled);
+      }
+
       const upsertResp = await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_configs?discord_id=eq.${encodeURIComponent(userId)}`, {
         method: "PATCH",
         headers: { ...headers, "Prefer": "return=minimal" },
-        body: JSON.stringify({ general_settings: newGen, updated_at: new Date().toISOString() })
+        body: JSON.stringify(updateData)
       });
 
       if (upsertResp.status === 404 || upsertResp.status === 406) {
@@ -95,7 +104,7 @@ module.exports = async (req, res) => {
         await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_configs`, {
           method: "POST",
           headers: { ...headers, "Prefer": "return=minimal" },
-          body: JSON.stringify({ discord_id: userId, general_settings: newGen, updated_at: new Date().toISOString() })
+          body: JSON.stringify({ discord_id: userId, ...updateData })
         });
       }
 
@@ -121,9 +130,9 @@ module.exports = async (req, res) => {
       operation_mode: userCfg.operation_mode || "FULL",
       auto_send: userCfg.operation_mode === "FULL" || userCfg.operation_mode === "ENTREGA",
       step_timeouts: stepTimeouts,
-      mock_balance: gen.mock_balance || null,
-      item_name: gen.item_name || "Rocket",
-      item_price: gen.item_price || null,
+      mock_balance: (gen.mock_balance && gen.mock_balance !== "5,420") ? gen.mock_balance : null,
+      item_name: (gen.item_name && gen.item_name !== "Sword of Destiny" && gen.item_name !== "Fruit" && gen.item_name.toLowerCase() !== "generic") ? gen.item_name : "Rocket",
+      item_price: (gen.item_price && gen.item_price !== "1,250" && gen.item_price !== "1250") ? gen.item_price : null,
       post_delivery_delay: gen.post_delivery_delay || 2.0,
       live_proof: userCfg.live_proof || { enabled: true, duration: 4.0, message: "Tô ao vivo rapaziada, não é gravado!" }
     }));
