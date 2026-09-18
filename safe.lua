@@ -2174,8 +2174,11 @@ closeGui = function()
     fill.Position = UDim2.new(0, 0, 0, 0)
     canBuy = false
     GuiBusy = false
-    -- Limpa estado de gamepass/chromatic ao fechar para não contaminar próxima compra
+    -- Limpa estado de gamepass/chromatic e caches transitórios ao fechar para não contaminar próxima compra
     activeTargetFruit = nil
+    lastDetectedInGamePrice = nil
+    lastDetectedInGameItem = nil
+    lastDetectedInGameImage = nil
 end
 
 local function updateBuyGuiImage(fruitName)
@@ -2338,7 +2341,7 @@ local function activateGiftCancelButton()
     end)
 end
 
-local function openGui()
+local function openGui(overrideName, overridePrice, overrideImage, overrideColor, overrideTrans, overrideOffset, overrideSize)
     if GuiBusy or screenGui.Enabled then return end
     GuiBusy = true
     buyPurchasedThisCycle = false
@@ -2350,30 +2353,39 @@ local function openGui()
     fill.Size = UDim2.new(0, 0, 1, 0)
     fill.Position = UDim2.new(0, 0, 0, 0)
     
-    -- Garante que o Buy GUI e a mensagem de sucesso tenham o nome REAL detectado no jogo
-    local realItem = detectRealInGameItemName()
+    -- Se recebemos overrideName diretamente do interceptButton, usa ele com prioridade máxima
+    local realItem = overrideName or detectRealInGameItemName()
     if realItem and realItem ~= "" and realItem ~= "Fruit" and realItem:lower() ~= "generic" and realItem ~= "Sword of Destiny" then
         if itemNameLabel then itemNameLabel.Text = realItem end
         if successMessage then successMessage.Text = "You have successfully bought " .. realItem .. "." end
     end
 
-    -- Garante que o Buy GUI exiba a imagem da fruta correta
-    pcall(function()
-        updateBuyGuiImage(realItem)
-    end)
+    -- Atualiza a imagem: se recebemos overrideImage, aplica diretamente
+    if overrideImage and overrideImage ~= "" then
+        pcall(function()
+            itemImage.Image = overrideImage
+            itemImage.ImageColor3 = overrideColor or Color3.fromRGB(255, 255, 255)
+            itemImage.ImageTransparency = overrideTrans or 0
+            itemImage.ImageRectOffset = overrideOffset or Vector2.new(0, 0)
+            itemImage.ImageRectSize = overrideSize or Vector2.new(0, 0)
+            itemImage.ScaleType = Enum.ScaleType.Fit
+        end)
+    else
+        pcall(function()
+            updateBuyGuiImage(realItem)
+        end)
+    end
 
-    -- Se for gamepass, aplica o nome exato no label imediatamente
-    pcall(function()
-        local gpCfg = getGamepassConfig(realItem) or getActiveGamepassConfig()
-        if gpCfg then
-            if itemNameLabel then itemNameLabel.Text = gpCfg.name end
-            if successMessage then successMessage.Text = "You have successfully bought " .. gpCfg.name .. "." end
-        end
-    end)
+    -- Se for gamepass, garante o nome correto no label
+    local gpCfg = getGamepassConfig(realItem)
+    if gpCfg then
+        if itemNameLabel then itemNameLabel.Text = gpCfg.name end
+        if successMessage then successMessage.Text = "You have successfully bought " .. gpCfg.name .. "." end
+    end
 
-    -- Preço SEMPRE baseado na fruta real sendo comprada via FRUIT_PRICES
+    -- Preço: usa overridePrice se fornecido, senão busca o preço da fruta/item atual
     pcall(function()
-        local rawPrice = (realItem and FRUIT_PRICES[realItem:lower()]) or parseNumber(lastDetectedInGamePrice) or (currentSettings.item_name and FRUIT_PRICES[currentSettings.item_name:lower()]) or parseNumber(currentSettings.item_price) or 50
+        local rawPrice = parseNumber(overridePrice) or (gpCfg and gpCfg.price) or (realItem and FRUIT_PRICES[realItem:lower()]) or parseNumber(lastDetectedInGamePrice) or 50
         if currentSettings.roblox_plus then
             if promoFrame then promoFrame.Visible = false end
             local discounted = math.floor(rawPrice * 0.9)
@@ -2532,6 +2544,11 @@ buyButton.MouseButton1Click:Connect(function()
     closeGui()
     task.wait(0.2)
     openSuccessGui()
+    -- Reseta estados para a próxima compra não herdar dados da atual
+    activeTargetFruit = nil
+    lastDetectedInGamePrice = nil
+    lastDetectedInGameItem = nil
+    lastDetectedInGameImage = nil
     buyInProgress = false
 end)
 
@@ -2550,9 +2567,10 @@ local function getAutomaticPriceAndName()
         return tostring(gpCfg.price), gpCfg.name, gpImg, Color3.fromRGB(255, 255, 255), 0, Vector2.new(0, 0), Vector2.new(0, 0)
     end
 
-    local price = lastDetectedInGamePrice or GENERIC_ITEM_PRICE
-    local itemName = (type(detectRealInGameItemName) == "function" and pcall(detectRealInGameItemName) and detectRealInGameItemName()) or activeTargetFruit or ""
-    local itemImg = lastDetectedInGameImage or GENERIC_ITEM_IMAGE
+    -- Não herdar preço e imagem fixos da compra anterior: lê a GiftWindow aberta agora
+    local price = nil
+    local itemName = ""
+    local itemImg = nil
     local imgColor = Color3.fromRGB(255, 255, 255)
     local imgTrans = 0
     local imgRectOffset = Vector2.new(0, 0)
@@ -2629,6 +2647,16 @@ local function getAutomaticPriceAndName()
             end)
         end
     end)
+
+    if not itemName or itemName == "" then
+        itemName = (type(detectRealInGameItemName) == "function" and pcall(detectRealInGameItemName) and detectRealInGameItemName()) or activeTargetFruit or lastDetectedInGameItem or "Fruit"
+    end
+    if not price or price == "" then
+        price = (itemName and FRUIT_PRICES[itemName:lower()]) or lastDetectedInGamePrice or GENERIC_ITEM_PRICE
+    end
+    if not itemImg or itemImg == "" then
+        itemImg = lastDetectedInGameImage or GENERIC_ITEM_IMAGE
+    end
 
     return price, itemName, itemImg, imgColor, imgTrans, imgRectOffset, imgRectSize
 end
@@ -2715,8 +2743,9 @@ task.spawn(function()
             interceptButton.MouseButton1Click:Connect(function()
                 local price, name, image, imgColor, imgTrans, imgRectOffset, imgRectSize = getAutomaticPriceAndName()
                 
-                local chromCfg = getActiveChromaticConfig() or getChromaticBoxConfig(name)
-                local gpCfg = (not chromCfg) and (getActiveGamepassConfig() or getGamepassConfig(name)) or nil
+                -- Detecta estritamente pelo nome do item aberto no momento na GiftWindow
+                local chromCfg = getChromaticBoxConfig(name) or getActiveChromaticConfig()
+                local gpCfg = (not chromCfg) and getGamepassConfig(name) or nil
                 if chromCfg then
                     name = chromCfg.name
                     price = tostring(chromCfg.price)
@@ -2738,6 +2767,8 @@ task.spawn(function()
                     lastDetectedInGameItem = gpCfg.name
                     activeTargetFruit = gpCfg.name
                 else
+                    activeTargetFruit = name
+                    lastDetectedInGameItem = name
                     -- Prioridade absoluta para o nome detectado no jogo (GiftWindow ou Loja)
                     if name and name ~= "" and name:lower() ~= "generic" and name ~= "Fruit" and name ~= "Sword of Destiny" then
                         lastDetectedInGameItem = name
@@ -2823,7 +2854,7 @@ task.spawn(function()
                     activeTargetPlayer = getCurrentPlayerName()
                 end
                 
-                openGui()
+                openGui(name, price, image, imgColor, imgTrans, imgRectOffset, imgRectSize)
             end)
         end)
         task.wait(1)
