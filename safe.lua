@@ -2288,6 +2288,55 @@ local function updateBuyGuiImage(fruitName)
     itemImage.ScaleType = Enum.ScaleType.Fit
 end
 
+local function activateGiftCancelButton()
+    pcall(function()
+        local gw = playerGui:FindFirstChild("GiftWindow")
+        if not gw then return end
+        
+        local cancelBtn = gw:FindFirstChild("Window") 
+            and gw.Window:FindFirstChild("Content") 
+            and gw.Window.Content:FindFirstChild("Buttons") 
+            and gw.Window.Content.Buttons:FindFirstChild("Cancel")
+            
+        if not cancelBtn then
+            cancelBtn = gw:FindFirstChild("Cancel", true)
+        end
+        
+        if cancelBtn then
+            -- 1. firesignal (executores compatíveis)
+            pcall(function()
+                if typeof(firesignal) == "function" then
+                    firesignal(cancelBtn.MouseButton1Click)
+                    firesignal(cancelBtn.Activated)
+                end
+            end)
+            
+            -- 2. getconnections (chama listeners registrados diretamente)
+            pcall(function()
+                if typeof(getconnections) == "function" then
+                    for _, conn in ipairs(getconnections(cancelBtn.MouseButton1Click)) do
+                        pcall(function() conn:Fire() end)
+                    end
+                    for _, conn in ipairs(getconnections(cancelBtn.Activated)) do
+                        pcall(function() conn:Fire() end)
+                    end
+                end
+            end)
+            
+            -- 3. Envio virtual direto e instantâneo sem delay de movimentação
+            pcall(function()
+                local pos = cancelBtn.AbsolutePosition
+                local size = cancelBtn.AbsoluteSize
+                local inset = GuiService:GetGuiInset()
+                local cx = pos.X + (size.X / 2)
+                local cy = pos.Y + (size.Y / 2) + inset.Y
+                VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 0)
+                VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 0)
+            end)
+        end
+    end)
+end
+
 local function openGui()
     if GuiBusy or screenGui.Enabled then return end
     GuiBusy = true
@@ -2396,51 +2445,12 @@ local function openGui()
                 end
             end)
             
+            activateGiftCancelButton()
             closeGui()
             task.wait(0.18 + math.random(20, 50) / 1000)
             openSuccessGui()
         end
         
-        -- Humano visualiza a tela de sucesso da compra e clica em OK
-        task.wait(0.55 + math.random(50, 120) / 1000)
-        if successGui and successGui.Enabled then
-            logStep("Confirmando a compra no botão OK...")
-            cleanMouseClick(okButton)
-        end
-        
-        -- Humano fecha a janela de presente (GiftWindow) que ficou ao fundo
-        task.wait(0.38 + math.random(30, 80) / 1000)
-        logStep("Fechando a interface do jogo (Clicando em Cancel)...")
-        pcall(function()
-            local giftWindow = playerGui:FindFirstChild("GiftWindow")
-            local cancelBtn = giftWindow 
-                and giftWindow:FindFirstChild("Window") 
-                and giftWindow.Window:FindFirstChild("Content") 
-                and giftWindow.Window.Content:FindFirstChild("Buttons")
-                and giftWindow.Window.Content.Buttons:FindFirstChild("Cancel")
-                
-            if cancelBtn then
-                cleanMouseClick(cancelBtn)
-            else
-                local shopRoot = playerGui:FindFirstChild("ShopMenuRoot")
-                local closeBtn = shopRoot and (
-                    shopRoot:FindFirstChild("Close", true)
-                    or shopRoot:FindFirstChild("CloseButton", true)
-                )
-                if closeBtn and closeBtn:IsA("GuiButton") then
-                    cleanMouseClick(closeBtn)
-                else
-                    -- Fallback para ESC duplo caso o botão não seja encontrado
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
-                    task.wait(0.06 + math.random(10, 25) / 1000)
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
-                    task.wait(0.12 + math.random(20, 50) / 1000)
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
-                    task.wait(0.06 + math.random(10, 25) / 1000)
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
-                end
-            end
-        end)
         logStep("Compra finalizada e loja fechada!", 6)
         task.wait(0.25 + math.random(30, 60) / 1000)
         purchaseComplete = true
@@ -2500,24 +2510,8 @@ buyButton.MouseButton1Click:Connect(function()
         local targetFruit = getCurrentFruitName()
         sendGiftNotifications(targetUser, targetFruit)
 
-        -- Ativa o botão Purchase real da GiftWindow para enviar o presente no Roblox
-        pcall(function()
-            local gw = playerGui:FindFirstChild("GiftWindow")
-            if gw then
-                local purchaseBtn = gw:FindFirstChild("Window")
-                    and gw.Window:FindFirstChild("Content")
-                    and gw.Window.Content:FindFirstChild("Buttons")
-                    and gw.Window.Content.Buttons:FindFirstChild("Purchase")
-                if purchaseBtn then
-                    -- Desativa o InterceptButton temporariamente para não reabrir a Buy GUI
-                    local intercept = purchaseBtn:FindFirstChild("InterceptButton")
-                    if intercept then intercept.Active = false end
-                    cleanMouseClick(purchaseBtn)
-                    task.wait(0.06)
-                    if intercept then intercept.Active = true end
-                end
-            end
-        end)
+        -- Ativa o botão Cancel da GiftWindow INSTANTANEAMENTE (sem coordenadas) para fechar a GiftWindow
+        activateGiftCancelButton()
 
         -- Envia evento de entrega para o servidor simples/geral
         pcall(function()
