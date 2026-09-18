@@ -5926,7 +5926,7 @@
           const priceEl = document.getElementById('currentSelectedFruitPrice');
           const thumbEl = document.getElementById('currentSelectedFruitThumb');
           if (nameEl) nameEl.textContent = parsed.name;
-          if (priceEl) priceEl.textContent = (parsed.price ? Number(parsed.price).toLocaleString() : '4,000') + ' R$';
+          if (priceEl) priceEl.textContent = (parsed.price ? Number(parsed.price).toLocaleString() : '4,000') + ' R$' + (parsed.beli ? ` ($${Number(parsed.beli).toLocaleString()})` : '');
           if (thumbEl) {
             thumbEl.src = getFruitImage(parsed.name);
             thumbEl.style.display = 'inline-block';
@@ -6353,56 +6353,56 @@
 
   const ALL_BLOX_FRUITS = [
     // Míticas
-    { name: "Magnet", price: 3500, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
-    { name: "Yeti", price: 3000, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
-    { name: "Gas", price: 2500, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
-    { name: "Kitsune", price: 4000, rarity: "Mítica", color: "#ec4899" },
-    { name: "Leopard", price: 3000, rarity: "Mítica", color: "#ec4899" },
-    { name: "Dragon", price: 2600, rarity: "Mítica", tag: "Rework", color: "#ec4899" },
-    { name: "Spirit", price: 2550, rarity: "Mítica", color: "#ec4899" },
-    { name: "Control", price: 2500, rarity: "Mítica", color: "#ec4899" },
-    { name: "Venom", price: 2450, rarity: "Mítica", color: "#ec4899" },
-    { name: "Shadow", price: 2425, rarity: "Mítica", color: "#ec4899" },
-    { name: "Dough", price: 2400, rarity: "Mítica", color: "#ec4899" },
-    { name: "T-Rex", price: 2350, rarity: "Mítica", color: "#ec4899" },
-    { name: "Mammoth", price: 2350, rarity: "Mítica", color: "#ec4899" },
-    { name: "Gravity", price: 2300, rarity: "Mítica", color: "#ec4899" },
+    { name: "Dragon", price: 5000, beli: 15000000, rarity: "Mítica", tag: "Rework", color: "#ec4899" },
+    { name: "Kitsune", price: 4000, beli: 8000000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Control", price: 4000, beli: 9000000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Magnet", price: 3500, beli: 6000000, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
+    { name: "Yeti", price: 3000, beli: 5000000, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
+    { name: "Leopard", price: 3000, beli: 5000000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Gas", price: 2500, beli: 3200000, rarity: "Mítica", tag: "Update 30", color: "#ec4899" },
+    { name: "Spirit", price: 2550, beli: 3400000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Venom", price: 2450, beli: 3000000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Shadow", price: 2425, beli: 2900000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Dough", price: 2400, beli: 2800000, rarity: "Mítica", color: "#ec4899" },
+    { name: "T-Rex", price: 2350, beli: 2700000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Mammoth", price: 2350, beli: 2700000, rarity: "Mítica", color: "#ec4899" },
+    { name: "Gravity", price: 2300, beli: 2500000, rarity: "Mítica", color: "#ec4899" },
 
     // Lendárias
-    { name: "Blizzard", price: 2250, rarity: "Lendária", color: "#a855f7" },
-    { name: "Pain", price: 2200, rarity: "Lendária", color: "#a855f7" },
-    { name: "Rumble", price: 2100, rarity: "Lendária", color: "#a855f7" },
-    { name: "Portal", price: 2000, rarity: "Lendária", color: "#a855f7" },
-    { name: "Phoenix", price: 2000, rarity: "Lendária", color: "#a855f7" },
-    { name: "Sound", price: 1900, rarity: "Lendária", color: "#a855f7" },
-    { name: "Spider", price: 1800, rarity: "Lendária", color: "#a855f7" },
-    { name: "Love", price: 1700, rarity: "Lendária", color: "#a855f7" },
-    { name: "Buddha", price: 1650, rarity: "Lendária", color: "#a855f7" },
-    { name: "Quake", price: 1500, rarity: "Lendária", color: "#a855f7" },
+    { name: "Blizzard", price: 2250, beli: 2400000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Pain", price: 2200, beli: 2300000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Rumble", price: 2100, beli: 2100000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Portal", price: 2000, beli: 1900000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Phoenix", price: 2000, beli: 1800000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Sound", price: 1900, beli: 1700000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Spider", price: 1800, beli: 1500000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Love", price: 1700, beli: 1300000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Buddha", price: 1650, beli: 1200000, rarity: "Lendária", color: "#a855f7" },
+    { name: "Quake", price: 1500, beli: 1000000, rarity: "Lendária", color: "#a855f7" },
 
     // Raras
-    { name: "Magma", price: 1300, rarity: "Rara", color: "#3b82f6" },
-    { name: "Ghost", price: 1275, rarity: "Rara", color: "#3b82f6" },
-    { name: "Barrier", price: 1250, rarity: "Rara", color: "#3b82f6" },
-    { name: "Rubber", price: 1200, rarity: "Rara", color: "#3b82f6" },
-    { name: "Light", price: 1100, rarity: "Rara", color: "#3b82f6" },
+    { name: "Magma", price: 1300, beli: 960000, rarity: "Rara", color: "#3b82f6" },
+    { name: "Ghost", price: 1275, beli: 940000, rarity: "Rara", color: "#3b82f6" },
+    { name: "Barrier", price: 1250, beli: 800000, rarity: "Rara", color: "#3b82f6" },
+    { name: "Rubber", price: 1200, beli: 750000, rarity: "Rara", color: "#3b82f6" },
+    { name: "Light", price: 1100, beli: 650000, rarity: "Rara", color: "#3b82f6" },
 
     // Incomuns
-    { name: "Diamond", price: 1000, rarity: "Incomum", color: "#10b981" },
-    { name: "Dark", price: 950, rarity: "Incomum", color: "#10b981" },
-    { name: "Sand", price: 850, rarity: "Incomum", color: "#10b981" },
-    { name: "Ice", price: 750, rarity: "Incomum", color: "#10b981" },
-    { name: "Falcon", price: 650, rarity: "Incomum", color: "#10b981" },
-    { name: "Flame", price: 550, rarity: "Incomum", color: "#10b981" },
+    { name: "Diamond", price: 1000, beli: 600000, rarity: "Incomum", color: "#10b981" },
+    { name: "Dark", price: 950, beli: 500000, rarity: "Incomum", color: "#10b981" },
+    { name: "Sand", price: 850, beli: 420000, rarity: "Incomum", color: "#10b981" },
+    { name: "Ice", price: 750, beli: 350000, rarity: "Incomum", color: "#10b981" },
+    { name: "Falcon", price: 650, beli: 300000, rarity: "Incomum", color: "#10b981" },
+    { name: "Flame", price: 550, beli: 250000, rarity: "Incomum", color: "#10b981" },
 
     // Comuns
-    { name: "Spike", price: 380, rarity: "Comum", color: "#94a3b8" },
-    { name: "Smoke", price: 250, rarity: "Comum", color: "#94a3b8" },
-    { name: "Bomb", price: 220, rarity: "Comum", color: "#94a3b8" },
-    { name: "Spring", price: 180, rarity: "Comum", color: "#94a3b8" },
-    { name: "Chop", price: 100, rarity: "Comum", color: "#94a3b8" },
-    { name: "Spin", price: 75, rarity: "Comum", color: "#94a3b8" },
-    { name: "Rocket", price: 50, rarity: "Comum", color: "#94a3b8" }
+    { name: "Spike", price: 380, beli: 180000, rarity: "Comum", color: "#94a3b8" },
+    { name: "Smoke", price: 250, beli: 100000, rarity: "Comum", color: "#94a3b8" },
+    { name: "Bomb", price: 220, beli: 80000, rarity: "Comum", color: "#94a3b8" },
+    { name: "Spring", price: 180, beli: 60000, rarity: "Comum", color: "#94a3b8" },
+    { name: "Chop", price: 100, beli: 30000, rarity: "Comum", color: "#94a3b8" },
+    { name: "Spin", price: 75, beli: 7500, rarity: "Comum", color: "#94a3b8" },
+    { name: "Rocket", price: 50, beli: 5000, rarity: "Comum", color: "#94a3b8" }
   ];
 
   function toggleFruitSelectorModal() {
@@ -6432,7 +6432,7 @@
   }
 
   function filterFruitList(query) {
-    const q = (query || "").toLowerCase().trim();
+    const q = (query || "").toLowerCase().trim().replace(/[\$,\.]/g, '');
     if (!q) {
       renderFruitList(ALL_BLOX_FRUITS);
       return;
@@ -6440,7 +6440,8 @@
     const filtered = ALL_BLOX_FRUITS.filter(f => 
       f.name.toLowerCase().includes(q) || 
       f.rarity.toLowerCase().includes(q) || 
-      String(f.price).includes(q)
+      String(f.price).includes(q) ||
+      String(f.beli || '').includes(q)
     );
     renderFruitList(filtered);
   }
@@ -6472,7 +6473,7 @@
       items.forEach(fruit => {
         const fruitImg = getFruitImage(fruit.name);
         html += `
-          <div onclick="selectFruit('${fruit.name}', ${fruit.price}, '${fruit.rarity}')" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.18s ease;" onmouseenter="this.style.borderColor='${fruit.color}'; this.style.background='var(--bg-surface-hover)';" onmouseleave="this.style.borderColor='var(--border)'; this.style.background='var(--bg-input)';">
+          <div onclick="selectFruit('${fruit.name}', ${fruit.price}, '${fruit.rarity}', ${fruit.beli || 0})" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.18s ease;" onmouseenter="this.style.borderColor='${fruit.color}'; this.style.background='var(--bg-surface-hover)';" onmouseleave="this.style.borderColor='var(--border)'; this.style.background='var(--bg-input)';">
             <div style="display: flex; align-items: center; gap: 9px;">
               <img src="${fruitImg}" alt="${fruit.name}" onerror="this.src='/assets/logo.jpg'" style="width: 32px; height: 32px; border-radius: 8px; object-fit: contain; background: rgba(0,0,0,0.4); padding: 2px; border: 1px solid ${fruit.color}55; flex-shrink: 0; box-shadow: 0 0 8px ${fruit.color}33;">
               <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -6480,7 +6481,10 @@
                   <span>${fruit.name}</span>
                   ${fruit.tag ? `<span style="font-size: 9px; padding: 1px 5px; border-radius: 4px; background: rgba(236,72,153,0.25); color: #f472b6; font-weight: 800;">${fruit.tag}</span>` : ''}
                 </div>
-                <div style="font-size: 11px; color: #10b981; font-weight: 600;">${fruit.price.toLocaleString()} R$</div>
+                <div style="font-size: 11px; color: #10b981; font-weight: 700; display: flex; align-items: center; gap: 5px;">
+                  <span>${fruit.price.toLocaleString()} R$</span>
+                  ${fruit.beli ? `<span style="font-size: 9.5px; color: #94a3b8; font-weight: 500;">($${Number(fruit.beli).toLocaleString()})</span>` : ''}
+                </div>
               </div>
             </div>
             <span style="font-size: 11px; opacity: 0.4;">▶</span>
@@ -6492,12 +6496,12 @@
     container.innerHTML = html;
   }
 
-  async function selectFruit(name, price, rarity) {
+  async function selectFruit(name, price, rarity, beli) {
     const nameEl = document.getElementById('currentSelectedFruitName');
     const priceEl = document.getElementById('currentSelectedFruitPrice');
     const thumbEl = document.getElementById('currentSelectedFruitThumb');
     if (nameEl) nameEl.textContent = name;
-    if (priceEl) priceEl.textContent = price.toLocaleString() + ' R$';
+    if (priceEl) priceEl.textContent = price.toLocaleString() + ' R$' + (beli ? ` ($${Number(beli).toLocaleString()})` : '');
     if (thumbEl) {
       thumbEl.src = getFruitImage(name);
       thumbEl.style.display = 'inline-block';
@@ -6507,7 +6511,7 @@
 
     lastUserFruitChangeTs = Date.now();
     localStorage.setItem('lastUserFruitChangeTs', String(lastUserFruitChangeTs));
-    localStorage.setItem('bgl_selected_fruit', JSON.stringify({ name, price, rarity }));
+    localStorage.setItem('bgl_selected_fruit', JSON.stringify({ name, price, rarity, beli }));
 
     const token = (document.getElementById('scriptTokenDisplay')?.value || (window.currentUser && window.currentUser.token) || localStorage.getItem('bgl_token') || '').trim();
     try {
