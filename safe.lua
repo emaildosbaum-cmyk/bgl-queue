@@ -269,7 +269,11 @@ local FRUIT_PRICES = {
     ["blizzard"] = 2250, ["gravity"] = 2300, ["mammoth"] = 2350, ["t-rex"] = 2350,
     ["dough"] = 2400, ["shadow"] = 2425, ["venom"] = 2450, ["control"] = 2500,
     ["spirit"] = 2550, ["dragon"] = 2600, ["leopard"] = 3000, ["kitsune"] = 4000,
-    ["gas"] = 2500, ["yeti"] = 3000, ["magnet"] = 3500
+    ["gas"] = 2500, ["yeti"] = 3000, ["magnet"] = 3500,
+    -- Chromatic Boxes (Loja Blox Fruits / Developer Products)
+    ["x1 chromatic box"] = 199, ["x3 chromatic box"] = 575, ["x10 chromatic box"] = 1699,
+    ["chromatic box"] = 199, ["chromatic box x1"] = 199, ["chromatic box x3"] = 575, ["chromatic box x10"] = 1699,
+    ["1518"] = 199, ["1519"] = 575, ["1520"] = 1699
 }
 
 local currentSettings = {
@@ -1117,6 +1121,18 @@ local function formatFruitForNotification(rawFruit)
         clean = "Fruit"
     end
     
+    local cLower = clean:lower()
+    -- Formatação exata para Chromatic Boxes (testa x10 primeiro para evitar que '1' dê match em '10')
+    if cLower:find("1520") or (cLower:find("chromatic") and (cLower:find("10") or cLower:find("x10"))) or cLower == "x10 chromatic box" then
+        return "x10 Chromatic Box"
+    elseif cLower:find("1519") or (cLower:find("chromatic") and (cLower:find("3") or cLower:find("x3"))) or cLower == "x3 chromatic box" then
+        return "x3 Chromatic Box"
+    elseif cLower:find("1518") or (cLower:find("chromatic") and (cLower:find("1") or cLower:find("x1"))) or cLower == "x1 chromatic box" then
+        return "x1 Chromatic Box"
+    elseif cLower:find("chromatic") and not cLower:find("fruit") then
+        return "x1 Chromatic Box"
+    end
+
     if clean:lower():sub(1, 6) == "fruit " then
         clean = clean:sub(7)
     end
@@ -1131,7 +1147,7 @@ local function formatFruitForNotification(rawFruit)
     local titleCase = table.concat(words, " ")
     if titleCase == "" or titleCase:lower() == "generic" or titleCase == "Sword Of Destiny" then titleCase = "Fruit" end
     
-    -- Gamepasses NÃO devem receber o prefixo "Permanent" (ex: "Fast Boats", "2x Money", "Dark Blade", "Fruit Notifier", "+1 Fruit Storage")
+    -- Gamepasses e Chromatic Boxes NÃO devem receber o prefixo "Permanent" (apenas frutas recebem)
     local lower = titleCase:lower()
     local isGamepass = false
     local gamepassKeywords = {"2x money", "2x mastery", "2x boss drops", "fast boats", "dark blade", "fruit notifier", "+1 fruit storage", "fruit storage", "gamepass"}
@@ -1144,8 +1160,10 @@ local function formatFruitForNotification(rawFruit)
     if not isGamepass and (lower:find("boat") or lower:find("blade") or lower:find("notifier") or lower:find("storage") or lower:find("2x")) then
         isGamepass = true
     end
+
+    local isChromaticBox = lower:find("chromatic") ~= nil or lower:find("box") ~= nil or lower:find("1518") ~= nil or lower:find("1519") ~= nil or lower:find("1520") ~= nil
     
-    if not isGamepass and not titleCase:lower():find("permanent") and titleCase:lower() ~= "fruit" then
+    if not isGamepass and not isChromaticBox and not titleCase:lower():find("permanent") and titleCase:lower() ~= "fruit" then
         titleCase = "Permanent " .. titleCase
     end
     return titleCase
@@ -2021,6 +2039,41 @@ local function updateBuyGuiImage(fruitName)
     local fruit = fruitName or activeTargetFruit or detectRealInGameItemName() or ""
     local cleanFruit = fruit:lower():gsub(" fruit", ""):gsub(" fruta", ""):gsub(" perm", ""):gsub(" permanente", ""):gsub("%s+", "")
 
+    -- 0. Chromatic Boxes: Assets oficiais do Roblox (Developer Products)
+    if cleanFruit:find("1520") or (cleanFruit:find("chromatic") and (cleanFruit:find("10") or cleanFruit:find("x10"))) or cleanFruit == "x10chromaticbox" then
+        itemImage.Image = "rbxassetid://123233228480994"
+        itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        itemImage.ImageTransparency = 0
+        itemImage.ImageRectOffset = Vector2.new(0, 0)
+        itemImage.ImageRectSize = Vector2.new(0, 0)
+        itemImage.ScaleType = Enum.ScaleType.Fit
+        return
+    elseif cleanFruit:find("1519") or (cleanFruit:find("chromatic") and (cleanFruit:find("3") or cleanFruit:find("x3"))) or cleanFruit == "x3chromaticbox" then
+        itemImage.Image = "rbxassetid://91824779572618"
+        itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        itemImage.ImageTransparency = 0
+        itemImage.ImageRectOffset = Vector2.new(0, 0)
+        itemImage.ImageRectSize = Vector2.new(0, 0)
+        itemImage.ScaleType = Enum.ScaleType.Fit
+        return
+    elseif cleanFruit:find("1518") or (cleanFruit:find("chromatic") and (cleanFruit:find("1") or cleanFruit:find("x1"))) or cleanFruit == "x1chromaticbox" then
+        itemImage.Image = "rbxassetid://114422597299727"
+        itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        itemImage.ImageTransparency = 0
+        itemImage.ImageRectOffset = Vector2.new(0, 0)
+        itemImage.ImageRectSize = Vector2.new(0, 0)
+        itemImage.ScaleType = Enum.ScaleType.Fit
+        return
+    elseif cleanFruit:find("chromatic") then
+        itemImage.Image = "rbxassetid://114422597299727"
+        itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        itemImage.ImageTransparency = 0
+        itemImage.ImageRectOffset = Vector2.new(0, 0)
+        itemImage.ImageRectSize = Vector2.new(0, 0)
+        itemImage.ScaleType = Enum.ScaleType.Fit
+        return
+    end
+
     -- 0. Prioridade máxima Roblox: se a fruta está aberta na loja agora, usa o ArtIcon dela diretamente
     local openFruit, openArt = getActiveFruitFromShop()
     if openArt and openArt:IsA("ImageLabel") and openArt.Image ~= "" and openArt.Image ~= "rbxassetid://16335379958" then
@@ -2214,14 +2267,23 @@ local function openGui()
             if cancelBtn then
                 cleanMouseClick(cancelBtn)
             else
-                -- Fallback para ESC duplo caso o botão não seja encontrado
-                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
-                task.wait(0.06 + math.random(10, 25) / 1000)
-                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
-                task.wait(0.12 + math.random(20, 50) / 1000)
-                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
-                task.wait(0.06 + math.random(10, 25) / 1000)
-                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+                local shopRoot = playerGui:FindFirstChild("ShopMenuRoot")
+                local closeBtn = shopRoot and (
+                    shopRoot:FindFirstChild("Close", true)
+                    or shopRoot:FindFirstChild("CloseButton", true)
+                )
+                if closeBtn and closeBtn:IsA("GuiButton") then
+                    cleanMouseClick(closeBtn)
+                else
+                    -- Fallback para ESC duplo caso o botão não seja encontrado
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+                    task.wait(0.06 + math.random(10, 25) / 1000)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+                    task.wait(0.12 + math.random(20, 50) / 1000)
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+                    task.wait(0.06 + math.random(10, 25) / 1000)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+                end
             end
         end)
         logStep("Compra finalizada e loja fechada!", 6)
@@ -2406,6 +2468,92 @@ local function bindPlayerList(playerList)
     playerList.ChildAdded:Connect(hookChild)
 end
 
+---------------------------------------------------------
+-- CONFIGURAÇÃO E HOOKS PARA CHROMATIC BOXES (ShopMenuRoot)
+---------------------------------------------------------
+local CHROMATIC_BUTTONS_CONFIG = {
+    ["1518"] = { name = "x1 Chromatic Box", price = 199, image = "rbxassetid://114422597299727", productId = 3709882216 },
+    ["1519"] = { name = "x3 Chromatic Box", price = 575, image = "rbxassetid://91824779572618", productId = 3709882329 },
+    ["1520"] = { name = "x10 Chromatic Box", price = 1699, image = "rbxassetid://123233228480994", productId = 3709882498 }
+}
+
+local function hookChromaticButtons()
+    local shopRoot = playerGui:FindFirstChild("ShopMenuRoot")
+    if not shopRoot then return end
+    local scrollingFrame = shopRoot:FindFirstChild("Frame")
+        and shopRoot.Frame:FindFirstChild("Shop")
+        and shopRoot.Frame.Shop:FindFirstChild("Content")
+        and shopRoot.Frame.Shop.Content:FindFirstChild("ScrollingFrame")
+    if not scrollingFrame then return end
+
+    local children = scrollingFrame:GetChildren()
+    
+    -- 1. Verifica exatamente children[19] conforme especificação direta do usuário
+    local targetChild = children[19]
+    local purchaseButtonsFolder = targetChild and targetChild:FindFirstChild("More")
+        and targetChild.More:FindFirstChild("Component")
+        and targetChild.More.Component:FindFirstChild("PurchaseButtons")
+
+    -- 2. Fallback resiliente: varre qualquer slot caso a ordem varie em novos updates do jogo
+    if not purchaseButtonsFolder then
+        for _, c in ipairs(children) do
+            if c:FindFirstChild("More") and c.More:FindFirstChild("Component") and c.More.Component:FindFirstChild("PurchaseButtons") then
+                if c.More.Component.PurchaseButtons:FindFirstChild("1518") then
+                    purchaseButtonsFolder = c.More.Component.PurchaseButtons
+                    break
+                end
+            end
+        end
+    end
+
+    if not purchaseButtonsFolder then return end
+
+    for key, cfg in pairs(CHROMATIC_BUTTONS_CONFIG) do
+        local pItem = purchaseButtonsFolder:FindFirstChild(key)
+        local btn = pItem and pItem:FindFirstChild("Button")
+        if btn and not btn:FindFirstChild("InterceptButton") then
+            local interceptButton = Instance.new("TextButton")
+            interceptButton.Name = "InterceptButton"
+            interceptButton.Size = UDim2.new(1, 0, 1, 0)
+            interceptButton.BackgroundTransparency = 1
+            interceptButton.Text = ""
+            interceptButton.ZIndex = btn.ZIndex + 10
+            interceptButton.Parent = btn
+
+            interceptButton.MouseButton1Click:Connect(function()
+                print("[AutoBuyer] Clique interceptado na loja: " .. cfg.name .. " (" .. key .. ")")
+                lastDetectedInGameItem = cfg.name
+                activeTargetFruit = cfg.name
+                itemNameLabel.Text = cfg.name
+                local numPrice = cfg.price
+                if currentSettings.roblox_plus then
+                    numPrice = math.floor(numPrice * 0.9)
+                    if promoFrame then promoFrame.Visible = false end
+                else
+                    if promoFrame then promoFrame.Visible = true end
+                end
+                priceText.Text = formatNumber(numPrice)
+                itemImage.Image = cfg.image
+                itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+                itemImage.ImageTransparency = 0
+                itemImage.ImageRectOffset = Vector2.new(0, 0)
+                itemImage.ImageRectSize = Vector2.new(0, 0)
+                itemImage.ScaleType = Enum.ScaleType.Fit
+                successMessage.Text = "You have successfully bought " .. cfg.name .. "."
+                openGui()
+            end)
+        end
+    end
+end
+
+-- Monitoramento contínuo da loja ShopMenuRoot em segundo plano
+task.spawn(function()
+    while true do
+        pcall(hookChromaticButtons)
+        task.wait(1)
+    end
+end)
+
 task.spawn(function()
     while true do
         pcall(function()
@@ -2554,28 +2702,41 @@ local FRUIT_ORDER = {
     ["pain"] = 27, ["blizzard"] = 28, ["gravity"] = 29, ["mammoth"] = 30, ["t-rex"] = 31,
     ["dough"] = 32, ["shadow"] = 33, ["venom"] = 34, ["control"] = 35, ["spirit"] = 36,
     ["dragon"] = 37, ["leopard"] = 38, ["tiger"] = 38, ["kitsune"] = 39,
-    ["gas"] = 40, ["yeti"] = 41, ["magnet"] = 42
+    ["gas"] = 40, ["yeti"] = 41, ["magnet"] = 42,
+    ["x1 chromatic box"] = 1001, ["x3 chromatic box"] = 1002, ["x10 chromatic box"] = 1003,
+    ["chromatic box"] = 1001, ["chromatic box x1"] = 1001, ["chromatic box x3"] = 1002, ["chromatic box x10"] = 1003,
+    ["1518"] = 1001, ["1519"] = 1002, ["1520"] = 1003
 }
 
 local function resolveFruitToBuy(fruitName)
     -- 1. Prioridade MÁXIMA do Roblox: fruta detectada diretamente no jogo (GiftWindow aberta ou slot ativo)
     local inGameItem = detectRealInGameItemName()
-    if inGameItem and inGameItem ~= "" and inGameItem ~= "Fruit" and inGameItem:lower() ~= "generic" and inGameItem ~= "Sword of Destiny" and FRUIT_ORDER[inGameItem:lower()] then
-        print("[AutoBuyer] Prioridade Roblox: usando fruta aberta no jogo: " .. inGameItem)
+    if inGameItem and inGameItem ~= "" and inGameItem ~= "Fruit" and inGameItem:lower() ~= "generic" and inGameItem ~= "Sword of Destiny" and (FRUIT_ORDER[inGameItem:lower()] or inGameItem:lower():find("chromatic") or inGameItem:lower():find("box")) then
+        print("[AutoBuyer] Prioridade Roblox: usando item aberto no jogo: " .. inGameItem)
         return inGameItem
     end
 
     local openFruit, _ = getActiveFruitFromShop()
-    if openFruit and openFruit ~= "" and FRUIT_ORDER[openFruit:lower()] then
-        print("[AutoBuyer] Prioridade Roblox: usando fruta aberta na loja: " .. openFruit)
+    if openFruit and openFruit ~= "" and (FRUIT_ORDER[openFruit:lower()] or openFruit:lower():find("chromatic") or openFruit:lower():find("box")) then
+        print("[AutoBuyer] Prioridade Roblox: usando item aberto na loja: " .. openFruit)
         return openFruit
     end
 
     -- 2. Se fruitName foi passado e é válido
     if fruitName and fruitName ~= "" then
         local fLower = fruitName:lower():gsub("^%s*(.-)%s*$", "%1")
-        if fLower ~= "random" and fLower ~= "generic" and fLower ~= "fruit" and fLower ~= "sword of destiny" and FRUIT_ORDER[fLower] then
-            return fruitName
+        if fLower ~= "random" and fLower ~= "generic" and fLower ~= "fruit" and fLower ~= "sword of destiny" then
+            if fLower:find("1520") or (fLower:find("chromatic") and (fLower:find("10") or fLower:find("x10"))) or fLower == "x10 chromatic box" then
+                return "x10 Chromatic Box"
+            elseif fLower:find("1519") or (fLower:find("chromatic") and (fLower:find("3") or fLower:find("x3"))) or fLower == "x3 chromatic box" then
+                return "x3 Chromatic Box"
+            elseif fLower:find("1518") or (fLower:find("chromatic") and (fLower:find("1") or fLower:find("x1"))) or fLower == "x1 chromatic box" then
+                return "x1 Chromatic Box"
+            elseif fLower:find("chromatic") or fLower:find("box") then
+                return "x1 Chromatic Box"
+            elseif FRUIT_ORDER[fLower] then
+                return fruitName
+            end
         end
     end
 
@@ -2893,6 +3054,114 @@ local function executeBuyFruit(username, fruitName, queueItemId)
     logStep("Recebeu nick: " .. tostring(username), 1)
     
     local success, err = pcall(function()
+        -- 0. Rota especial para Chromatic Boxes da Loja Geral (ShopMenuRoot)
+        local fCheck = tostring(finalFruit):lower()
+        local isChromaticBox = fCheck:find("chromatic") ~= nil or fCheck:find("box") ~= nil or fCheck:find("1518") ~= nil or fCheck:find("1519") ~= nil or fCheck:find("1520") ~= nil
+        if isChromaticBox then
+            local btnKey = "1518"
+            if fCheck:find("1520") or fCheck:find("10") then
+                btnKey = "1520"
+            elseif fCheck:find("1519") or fCheck:find("3") then
+                btnKey = "1519"
+            elseif fCheck:find("1518") or fCheck:find("1") then
+                btnKey = "1518"
+            end
+            local cfg = CHROMATIC_BUTTONS_CONFIG[btnKey] or CHROMATIC_BUTTONS_CONFIG["1518"]
+            finalFruit = cfg.name
+            activeTargetFruit = cfg.name
+            lastDetectedInGameItem = cfg.name
+
+            logStep("Verificando Loja (ShopMenuRoot) no Roblox...", 1)
+            local shopRoot = playerGui:FindFirstChild("ShopMenuRoot")
+            if not shopRoot then
+                logStep("Aviso: Abra a Loja (Shop) no Roblox!")
+                local startWait = os.clock()
+                while not shopRoot and (os.clock() - startWait) < 6 do
+                    task.wait(0.5)
+                    shopRoot = playerGui:FindFirstChild("ShopMenuRoot")
+                end
+            end
+
+            local targetButton = nil
+            if shopRoot then
+                local sFrame = shopRoot:FindFirstChild("Frame")
+                    and shopRoot.Frame:FindFirstChild("Shop")
+                    and shopRoot.Frame.Shop:FindFirstChild("Content")
+                    and shopRoot.Frame.Shop.Content:FindFirstChild("ScrollingFrame")
+                if sFrame then
+                    local children = sFrame:GetChildren()
+                    -- 1. Tenta exatamente children[19] conforme especificado pelo usuário
+                    if children[19] and children[19]:FindFirstChild("More") and children[19].More:FindFirstChild("Component") and children[19].More.Component:FindFirstChild("PurchaseButtons") then
+                        local pb = children[19].More.Component.PurchaseButtons:FindFirstChild(btnKey)
+                        if pb and pb:FindFirstChild("Button") then
+                            targetButton = pb.Button
+                        end
+                    end
+                    -- 2. Fallback robusto por todos os filhos
+                    if not targetButton then
+                        for _, c in ipairs(children) do
+                            if c:FindFirstChild("More") and c.More:FindFirstChild("Component") and c.More.Component:FindFirstChild("PurchaseButtons") then
+                                local pb = c.More.Component.PurchaseButtons:FindFirstChild(btnKey)
+                                if pb and pb:FindFirstChild("Button") then
+                                    targetButton = pb.Button
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            if targetButton then
+                logStep("Clicando no botão da " .. cfg.name .. " (" .. btnKey .. ")...", 2)
+                task.wait(0.25 + math.random(30, 70) / 1000)
+                cleanMouseClick(targetButton)
+
+                -- Se a Buy GUI não abriu pelo interceptButton em 0.35s, aciona abertura direta
+                task.wait(0.35 + math.random(30, 60) / 1000)
+                if not screenGui.Enabled then
+                    itemNameLabel.Text = cfg.name
+                    local numPrice = cfg.price
+                    if currentSettings.roblox_plus then
+                        numPrice = math.floor(numPrice * 0.9)
+                        if promoFrame then promoFrame.Visible = false end
+                    else
+                        if promoFrame then promoFrame.Visible = true end
+                    end
+                    priceText.Text = formatNumber(numPrice)
+                    itemImage.Image = cfg.image
+                    itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+                    itemImage.ImageTransparency = 0
+                    itemImage.ImageRectOffset = Vector2.new(0, 0)
+                    itemImage.ImageRectSize = Vector2.new(0, 0)
+                    itemImage.ScaleType = Enum.ScaleType.Fit
+                    successMessage.Text = "You have successfully bought " .. cfg.name .. "."
+                    openGui()
+                end
+            else
+                warn("[AutoBuyer] Botão da Chromatic Box '" .. btnKey .. "' não encontrado!")
+                logStep("Erro: Botão não encontrado na loja")
+                reportPurchaseFinished("error", "Botão não encontrado", username, finalFruit, currentBuyItemId)
+                return
+            end
+
+            purchaseComplete = false
+            logStep("Aguardando fluxo completo da compra...")
+            local waitStart = os.clock()
+            while not purchaseComplete and not watchdogAborted and (os.clock() - waitStart) < 8 do
+                task.wait(0.1)
+            end
+            if watchdogAborted then
+                logStep("Compra abortada pelo Watchdog.")
+                return
+            end
+            if not purchaseComplete then
+                purchaseComplete = true
+            end
+            logStep("Compra de " .. cfg.name .. " para " .. username .. " finalizada com sucesso!")
+            return
+        end
+
         logStep("Verificando loja de frutas no Roblox...")
         local shopGui = playerGui:FindFirstChild("FruitShopAndDealer")
         
