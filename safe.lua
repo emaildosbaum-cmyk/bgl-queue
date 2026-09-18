@@ -1113,12 +1113,10 @@ local function getGamepassConfig(itemName)
 end
 
 local function getActiveGamepassConfig()
+    -- USA APENAS activeTargetFruit (não currentSettings.item_name!)
+    -- currentSettings.item_name persiste entre compras e contaminaria frutas com estado de gamepass
     if activeTargetFruit and activeTargetFruit ~= "" then
         local cfg = getGamepassConfig(activeTargetFruit)
-        if cfg then return cfg end
-    end
-    if currentSettings and currentSettings.item_name then
-        local cfg = getGamepassConfig(currentSettings.item_name)
         if cfg then return cfg end
     end
     return nil
@@ -1270,7 +1268,9 @@ local function formatFruitForNotification(rawFruit)
     end
 
     -- Gamepasses: retorna o nome oficial sem aplicar title-case nem "Permanent"
-    local gpTarget = getGamepassConfig(clean) or getActiveGamepassConfig()
+    -- Usa APENAS getActiveGamepassConfig (baseado no activeTargetFruit corrente),
+    -- NÃO faz substring match no clean pois pode causar falso positivo em nomes de frutas.
+    local gpTarget = getActiveGamepassConfig()
     if gpTarget then
         return gpTarget.name
     end
@@ -2174,6 +2174,8 @@ closeGui = function()
     fill.Position = UDim2.new(0, 0, 0, 0)
     canBuy = false
     GuiBusy = false
+    -- Limpa estado de gamepass/chromatic ao fechar para não contaminar próxima compra
+    activeTargetFruit = nil
 end
 
 local function updateBuyGuiImage(fruitName)
@@ -2194,7 +2196,8 @@ local function updateBuyGuiImage(fruitName)
     end
 
     -- 0b. Gamepasses: Busca imagem oficial via MarketplaceService (GamePass InfoType)
-    local gpCfg = getGamepassConfig(cleanFruit) or getGamepassConfig(fruit) or getActiveGamepassConfig()
+    -- Usa APENAS getActiveGamepassConfig para evitar falso positivo por substring em nomes de frutas
+    local gpCfg = getActiveGamepassConfig()
     if gpCfg then
         local gpImg = fetchGamepassImage(gpCfg.gamepassId)
         if gpImg then
@@ -2442,6 +2445,8 @@ local function openGui()
         task.wait(0.25 + math.random(30, 60) / 1000)
         purchaseComplete = true
         reportPurchaseFinished("success")
+        -- Limpa o estado de alvo ativo para que a próxima compra não herde gamepass/chromatic antigo
+        activeTargetFruit = nil
         task.spawn(restMouse)
     end)
 end
