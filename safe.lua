@@ -2289,6 +2289,7 @@ local function updateBuyGuiImage(fruitName)
 end
 
 local function activateGiftCancelButton()
+    task.wait(0.6)
     pcall(function()
         local gw = playerGui:FindFirstChild("GiftWindow")
         if not gw then return end
