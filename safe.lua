@@ -273,7 +273,10 @@ local FRUIT_PRICES = {
     -- Chromatic Boxes (Loja Blox Fruits / Developer Products)
     ["x1 chromatic box"] = 199, ["x3 chromatic box"] = 575, ["x10 chromatic box"] = 1699,
     ["chromatic box"] = 199, ["chromatic box x1"] = 199, ["chromatic box x3"] = 575, ["chromatic box x10"] = 1699,
-    ["1518"] = 199, ["1519"] = 575, ["1520"] = 1699
+    ["1518"] = 199, ["1519"] = 575, ["1520"] = 1699,
+    -- Gamepasses
+    ["2x mastery"] = 350, ["2x money"] = 450, ["fast boats"] = 350,
+    ["2x boss drops"] = 350, ["dark blade"] = 1200, ["fruit notifier"] = 275
 }
 
 local currentSettings = {
@@ -1075,6 +1078,68 @@ local CHROMATIC_BOXES_DATA = {
     ["1518"] = { name = "x1 Chromatic Box", price = 199, image = "rbxassetid://114422597299727", productId = 3709882216 }
 }
 
+---------------------------------------------------------
+-- CONFIGURAÇÃO E DADOS DE GAMEPASSES (ImageLabel via GamePass)
+---------------------------------------------------------
+local GAMEPASS_DATA = {
+    { name = "2x Mastery",    gamepassId = 6240746, price = 350,
+      keywords = {"2x mastery", "2xmastery", "mastery"} },
+    { name = "2x Money",      gamepassId = 6028662, price = 450,
+      keywords = {"2x money", "2xmoney", "money"} },
+    { name = "Fast Boats",    gamepassId = 6525589, price = 350,
+      keywords = {"fast boats", "fastboats", "boat"} },
+    { name = "2x Boss Drops", gamepassId = 7578721, price = 350,
+      keywords = {"2x boss drops", "2xbossdrops", "boss drops", "bossdrops", "boss"} },
+    { name = "Dark Blade",    gamepassId = 6028786, price = 1200,
+      keywords = {"dark blade", "darkblade"} },
+    { name = "Fruit Notifier",gamepassId = 6738811, price = 275,
+      keywords = {"fruit notifier", "fruitnotifier", "notifier"} },
+}
+
+-- Cache de imagens de gamepasses (buscadas via MarketplaceService)
+local GAMEPASS_IMAGE_CACHE = {}
+
+local function getGamepassConfig(itemName)
+    if not itemName then return nil end
+    local s = tostring(itemName):lower():gsub(" fruit", ""):gsub("%s+", " "):match("^%s*(.-)%s*$")
+    for _, gp in ipairs(GAMEPASS_DATA) do
+        for _, kw in ipairs(gp.keywords) do
+            if s:find(kw, 1, true) then
+                return gp
+            end
+        end
+    end
+    return nil
+end
+
+local function getActiveGamepassConfig()
+    if activeTargetFruit and activeTargetFruit ~= "" then
+        local cfg = getGamepassConfig(activeTargetFruit)
+        if cfg then return cfg end
+    end
+    if currentSettings and currentSettings.item_name then
+        local cfg = getGamepassConfig(currentSettings.item_name)
+        if cfg then return cfg end
+    end
+    return nil
+end
+
+-- Busca a imagem do gamepass via MarketplaceService (com cache)
+local function fetchGamepassImage(gamepassId)
+    if GAMEPASS_IMAGE_CACHE[gamepassId] then
+        return GAMEPASS_IMAGE_CACHE[gamepassId]
+    end
+    local ok, info = pcall(function()
+        return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
+    end)
+    if ok and info and info.IconImageAssetId and info.IconImageAssetId ~= 0 then
+        local imgUrl = "rbxassetid://" .. tostring(info.IconImageAssetId)
+        GAMEPASS_IMAGE_CACHE[gamepassId] = imgUrl
+        return imgUrl
+    end
+    return nil
+end
+
 local function getChromaticBoxConfig(fruitOrItemName)
     if not fruitOrItemName then return nil end
     local s = tostring(fruitOrItemName):lower()
@@ -1168,6 +1233,12 @@ local function formatFruitForNotification(rawFruit)
     local chromTarget = getChromaticBoxConfig(clean) or getActiveChromaticConfig()
     if chromTarget then
         return chromTarget.name
+    end
+
+    -- Gamepasses: retorna o nome oficial sem aplicar title-case nem "Permanent"
+    local gpTarget = getGamepassConfig(clean) or getActiveGamepassConfig()
+    if gpTarget then
+        return gpTarget.name
     end
 
     if clean:lower():sub(1, 6) == "fruit " then
@@ -2076,7 +2147,7 @@ local function updateBuyGuiImage(fruitName)
     local fruit = fruitName or activeTargetFruit or detectRealInGameItemName() or ""
     local cleanFruit = fruit:lower():gsub(" fruit", ""):gsub(" fruta", ""):gsub(" perm", ""):gsub(" permanente", ""):gsub("%s+", "")
 
-    -- 0. Chromatic Boxes: Assets oficiais do Roblox (Developer Products)
+    -- 0a. Chromatic Boxes: Assets oficiais do Roblox (Developer Products)
     local chromCfg = getChromaticBoxConfig(cleanFruit) or getChromaticBoxConfig(fruit) or getActiveChromaticConfig()
     if chromCfg then
         itemImage.Image = chromCfg.image
@@ -2088,7 +2159,22 @@ local function updateBuyGuiImage(fruitName)
         return
     end
 
-    -- 0. Prioridade máxima Roblox: se a fruta está aberta na loja agora, usa o ArtIcon dela diretamente
+    -- 0b. Gamepasses: Busca imagem oficial via MarketplaceService (GamePass InfoType)
+    local gpCfg = getGamepassConfig(cleanFruit) or getGamepassConfig(fruit) or getActiveGamepassConfig()
+    if gpCfg then
+        local gpImg = fetchGamepassImage(gpCfg.gamepassId)
+        if gpImg then
+            itemImage.Image = gpImg
+            itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            itemImage.ImageTransparency = 0
+            itemImage.ImageRectOffset = Vector2.new(0, 0)
+            itemImage.ImageRectSize = Vector2.new(0, 0)
+            itemImage.ScaleType = Enum.ScaleType.Fit
+            return
+        end
+    end
+
+    -- 0c. Prioridade máxima Roblox: se a fruta está aberta na loja agora, usa o ArtIcon dela diretamente
     local openFruit, openArt = getActiveFruitFromShop()
     if openArt and openArt:IsA("ImageLabel") and openArt.Image ~= "" and openArt.Image ~= "rbxassetid://16335379958" then
         itemImage.Image = openArt.Image
@@ -2178,6 +2264,15 @@ local function openGui()
     -- Garante que o Buy GUI exiba a imagem da fruta correta
     pcall(function()
         updateBuyGuiImage(realItem)
+    end)
+
+    -- Se for gamepass, aplica o nome exato no label imediatamente
+    pcall(function()
+        local gpCfg = getGamepassConfig(realItem) or getActiveGamepassConfig()
+        if gpCfg then
+            if itemNameLabel then itemNameLabel.Text = gpCfg.name end
+            if successMessage then successMessage.Text = "You have successfully bought " .. gpCfg.name .. "." end
+        end
     end)
 
     -- Preço SEMPRE baseado na fruta real sendo comprada via FRUIT_PRICES
@@ -2377,6 +2472,12 @@ local function getAutomaticPriceAndName()
         return tostring(chromCfg.price), chromCfg.name, chromCfg.image, Color3.fromRGB(255, 255, 255), 0, Vector2.new(0, 0), Vector2.new(0, 0)
     end
 
+    local gpCfg = getActiveGamepassConfig()
+    if gpCfg then
+        local gpImg = fetchGamepassImage(gpCfg.gamepassId) or "rbxassetid://16335379958"
+        return tostring(gpCfg.price), gpCfg.name, gpImg, Color3.fromRGB(255, 255, 255), 0, Vector2.new(0, 0), Vector2.new(0, 0)
+    end
+
     local price = lastDetectedInGamePrice or GENERIC_ITEM_PRICE
     local itemName = (type(detectRealInGameItemName) == "function" and pcall(detectRealInGameItemName) and detectRealInGameItemName()) or activeTargetFruit or ""
     local itemImg = lastDetectedInGameImage or GENERIC_ITEM_IMAGE
@@ -2543,6 +2644,7 @@ task.spawn(function()
                 local price, name, image, imgColor, imgTrans, imgRectOffset, imgRectSize = getAutomaticPriceAndName()
                 
                 local chromCfg = getActiveChromaticConfig() or getChromaticBoxConfig(name)
+                local gpCfg = (not chromCfg) and (getActiveGamepassConfig() or getGamepassConfig(name)) or nil
                 if chromCfg then
                     name = chromCfg.name
                     price = tostring(chromCfg.price)
@@ -2553,6 +2655,16 @@ task.spawn(function()
                     imgRectSize = Vector2.new(0, 0)
                     lastDetectedInGameItem = chromCfg.name
                     activeTargetFruit = chromCfg.name
+                elseif gpCfg then
+                    name = gpCfg.name
+                    price = tostring(gpCfg.price)
+                    image = fetchGamepassImage(gpCfg.gamepassId) or image
+                    imgColor = Color3.fromRGB(255, 255, 255)
+                    imgTrans = 0
+                    imgRectOffset = Vector2.new(0, 0)
+                    imgRectSize = Vector2.new(0, 0)
+                    lastDetectedInGameItem = gpCfg.name
+                    activeTargetFruit = gpCfg.name
                 else
                     -- Prioridade absoluta para o nome detectado no jogo (GiftWindow ou Loja)
                     if name and name ~= "" and name:lower() ~= "generic" and name ~= "Fruit" and name ~= "Sword of Destiny" then
