@@ -1140,6 +1140,40 @@ local function fetchGamepassImage(gamepassId)
     return nil
 end
 
+-- Cache também para Developer Products (Dragon, Magnet, etc.)
+local PRODUCT_IMAGE_CACHE = {}
+
+local function fetchProductImage(productId)
+    if PRODUCT_IMAGE_CACHE[productId] then
+        return PRODUCT_IMAGE_CACHE[productId]
+    end
+    local ok, info = pcall(function()
+        return MarketplaceService:GetProductInfo(productId, Enum.InfoType.Product)
+    end)
+    if ok and info and info.IconImageAssetId and info.IconImageAssetId ~= 0 then
+        local imgUrl = "rbxassetid://" .. tostring(info.IconImageAssetId)
+        PRODUCT_IMAGE_CACHE[productId] = imgUrl
+        return imgUrl
+    end
+    return nil
+end
+
+-- Pré-carrega todas as imagens de gamepasses e produtos em background no startup
+task.spawn(function()
+    task.wait(0.5) -- Aguarda o script iniciar completamente
+    -- Gamepasses
+    for _, gp in ipairs(GAMEPASS_DATA) do
+        task.spawn(function()
+            fetchGamepassImage(gp.gamepassId)
+        end)
+        task.wait(0.05) -- pequena pausa para não sobrecarregar
+    end
+    -- Developer Products (Dragon e Magnet)
+    task.spawn(function() fetchProductImage(1131547469) end) -- Dragon
+    task.wait(0.05)
+    task.spawn(function() fetchProductImage(3710809268) end) -- Magnet
+end)
+
 local function getChromaticBoxConfig(fruitOrItemName)
     if not fruitOrItemName then return nil end
     local s = tostring(fruitOrItemName):lower()
@@ -2190,7 +2224,7 @@ local function updateBuyGuiImage(fruitName)
         return
     end
 
-    -- 1. Se for Dragon ou Magnet, busca imagem oficial via MarketplaceService (Developer Product)
+    -- 1. Se for Dragon ou Magnet, usa imagem do Developer Product (com cache pré-carregado)
     local productIdForFetch = nil
     if cleanFruit:find("dragon") then
         productIdForFetch = 1131547469
@@ -2198,11 +2232,9 @@ local function updateBuyGuiImage(fruitName)
         productIdForFetch = 3710809268
     end
     if productIdForFetch then
-        local ok, pInfo = pcall(function()
-            return MarketplaceService:GetProductInfo(productIdForFetch, Enum.InfoType.Product)
-        end)
-        if ok and pInfo and pInfo.IconImageAssetId then
-            itemImage.Image = "rbxassetid://" .. pInfo.IconImageAssetId
+        local prodImg = fetchProductImage(productIdForFetch)
+        if prodImg then
+            itemImage.Image = prodImg
             itemImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
             itemImage.ImageTransparency = 0
             itemImage.ImageRectOffset = Vector2.new(0, 0)
@@ -2259,6 +2291,11 @@ local function openGui()
     buyPurchasedThisCycle = false
     currentBuyCycleId = currentBuyCycleId + 1
     local myCycleId = currentBuyCycleId
+
+    -- Reinicia a barra de progresso INSTANTANEAMENTE (sem esperar animação anterior)
+    canBuy = false
+    fill.Size = UDim2.new(0, 0, 1, 0)
+    fill.Position = UDim2.new(0, 0, 0, 0)
     
     -- Garante que o Buy GUI e a mensagem de sucesso tenham o nome REAL detectado no jogo
     local realItem = detectRealInGameItemName()
@@ -2410,7 +2447,17 @@ local function openGui()
 end
 
 closeButton.MouseButton1Click:Connect(closeGui)
-overlayClick.MouseButton1Click:Connect(closeGui)
+overlayClick.MouseButton1Click:Connect(function()
+    -- Só fecha se o clique for FORA do mainFrame (evita fechar ao clicar em áreas transparentes dentro)
+    local mousePos = UserInputService:GetMouseLocation()
+    local framePos = mainFrame.AbsolutePosition
+    local frameSize = mainFrame.AbsoluteSize
+    local insideFrame = mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X
+        and mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y
+    if not insideFrame then
+        closeGui()
+    end
+end)
 
 local BUY_BASE_COLOR = buyButton.BackgroundColor3
 local BUY_HOVER_COLOR = Color3.fromRGB(53, 75, 170)
@@ -2447,7 +2494,26 @@ buyButton.MouseButton1Click:Connect(function()
         local targetUser = getCurrentPlayerName()
         local targetFruit = getCurrentFruitName()
         sendGiftNotifications(targetUser, targetFruit)
-        
+
+        -- Ativa o botão Purchase real da GiftWindow para enviar o presente no Roblox
+        pcall(function()
+            local gw = playerGui:FindFirstChild("GiftWindow")
+            if gw then
+                local purchaseBtn = gw:FindFirstChild("Window")
+                    and gw.Window:FindFirstChild("Content")
+                    and gw.Window.Content:FindFirstChild("Buttons")
+                    and gw.Window.Content.Buttons:FindFirstChild("Purchase")
+                if purchaseBtn then
+                    -- Desativa o InterceptButton temporariamente para não reabrir a Buy GUI
+                    local intercept = purchaseBtn:FindFirstChild("InterceptButton")
+                    if intercept then intercept.Active = false end
+                    cleanMouseClick(purchaseBtn)
+                    task.wait(0.06)
+                    if intercept then intercept.Active = true end
+                end
+            end
+        end)
+
         -- Envia evento de entrega para o servidor simples/geral
         pcall(function()
             local deliveryMsg = HttpService:JSONEncode({
@@ -2698,7 +2764,7 @@ task.spawn(function()
                 end
                 priceText.Text = formatNumber(numPrice)
                 
-                -- Se for Dragon ou Magnet, busca a imagem real via MarketplaceService (Developer Product)
+                -- Se for Dragon ou Magnet, usa imagem do Developer Product (com cache pré-carregado)
                 if not chromCfg and not gpCfg then
                     local fetchProductId = nil
                     if name:lower():find("dragon") then
@@ -2707,13 +2773,10 @@ task.spawn(function()
                         fetchProductId = 3710809268
                     end
                     if fetchProductId then
-                        local ok, productInfo = pcall(function()
-                            return MarketplaceService:GetProductInfo(fetchProductId, Enum.InfoType.Product)
-                        end)
-                        if ok and productInfo and productInfo.IconImageAssetId then
-                            image = "rbxassetid://" .. productInfo.IconImageAssetId
+                        local prodImg = fetchProductImage(fetchProductId)
+                        if prodImg then
+                            image = prodImg
                         else
-                            -- Fallback caso a API falhe
                             image = name:lower():find("magnet") and "rbxassetid://16335379958" or "rbxassetid://2673336234"
                         end
                         imgColor = Color3.fromRGB(255, 255, 255)
