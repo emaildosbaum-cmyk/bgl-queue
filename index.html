@@ -2785,7 +2785,11 @@
           .on("postgres_changes", { event: "*", schema: "public", table: "bgl_user_steps" }, (payload) => {
             if (!currentUser || !currentUser.uid) return;
             if (payload.new && String(payload.new.user_id) === String(currentUser.uid)) {
-              updateAutomationStep(payload.new.current_step, payload.new.step_name, payload.new.status, payload.new.target_nick);
+              if (payload.new.current_step === 0 || payload.new.status === "idle") {
+                resetAutomationStepper(false);
+              } else {
+                updateAutomationStep(payload.new.current_step, payload.new.step_name, payload.new.status, payload.new.target_nick);
+              }
             }
           })
           .on("postgres_changes", { event: "*", schema: "public", table: "bgl_user_configs" }, (payload) => {
@@ -3044,8 +3048,16 @@
           .select("*")
           .eq("user_id", currentUser.uid)
           .maybeSingle();
-        if (stepData && stepData.current_step !== undefined) {
-          updateAutomationStep(stepData.current_step, stepData.step_name, stepData.status, stepData.target_nick);
+        if (stepData) {
+          const updatedTs = new Date(stepData.updated_at || 0).getTime();
+          const isFresh = (Date.now() - updatedTs) < 15000;
+          if (stepData.current_step > 0 && isFresh && (stepData.status === "in_progress" || stepData.status === "running")) {
+            updateAutomationStep(stepData.current_step, stepData.step_name, stepData.status, stepData.target_nick);
+          } else {
+            resetAutomationStepper(stepData.current_step !== 0);
+          }
+        } else {
+          resetAutomationStepper();
         }
       } else {
         const { data: qData, error } = await supabaseClient
@@ -3731,11 +3743,26 @@
   }
 
   // ── Stepper 6 Passos ─────────────────────────────────────────
+  let _stepperResetTimer = null;
+
   function updateAutomationStep(stepIndex, stepName, status, username, reason) {
     const userBadge = document.getElementById('stepper-user-badge');
-    if (username && userBadge) userBadge.innerText = '👤 ' + username;
-
     const idx = parseInt(stepIndex) || 0;
+
+    if (_stepperResetTimer) {
+      clearTimeout(_stepperResetTimer);
+      _stepperResetTimer = null;
+    }
+
+    if (idx === 0 || status === 'idle') {
+      resetAutomationStepper(false);
+      return;
+    }
+
+    if (username && userBadge) {
+      userBadge.innerText = '👤 ' + username;
+    }
+
     if (idx >= 1 && idx <= 6) {
       for (let i = 1; i <= 6; i++) {
         const pill = document.getElementById('step-pill-' + i);
@@ -3744,28 +3771,47 @@
 
         if (i < idx) {
           pill.className = 'step-pill step-done';
+          pill.style.borderColor = '';
           if (badge) badge.innerText = '✅ Concluído';
         } else if (i === idx) {
-          if (status === 'aborted') {
+          if (status === 'aborted' || status === 'error' || status === 'cancelled') {
             pill.className = 'step-pill step-pending';
             pill.style.borderColor = 'var(--accent-red)';
             if (badge) badge.innerText = '⚠️ Erro';
-          } else if (status === 'success') {
+          } else if (status === 'success' || status === 'done' || status === 'completed') {
             pill.className = 'step-pill step-done';
+            pill.style.borderColor = '';
             if (badge) badge.innerText = '✅ Concluído';
           } else {
             pill.className = 'step-pill step-active';
+            pill.style.borderColor = '';
             if (badge) badge.innerText = '⏳ Em andamento';
           }
         } else {
           pill.className = 'step-pill step-pending';
+          pill.style.borderColor = '';
           if (badge) badge.innerText = 'Pendente';
         }
+      }
+
+      // Se concluiu o passo 6 ou se deu erro/abortou, agenda o reset de volta para "Aguardando fila..."
+      if (idx === 6 && (status === 'success' || status === 'done' || status === 'completed')) {
+        _stepperResetTimer = setTimeout(() => {
+          resetAutomationStepper(true);
+        }, 3500);
+      } else if (status === 'aborted' || status === 'error' || status === 'cancelled') {
+        _stepperResetTimer = setTimeout(() => {
+          resetAutomationStepper(true);
+        }, 4000);
       }
     }
   }
 
-  function resetAutomationStepper() {
+  async function resetAutomationStepper(syncRemote = false) {
+    if (_stepperResetTimer) {
+      clearTimeout(_stepperResetTimer);
+      _stepperResetTimer = null;
+    }
     const userBadge = document.getElementById('stepper-user-badge');
     if (userBadge) userBadge.innerText = 'Aguardando fila...';
     for (let i = 1; i <= 6; i++) {
@@ -3776,6 +3822,17 @@
         const badge = pill.querySelector('.step-status-badge');
         if (badge) badge.innerText = 'Pendente';
       }
+    }
+    if (syncRemote && currentUser && currentUser.uid && supabaseClient) {
+      try {
+        await supabaseClient.from("bgl_user_steps").update({
+          current_step: 0,
+          step_name: "Aguardando fila...",
+          status: "idle",
+          target_nick: "",
+          updated_at: new Date().toISOString()
+        }).eq("user_id", currentUser.uid);
+      } catch(e) {}
     }
   }
 

@@ -2,15 +2,18 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ojjfwxjirlttpxcjhlho.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamZ3eGppcmx0dHB4Y2pobGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMjExMjcsImV4cCI6MjEwNDc5NzEyN30.QiBcBHLwS2yWbmgi_oAKSmRU1UEFNRXgfyLujmEK7XU";
 
-function parseStepNumber(step) {
+function parseStepNumber(step, explicitIdx) {
+  const exp = parseInt(explicitIdx);
+  if (!isNaN(exp) && exp >= 0 && exp <= 6) return exp;
   if (!step) return 0;
   const s = String(step).toLowerCase();
-  if (s.includes("1") || s.includes("recebeu")) return 1;
-  if (s.includes("2") || s.includes("clicou botão") || s.includes("clicou botao")) return 2;
-  if (s.includes("3") || s.includes("pesquisou")) return 3;
-  if (s.includes("4") || s.includes("clicou player")) return 4;
-  if (s.includes("5") || s.includes("abriu gui")) return 5;
-  if (s.includes("6") || s.includes("concluiu")) return 6;
+  if (s.includes("abort") || s.includes("cancel") || s.includes("falha") || s.includes("erro")) return -1;
+  if (s.includes("recebeu") || s.includes("iniciando compra") || s.includes("passo 1") || s.includes("step 1") || s.includes("verificando loja")) return 1;
+  if (s.includes("gift") || s.includes("presente") || s.includes("slot") || (s.includes("clicou") && s.includes("bot")) || s.includes("passo 2") || s.includes("step 2")) return 2;
+  if (s.includes("pesquis") || s.includes("digitando") || s.includes("search") || s.includes("passo 3") || s.includes("step 3")) return 3;
+  if (s.includes("selecionando") || s.includes("player") || s.includes("jogador") || s.includes("passo 4") || s.includes("step 4")) return 4;
+  if (s.includes("purchase") || s.includes("buy") || s.includes("animação de compra") || s.includes("animacao") || s.includes("abriu gui") || s.includes("passo 5") || s.includes("step 5")) return 5;
+  if (s.includes("finalizada") || s.includes("conclui") || s.includes("sucesso") || s.includes("fechada") || s.includes("passo 6") || s.includes("step 6")) return 6;
   return 0;
 }
 
@@ -78,22 +81,28 @@ module.exports = async (req, res) => {
     }
     const userId = profiles[0].discord_id;
 
+    const rawStepIdx = body.step_index ?? body.current_step ?? urlObj.searchParams.get("step_index") ?? urlObj.searchParams.get("step_num");
     const stepName = body.step || body.step_name || "Em andamento";
-    const stepNum = parseStepNumber(stepName);
+    const stepNum = parseStepNumber(stepName, rawStepIdx);
+
+    const isAborted = (stepNum === -1) || body.status === "aborted" || body.status === "error";
+    const finalStep = isAborted ? 0 : (stepNum < 0 ? 0 : stepNum);
+    const stepStatus = isAborted ? "aborted" : (finalStep === 6 ? "done" : (finalStep === 0 ? "idle" : "in_progress"));
 
     await fetch(`${SUPABASE_URL}/rest/v1/bgl_user_steps?user_id=eq.${encodeURIComponent(userId)}`, {
       method: "PATCH",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({
-        current_step: stepNum,
+        current_step: finalStep,
         step_name: stepName,
-        status: stepNum === 6 ? "done" : "in_progress",
+        target_nick: body.username || body.nick || body.target_nick || undefined,
+        status: stepStatus,
         updated_at: new Date().toISOString()
       })
     });
 
     res.statusCode = 200;
-    return res.end(JSON.stringify({ success: true, step: stepNum }));
+    return res.end(JSON.stringify({ success: true, step: finalStep, status: stepStatus }));
   } catch (err) {
     res.statusCode = 500;
     return res.end(JSON.stringify({ error: err.message }));
