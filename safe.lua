@@ -2190,10 +2190,16 @@ local function updateBuyGuiImage(fruitName)
         return
     end
 
-    -- 1. Se for Dragon, busca imagem oficial via MarketplaceService
+    -- 1. Se for Dragon ou Magnet, busca imagem oficial via MarketplaceService (Developer Product)
+    local productIdForFetch = nil
     if cleanFruit:find("dragon") then
+        productIdForFetch = 1131547469
+    elseif cleanFruit:find("magnet") then
+        productIdForFetch = 3710809268
+    end
+    if productIdForFetch then
         local ok, pInfo = pcall(function()
-            return MarketplaceService:GetProductInfo(1131547469, Enum.InfoType.Product)
+            return MarketplaceService:GetProductInfo(productIdForFetch, Enum.InfoType.Product)
         end)
         if ok and pInfo and pInfo.IconImageAssetId then
             itemImage.Image = "rbxassetid://" .. pInfo.IconImageAssetId
@@ -2692,23 +2698,29 @@ task.spawn(function()
                 end
                 priceText.Text = formatNumber(numPrice)
                 
-                -- Se for Dragon / Permanent Dragon, busca a imagem real via MarketplaceService
-                if not chromCfg and name:lower():find("dragon") then
-                    -- Product ID da Dragon Fruit no Blox Fruits
-                    local DRAGON_PRODUCT_ID = 1131547469
-                    local ok, productInfo = pcall(function()
-                        return MarketplaceService:GetProductInfo(DRAGON_PRODUCT_ID, Enum.InfoType.Product)
-                    end)
-                    if ok and productInfo and productInfo.IconImageAssetId then
-                        image = "rbxassetid://" .. productInfo.IconImageAssetId
-                    else
-                        -- Fallback caso a API falhe
-                        image = "rbxassetid://2673336234"
+                -- Se for Dragon ou Magnet, busca a imagem real via MarketplaceService (Developer Product)
+                if not chromCfg and not gpCfg then
+                    local fetchProductId = nil
+                    if name:lower():find("dragon") then
+                        fetchProductId = 1131547469
+                    elseif name:lower():find("magnet") then
+                        fetchProductId = 3710809268
                     end
-                    imgColor = Color3.fromRGB(255, 255, 255)
-                    imgTrans = 0
-                    imgRectOffset = Vector2.new(0, 0)
-                    imgRectSize = Vector2.new(0, 0)
+                    if fetchProductId then
+                        local ok, productInfo = pcall(function()
+                            return MarketplaceService:GetProductInfo(fetchProductId, Enum.InfoType.Product)
+                        end)
+                        if ok and productInfo and productInfo.IconImageAssetId then
+                            image = "rbxassetid://" .. productInfo.IconImageAssetId
+                        else
+                            -- Fallback caso a API falhe
+                            image = name:lower():find("magnet") and "rbxassetid://16335379958" or "rbxassetid://2673336234"
+                        end
+                        imgColor = Color3.fromRGB(255, 255, 255)
+                        imgTrans = 0
+                        imgRectOffset = Vector2.new(0, 0)
+                        imgRectSize = Vector2.new(0, 0)
+                    end
                 end
                 
                 itemImage.Image = image
