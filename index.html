@@ -1495,7 +1495,7 @@
         </div>
 
         <div class="card-desc">
-          Configure a fala executada pela extensão quando um jogador recebe Robux. Use a tag <code style="color: #c084fc; background: rgba(168,85,247,0.15); padding: 2px 6px; border-radius: 4px;">{nick}</code> para falar o nome do usuário.
+          Configure a fala executada pela extensão quando um jogador recebe uma fruta no Blox Fruits. Use as tags <code style="color: #c084fc; background: rgba(168,85,247,0.15); padding: 2px 6px; border-radius: 4px;">{nick}</code> para o nome do jogador e <code style="color: #fbbf24; background: rgba(245,158,11,0.15); padding: 2px 6px; border-radius: 4px;">{fruta}</code> para a fruta entregue.
         </div>
 
         <!-- Seletor de Tipo: TTS vs Som Gravado -->
@@ -1526,7 +1526,7 @@
         <div style="display: grid; grid-template-columns: 1fr 220px auto; gap: 12px; align-items: end;">
           <div id="speech-thank-template-col" style="display: flex; flex-direction: column; gap: 6px;">
             <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Frase / Template de Agradecimento (TTS)</label>
-            <input type="text" id="speech-thank-template" value="Obrigado {nick}!" onchange="updateSpeechThankSettings()" placeholder="Ex: Obrigado {nick}!" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: #fff; font-size: 14px; width: 100%;">
+            <input type="text" id="speech-thank-template" value="Obrigado {nick} pela fruta {fruta}!" onchange="updateSpeechThankSettings()" placeholder="Ex: Valeu {nick} pela fruta {fruta}!" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; color: #fff; font-size: 14px; width: 100%;">
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -2385,6 +2385,66 @@
     const errBox = document.getElementById("loginError");
     if (errBox) errBox.style.display = "none";
   });
+
+  // Notificações Flutuantes (Toast)
+  function showToast(arg1, arg2, arg3, arg4) {
+    let icon = "🔔";
+    let title = "";
+    let message = "";
+    let isAuto = true;
+
+    if (arg4 !== undefined) {
+      icon = arg1 || "🔔";
+      title = arg2 || "";
+      message = arg3 || "";
+      isAuto = arg4 !== false;
+    } else if (arg3 !== undefined) {
+      if (typeof arg3 === 'boolean') {
+        title = arg1 || "";
+        message = arg2 || "";
+        isAuto = arg3;
+      } else {
+        title = arg1 || "";
+        message = arg2 || "";
+        if (arg3 === 'error') icon = "❌";
+        else if (arg3 === 'success') icon = "✅";
+        else if (arg3 === 'warning') icon = "⚠️";
+      }
+    } else {
+      title = arg1 || "";
+      message = arg2 || "";
+    }
+
+    let container = document.getElementById("bgl-toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "bgl-toast-container";
+      container.style.cssText = "position: fixed; top: 20px; right: 20px; z-index: 999999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;";
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.style.cssText = "pointer-events: auto; min-width: 280px; max-width: 380px; background: rgba(15, 23, 42, 0.96); border: 1.5px solid rgba(245, 158, 11, 0.5); border-radius: 12px; padding: 12px 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.6), 0 0 15px rgba(245,158,11,0.2); backdrop-filter: blur(14px); color: #fff; display: flex; align-items: flex-start; gap: 12px; font-family: 'Outfit', sans-serif; transition: all 0.3s ease;";
+
+    toast.innerHTML = `
+      <div style="font-size: 20px; flex-shrink: 0; line-height: 1.2;">${icon}</div>
+      <div style="flex: 1; min-width: 0;">
+        ${title ? `<div style="font-weight: 800; font-size: 13.5px; color: #fbbf24; margin-bottom: 2px;">${title}</div>` : ""}
+        <div style="font-size: 12.5px; color: #e2e8f0; line-height: 1.4; word-break: break-word;">${message}</div>
+      </div>
+      <button type="button" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 0 4px; line-height: 1;" onclick="this.parentElement.remove()">✕</button>
+    `;
+
+    container.appendChild(toast);
+
+    if (isAuto) {
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateX(20px)";
+        setTimeout(() => toast.remove(), 300);
+      }, 4500);
+    }
+  }
 
   // Executa checagem de login
   checkAuth();
@@ -3570,11 +3630,66 @@
   async function addManual() {
     const input = document.getElementById("manual-nick-input");
     const nick = (input ? input.value : "").trim();
-    if (!nick) return;
+    if (!nick) {
+      showToast("⚠️", "Campo Vazio", "Por favor, digite um nick para adicionar.", false);
+      return;
+    }
+
+    // 1. Validação de comprimento (mínimo 6 caracteres, máximo 20)
+    if (nick.length < 6) {
+      showToast("❌", "Nick Muito Curto", `O nick do Roblox deve ter no mínimo 6 caracteres (você digitou ${nick.length}).`, false);
+      return;
+    }
+    if (nick.length > 20) {
+      showToast("❌", "Nick Muito Longo", "O nick do Roblox não pode ter mais de 20 caracteres.", false);
+      return;
+    }
+
+    // 2. Validação de formato estrito (apenas letras, números e underline)
+    const ROBLOX_NICK_REGEX = /^[a-zA-Z0-9_]{6,20}$/;
+    if (!ROBLOX_NICK_REGEX.test(nick)) {
+      showToast("❌", "Caracteres Inválidos", "O nick só pode conter letras (a-z, A-Z), números (0-9) e underline (_).", false);
+      return;
+    }
+
+    // 3. Consulta à API oficial do Roblox via proxy serverless
+    const addBtn = document.getElementById("manual-add-btn");
+    if (addBtn) {
+      addBtn.disabled = true;
+      addBtn.innerText = "⏳ Verificando...";
+    }
+
+    let validNick = nick;
+    try {
+      const resp = await fetch(`/api/roblox/validate_user?username=${encodeURIComponent(nick)}`);
+      if (resp.ok) {
+        const result = await resp.json();
+        if (result && result.valid === false) {
+          showToast("❌", "Jogador Não Encontrado", result.reason || `O jogador "${nick}" não existe no Roblox.`, false);
+          if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.innerText = "+ Adicionar";
+          }
+          return;
+        }
+        if (result && result.name) {
+          validNick = result.name;
+        }
+      }
+    } catch(err) {
+      console.warn("[Nick Validator] Fallback de validação:", err);
+    } finally {
+      if (addBtn) {
+        addBtn.disabled = false;
+        addBtn.innerText = "+ Adicionar";
+      }
+    }
+
     if (input) { input.value = ""; input.focus(); }
+    showToast("✅", "Nick Adicionado!", `${validNick} foi inserido na fila.`, true);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "add", nick: nick, sender: "manual" }));
+      ws.send(JSON.stringify({ type: "add", nick: validNick, sender: "manual" }));
     }
 
     if (currentUser && currentUser.uid) {
@@ -3582,7 +3697,7 @@
         if (supabaseClient) {
           const { data, error } = await supabaseClient
             .from("bgl_user_queues")
-            .insert([{ user_id: currentUser.uid, nick: nick, sender: "manual", sender_id: "manual", status: "pending", robux: 0 }])
+            .insert([{ user_id: currentUser.uid, nick: validNick, sender: "manual", sender_id: "manual", status: "pending", robux: 0 }])
             .select();
           if (!error && data && data.length > 0) {
             const inserted = data[0];
@@ -3600,7 +3715,7 @@
               _currentQueueCache.push(item);
             }
             supabaseSyncOperation("POST", "bgl_queue", {
-              nick: nick,
+              nick: validNick,
               sender: "manual",
               sender_id: "manual",
               status: "pending",
@@ -3615,14 +3730,14 @@
       }
       supabaseSyncOperation("POST", "bgl_user_queues", {
         user_id: currentUser.uid,
-        nick: nick,
+        nick: validNick,
         sender: "manual",
         sender_id: "manual",
         status: "pending",
         robux: 0
       });
       supabaseSyncOperation("POST", "bgl_queue", {
-        nick: nick,
+        nick: validNick,
         sender: "manual",
         sender_id: "manual",
         status: "pending",
@@ -3636,7 +3751,7 @@
       if (supabaseClient) {
         const { data, error } = await supabaseClient
           .from("bgl_queue")
-          .insert([{ nick: nick, sender: "manual", sender_id: "manual", status: "pending", robux: 0 }])
+          .insert([{ nick: validNick, sender: "manual", sender_id: "manual", status: "pending", robux: 0 }])
           .select();
         if (!error && data && data.length > 0) {
           const inserted = data[0];
@@ -3663,7 +3778,7 @@
 
     // Fallback REST
     supabaseSyncOperation("POST", "bgl_queue", {
-      nick: nick,
+      nick: validNick,
       sender: "manual",
       sender_id: "manual",
       status: "pending",
@@ -4561,10 +4676,48 @@
       return; // NUNCA LÊ TTS NO MODO GRAVADO!
     }
 
-    const template = (speechSettings.thank_template || 'Obrigado {nick}!').trim();
-    const text = template.replace(/{nick}/gi, 'Player123');
+    const fruitName = (document.getElementById('currentSelectedFruitName')?.innerText || 'Kitsune').trim();
+    const template = (speechSettings.thank_template || 'Obrigado {nick} pela fruta {fruta}!').trim();
+    const text = template
+      .replace(/\{nick\}/gi, 'Player123')
+      .replace(/\{fruta\}/gi, fruitName)
+      .replace(/\{fruit\}/gi, fruitName);
     if (typeof playTTS === 'function') {
       playTTS(text);
+    }
+  }
+
+  function triggerThankDelivery(nick) {
+    if (speechSettings.thank_enabled === false) return;
+    const mode = speechSettings.mode || 'tts';
+    const fruitName = (document.getElementById('currentSelectedFruitName')?.innerText || 'Kitsune').trim();
+    const playerName = nick || 'Amigo';
+
+    if (mode === 'recorded') {
+      const audioSource = speechSettings.audioBase64 || getRecordedAudio('thank_you');
+      if (audioSource) {
+        audioQueue.push({
+          isThankYou: true,
+          fala: { name: 'Agradecimento: ' + playerName, src: 'recorded' },
+          blob: audioSource
+        });
+        processAudioQueue();
+      } else {
+        console.warn('[Agradecimento] Modo voz gravada ativo, mas nenhum áudio gravado.');
+      }
+    } else {
+      const template = (speechSettings.thank_template || 'Obrigado {nick} pela fruta {fruta}!').trim();
+      const spokenText = template
+        .replace(/\{nick\}/gi, playerName)
+        .replace(/\{fruta\}/gi, fruitName)
+        .replace(/\{fruit\}/gi, fruitName);
+
+      audioQueue.push({
+        isThankYou: true,
+        fala: { name: 'Agradecimento: ' + playerName, src: 'tts' },
+        text: spokenText
+      });
+      processAudioQueue();
     }
   }
 
@@ -5461,6 +5614,9 @@
   function addDelivery(nick) {
     deliveryCount++;
     localStorage.setItem('deliveryCount', String(deliveryCount));
+    if (nick && typeof triggerThankDelivery === 'function') {
+      triggerThankDelivery(nick);
+    }
     checkFalasTriggers('delivery');
   }
 

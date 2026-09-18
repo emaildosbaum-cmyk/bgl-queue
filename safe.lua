@@ -21,10 +21,105 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local CoreGui = pcall(function() return game:GetService("CoreGui") end) and game:GetService("CoreGui") or nil
 local TextChatService = pcall(function() return game:GetService("TextChatService") end) and game:GetService("TextChatService") or nil
 
 local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local playerGui = player:WaitForChild("PlayerGui")
+
+---------------------------------------------------------
+-- AUTO-REJOIN EM SERVIDOR ALEATÓRIO (SEM ANTI-AFK)
+---------------------------------------------------------
+local autoRejoining = false
+
+local function performAutoRejoin(reason)
+    if autoRejoining then return end
+    autoRejoining = true
+    warn("[Safe.lua Auto-Rejoin] Desconexão detectada (" .. tostring(reason) .. "). Reconectando em servidor público aleatório...")
+
+    pcall(function()
+        local StarterGui = game:GetService("StarterGui")
+        StarterGui:SetCore("SendNotification", {
+            Title = "Auto-Rejoin",
+            Text = "Conexão perdida! Reconectando a um novo servidor...",
+            Duration = 5
+        })
+    end)
+
+    task.wait(2.5)
+
+    local function tryTeleportRandomServer()
+        local placeId = game.PlaceId
+        local success = false
+
+        pcall(function()
+            local serversUrl = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Desc&limit=100", tostring(placeId))
+            local response = nil
+            if typeof(request) == "function" then
+                response = request({ Url = serversUrl, Method = "GET" })
+            elseif typeof(http_request) == "function" then
+                response = http_request({ Url = serversUrl, Method = "GET" })
+            elseif syn and typeof(syn.request) == "function" then
+                response = syn.request({ Url = serversUrl, Method = "GET" })
+            end
+
+            if response and response.Body then
+                local data = HttpService:JSONDecode(response.Body)
+                if data and data.data and #data.data > 0 then
+                    local validServers = {}
+                    for _, s in ipairs(data.data) do
+                        if s.playing and s.maxPlayers and s.playing < s.maxPlayers and s.id ~= game.JobId then
+                            table.insert(validServers, s.id)
+                        end
+                    end
+                    if #validServers > 0 then
+                        local randomJobId = validServers[math.random(1, #validServers)]
+                        TeleportService:TeleportToPlaceInstance(placeId, randomJobId, player)
+                        success = true
+                    end
+                end
+            end
+        end)
+
+        if not success then
+            pcall(function()
+                TeleportService:Teleport(placeId, player)
+            end)
+        end
+    end
+
+    while true do
+        tryTeleportRandomServer()
+        task.wait(5)
+    end
+end
+
+-- Monitora evento de erro de desconexão do GuiService
+pcall(function()
+    GuiService.ErrorMessageChanged:Connect(function(errorMessage)
+        if errorMessage and #errorMessage > 0 then
+            performAutoRejoin("GuiService Error: " .. tostring(errorMessage))
+        end
+    end)
+end)
+
+-- Monitora prompt nativo de desconexão da RobloxPromptGui
+pcall(function()
+    if CoreGui and CoreGui:FindFirstChild("RobloxPromptGui") then
+        local promptOverlay = CoreGui.RobloxPromptGui:FindFirstChild("promptOverlay")
+        if promptOverlay then
+            promptOverlay.ChildAdded:Connect(function(child)
+                if child.Name == "ErrorPrompt" then
+                    performAutoRejoin("ErrorPrompt Detected")
+                end
+            end)
+            if promptOverlay:FindFirstChild("ErrorPrompt") then
+                performAutoRejoin("ErrorPrompt Already Present")
+            end
+        end
+    end
+end)
 
 ---------------------------------------------------------
 -- PROVA DE LIVE (ANTI-GRAVAÇÃO / MOVIMENTO, DASH, PULO, ZOOM E CHAT LOCAL)
