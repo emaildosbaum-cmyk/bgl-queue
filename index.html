@@ -1329,7 +1329,7 @@
           <!-- Fruta Selecionada + Botão de Abrir Menu -->
           <div style="display: flex; align-items: center; gap: 10px;">
             <button type="button" onclick="toggleFruitSelectorModal()" class="btn-secondary" style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 7px 14px; border-color: rgba(245, 158, 11, 0.45); color: #fbbf24; background: rgba(245, 158, 11, 0.12); cursor: pointer; border-radius: var(--radius-sm);">
-              <img id="currentSelectedFruitThumb" src="/assets/fruit_kitsune.jpg" onerror="this.src='/assets/logo.jpg'" alt="Fruta" style="width: 24px; height: 24px; border-radius: 6px; object-fit: cover; border: 1.5px solid #fbbf24; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);">
+              <img id="currentSelectedFruitThumb" src="/assets/fruits/kitsune.png" onerror="this.src='/assets/logo.jpg'" alt="Fruta" style="width: 26px; height: 26px; border-radius: 6px; object-fit: contain; background: rgba(0,0,0,0.35); padding: 1px; border: 1.5px solid #fbbf24; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);">
               <span>Fruta Atual: <b id="currentSelectedFruitName" style="color: #fff;">Kitsune</b></span>
               <span style="font-size: 11px; opacity: 0.8;">▼</span>
             </button>
@@ -3028,6 +3028,11 @@
               }
               if (priceEl && userCfg.general_settings.item_price && userCfg.general_settings.item_price !== '1,250') {
                 priceEl.textContent = Number(userCfg.general_settings.item_price).toLocaleString() + ' R$';
+              }
+              const thumbEl = document.getElementById('currentSelectedFruitThumb');
+              if (thumbEl && userCfg.general_settings.item_name) {
+                thumbEl.src = getFruitImage(userCfg.general_settings.item_name);
+                thumbEl.style.display = 'inline-block';
               }
             }
           }
@@ -5922,8 +5927,8 @@
           const thumbEl = document.getElementById('currentSelectedFruitThumb');
           if (nameEl) nameEl.textContent = parsed.name;
           if (priceEl) priceEl.textContent = (parsed.price ? Number(parsed.price).toLocaleString() : '4,000') + ' R$';
-          if (thumbEl && FRUIT_CUSTOM_IMAGES[parsed.name]) {
-            thumbEl.src = FRUIT_CUSTOM_IMAGES[parsed.name];
+          if (thumbEl) {
+            thumbEl.src = getFruitImage(parsed.name);
             thumbEl.style.display = 'inline-block';
           }
         }
@@ -6295,11 +6300,56 @@
   // SELETOR DE FRUTAS (BLOX FRUITS UPDATE 30)
   // =========================================================
   const FRUIT_CUSTOM_IMAGES = {
-    "Kitsune": "/assets/fruit_kitsune.jpg",
-    "Magnet": "/assets/fruit_magnet.jpg",
-    "Yeti": "/assets/fruit_yeti.jpg",
-    "Buddha": "/assets/fruit_buddha.jpg"
+    "Magnet": "/assets/fruits/magnet.png",
+    "Yeti": "/assets/fruits/yeti.png",
+    "Gas": "/assets/fruits/gas.png",
+    "Kitsune": "/assets/fruits/kitsune.png",
+    "Leopard": "/assets/fruits/leopard.png",
+    "Dragon": "/assets/fruits/dragon.png",
+    "Spirit": "/assets/fruits/spirit.png",
+    "Control": "/assets/fruits/control.png",
+    "Venom": "/assets/fruits/venom.png",
+    "Shadow": "/assets/fruits/shadow.png",
+    "Dough": "/assets/fruits/dough.png",
+    "T-Rex": "/assets/fruits/t_rex.png",
+    "Mammoth": "/assets/fruits/mammoth.png",
+    "Gravity": "/assets/fruits/gravity.png",
+    "Blizzard": "/assets/fruits/blizzard.png",
+    "Pain": "/assets/fruits/pain.png",
+    "Rumble": "/assets/fruits/rumble.png",
+    "Portal": "/assets/fruits/portal.png",
+    "Phoenix": "/assets/fruits/phoenix.png",
+    "Sound": "/assets/fruits/sound.png",
+    "Spider": "/assets/fruits/spider.png",
+    "Love": "/assets/fruits/love.png",
+    "Buddha": "/assets/fruits/buddha.png",
+    "Quake": "/assets/fruits/quake.png",
+    "Magma": "/assets/fruits/magma.png",
+    "Ghost": "/assets/fruits/ghost.png",
+    "Barrier": "/assets/fruits/barrier.png",
+    "Rubber": "/assets/fruits/rubber.png",
+    "Light": "/assets/fruits/light.png",
+    "Diamond": "/assets/fruits/diamond.png",
+    "Dark": "/assets/fruits/dark.png",
+    "Sand": "/assets/fruits/sand.png",
+    "Ice": "/assets/fruits/ice.png",
+    "Falcon": "/assets/fruits/falcon.png",
+    "Flame": "/assets/fruits/flame.png",
+    "Spike": "/assets/fruits/spike.png",
+    "Smoke": "/assets/fruits/smoke.png",
+    "Bomb": "/assets/fruits/bomb.png",
+    "Spring": "/assets/fruits/spring.png",
+    "Chop": "/assets/fruits/chop.png",
+    "Spin": "/assets/fruits/spin.png",
+    "Rocket": "/assets/fruits/rocket.png"
   };
+
+  function getFruitImage(name) {
+    if (!name) return '/assets/fruits/rocket.png';
+    if (FRUIT_CUSTOM_IMAGES[name]) return FRUIT_CUSTOM_IMAGES[name];
+    const key = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    return `/assets/fruits/${key}.png`;
+  }
 
   const ALL_BLOX_FRUITS = [
     // Míticas
@@ -6420,11 +6470,11 @@
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;">
       `;
       items.forEach(fruit => {
-        const customImg = FRUIT_CUSTOM_IMAGES[fruit.name];
+        const fruitImg = getFruitImage(fruit.name);
         html += `
           <div onclick="selectFruit('${fruit.name}', ${fruit.price}, '${fruit.rarity}')" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.18s ease;" onmouseenter="this.style.borderColor='${fruit.color}'; this.style.background='var(--bg-surface-hover)';" onmouseleave="this.style.borderColor='var(--border)'; this.style.background='var(--bg-input)';">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              ${customImg ? `<img src="${customImg}" alt="${fruit.name}" style="width: 28px; height: 28px; border-radius: 6px; object-fit: cover; border: 1px solid ${fruit.color}; flex-shrink: 0; box-shadow: 0 0 6px ${fruit.color}44;">` : `<span style="font-size: 18px; line-height: 1;">🍎</span>`}
+            <div style="display: flex; align-items: center; gap: 9px;">
+              <img src="${fruitImg}" alt="${fruit.name}" onerror="this.src='/assets/logo.jpg'" style="width: 32px; height: 32px; border-radius: 8px; object-fit: contain; background: rgba(0,0,0,0.4); padding: 2px; border: 1px solid ${fruit.color}55; flex-shrink: 0; box-shadow: 0 0 8px ${fruit.color}33;">
               <div style="display: flex; flex-direction: column; gap: 2px;">
                 <div style="font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 4px;">
                   <span>${fruit.name}</span>
@@ -6449,12 +6499,8 @@
     if (nameEl) nameEl.textContent = name;
     if (priceEl) priceEl.textContent = price.toLocaleString() + ' R$';
     if (thumbEl) {
-      if (FRUIT_CUSTOM_IMAGES[name]) {
-        thumbEl.src = FRUIT_CUSTOM_IMAGES[name];
-        thumbEl.style.display = 'inline-block';
-      } else {
-        thumbEl.src = '/assets/logo.jpg';
-      }
+      thumbEl.src = getFruitImage(name);
+      thumbEl.style.display = 'inline-block';
     }
     
     closeFruitModal();
