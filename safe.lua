@@ -2405,20 +2405,13 @@ local function activateGiftCancelButton()
                     end)
                 end
                 
-                -- Fallback via ESC caso o botão físico ainda não tenha desativado a janela
-                pcall(function()
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
-                    task.wait(0.03)
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
-                end)
-                
                 return false
             end
             
             tryDismiss()
             
-            -- Se após 0.1s a GiftWindow ainda estiver aberta na tela, insiste no fechamento
-            task.wait(0.1)
+            -- Se após 0.15s a GiftWindow ainda estiver aberta na tela, tenta novamente no botão Cancel
+            task.wait(0.15)
             local gwCheck = playerGui:FindFirstChild("GiftWindow")
             if gwCheck and gwCheck.Enabled and gwCheck:FindFirstChild("Window") and gwCheck.Window.Visible then
                 tryDismiss()
@@ -4259,7 +4252,6 @@ end)
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if input.KeyCode == Enum.KeyCode.Escape then
         if screenGui.Enabled then closeGui() end
-        if successGui.Enabled then closeSuccessGui() end
         if settingsFrame.Visible then settingsFrame.Visible = false end
     end
     
