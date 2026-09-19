@@ -2359,46 +2359,69 @@ local function activateGiftCancelButton()
             local gw = playerGui:FindFirstChild("GiftWindow")
             if not gw then return end
             
-            local cancelBtn = gw:FindFirstChild("Window") 
-                and gw.Window:FindFirstChild("Content") 
-                and gw.Window.Content:FindFirstChild("Buttons") 
-                and gw.Window.Content.Buttons:FindFirstChild("Cancel")
+            local function tryDismiss()
+                local currentGw = playerGui:FindFirstChild("GiftWindow")
+                if not currentGw or not currentGw.Enabled then return true end
                 
-            if not cancelBtn then
-                cancelBtn = gw:FindFirstChild("Cancel", true)
+                local cancelBtn = currentGw:FindFirstChild("Window") 
+                    and currentGw.Window:FindFirstChild("Content") 
+                    and currentGw.Window.Content:FindFirstChild("Buttons") 
+                    and currentGw.Window.Content.Buttons:FindFirstChild("Cancel")
+                    
+                if not cancelBtn then
+                    cancelBtn = currentGw:FindFirstChild("Cancel", true)
+                end
+                
+                if cancelBtn and cancelBtn:IsA("GuiButton") then
+                    -- 1. firesignal (executores compatíveis)
+                    pcall(function()
+                        if typeof(firesignal) == "function" then
+                            firesignal(cancelBtn.MouseButton1Click)
+                            firesignal(cancelBtn.Activated)
+                        end
+                    end)
+                    
+                    -- 2. getconnections (chama listeners registrados diretamente)
+                    pcall(function()
+                        if typeof(getconnections) == "function" then
+                            for _, conn in ipairs(getconnections(cancelBtn.MouseButton1Click)) do
+                                pcall(function() conn:Fire() end)
+                            end
+                            for _, conn in ipairs(getconnections(cancelBtn.Activated)) do
+                                pcall(function() conn:Fire() end)
+                            end
+                        end
+                    end)
+                    
+                    -- 3. Envio virtual direto e instantâneo sem delay de movimentação
+                    pcall(function()
+                        local pos = cancelBtn.AbsolutePosition
+                        local size = cancelBtn.AbsoluteSize
+                        local inset = GuiService:GetGuiInset()
+                        local cx = pos.X + (size.X / 2)
+                        local cy = pos.Y + (size.Y / 2) + inset.Y
+                        VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 0)
+                        VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 0)
+                    end)
+                end
+                
+                -- Fallback via ESC caso o botão físico ainda não tenha desativado a janela
+                pcall(function()
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+                    task.wait(0.03)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+                end)
+                
+                return false
             end
             
-            if cancelBtn then
-                -- 1. firesignal (executores compatíveis)
-                pcall(function()
-                    if typeof(firesignal) == "function" then
-                        firesignal(cancelBtn.MouseButton1Click)
-                        firesignal(cancelBtn.Activated)
-                    end
-                end)
-                
-                -- 2. getconnections (chama listeners registrados diretamente)
-                pcall(function()
-                    if typeof(getconnections) == "function" then
-                        for _, conn in ipairs(getconnections(cancelBtn.MouseButton1Click)) do
-                            pcall(function() conn:Fire() end)
-                        end
-                        for _, conn in ipairs(getconnections(cancelBtn.Activated)) do
-                            pcall(function() conn:Fire() end)
-                        end
-                    end
-                end)
-                
-                -- 3. Envio virtual direto e instantâneo sem delay de movimentação
-                pcall(function()
-                    local pos = cancelBtn.AbsolutePosition
-                    local size = cancelBtn.AbsoluteSize
-                    local inset = GuiService:GetGuiInset()
-                    local cx = pos.X + (size.X / 2)
-                    local cy = pos.Y + (size.Y / 2) + inset.Y
-                    VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 0)
-                    VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 0)
-                end)
+            tryDismiss()
+            
+            -- Se após 0.1s a GiftWindow ainda estiver aberta na tela, insiste no fechamento
+            task.wait(0.1)
+            local gwCheck = playerGui:FindFirstChild("GiftWindow")
+            if gwCheck and gwCheck.Enabled and gwCheck:FindFirstChild("Window") and gwCheck.Window.Visible then
+                tryDismiss()
             end
         end)
     end)
