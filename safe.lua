@@ -1713,16 +1713,8 @@ local function cleanMouseClick(instance)
     end
 end
 
--- Descansa o cursor do mouse em coordenada aleatória vazia
+-- Descansa o cursor do mouse (desativado para não mover o mouse do usuário)
 local function restMouse()
-    local viewportSize = workspace.CurrentCamera.ViewportSize
-    local rx = math.random(math.floor(viewportSize.X * 0.15), math.floor(viewportSize.X * 0.85))
-    local ry = math.random(math.floor(viewportSize.Y * 0.15), math.floor(viewportSize.Y * 0.85))
-    if mousemoveabs then
-        pcall(function() mousemoveabs(rx, ry) end)
-    else
-        pcall(function() VirtualInputManager:SendMouseMoveEvent(rx, ry, game) end)
-    end
 end
 
 local function forceClick(guiObject)
@@ -2541,7 +2533,6 @@ local function openGui(overrideName, overridePrice, overrideImage, overrideColor
         reportPurchaseFinished("success")
         -- Limpa o estado de alvo ativo para que a próxima compra não herde gamepass/chromatic antigo
         activeTargetFruit = nil
-        task.spawn(restMouse)
     end)
 end
 
