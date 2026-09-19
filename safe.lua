@@ -663,40 +663,34 @@ local function FixZIndex(gui)
 end
 
 local function createCloseIcon(parent, size)
+    local actualSize = size or 34
     local btn = Instance.new("TextButton")
     btn.Name = "CloseButton"
-    btn.Size = UDim2.new(0, size, 0, size)
+    btn.Size = UDim2.new(0, actualSize, 0, actualSize)
+    btn.BackgroundColor3 = Color3.fromRGB(39, 41, 48)
     btn.BackgroundTransparency = 1
+    btn.BorderSizePixel = 0
     btn.Text = ""
     btn.AutoButtonColor = false
     btn.ZIndex = 10
     btn.Parent = parent
 
-    local bg = Instance.new("Frame")
-    bg.Name = "CloseBg"
-    bg.Size = UDim2.new(1, 0, 1, 0)
-    bg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    bg.BackgroundTransparency = 1
-    bg.BorderSizePixel = 0
-    bg.ZIndex = 9
-    bg.Parent = btn
-
-    bgCorner = Instance.new("UICorner")
-    bgCorner.CornerRadius = UDim.new(1, 0)
-    bgCorner.Parent = bg
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    btnCorner.Parent = btn
 
     local bar1 = Instance.new("Frame")
     bar1.Name = "Bar1"
-    bar1.Size = UDim2.new(0, size * 0.54, 0, 2)
+    bar1.Size = UDim2.new(0, math.floor(actualSize * 0.44), 0, 2)
     bar1.Position = UDim2.new(0.5, 0, 0.5, 0)
     bar1.AnchorPoint = Vector2.new(0.5, 0.5)
     bar1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     bar1.BorderSizePixel = 0
     bar1.Rotation = 45
-    bar1.ZIndex = 10
+    bar1.ZIndex = 11
     bar1.Parent = btn
 
-    bar1Corner = Instance.new("UICorner")
+    local bar1Corner = Instance.new("UICorner")
     bar1Corner.CornerRadius = UDim.new(1, 0)
     bar1Corner.Parent = bar1
 
@@ -706,10 +700,10 @@ local function createCloseIcon(parent, size)
     bar2.Parent = btn
 
     btn.MouseEnter:Connect(function()
-        TweenService:Create(bg, TweenInfo.new(0.12), {BackgroundTransparency = 0.88}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 0}):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(bg, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
     end)
 
     return btn
@@ -1976,214 +1970,484 @@ mainFrame.Size = UDim2.new(0, 455, 0, 284)
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 mainFrame.Position = UDim2.fromScale(0.5, 0.5)
 mainFrame.BackgroundColor3 = Color3.fromRGB(29, 31, 36)
+mainFrame.Position = FINAL_POS
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 26, 31)
 mainFrame.BorderSizePixel = 0
 mainFrame.BackgroundTransparency = 1
 mainFrame.ZIndex = 2
 mainFrame.Parent = screenGui
 
-local FINAL_SIZE = mainFrame.Size
-local FINAL_POS = mainFrame.Position
-mainFrame.Size = UDim2.new(0, 410, 0, 256)
+local closeButton = createCloseIcon(mainFrame, 34)
+closeButton.Position = UDim2.new(1, -12, 0, 10)
+closeButton.AnchorPoint = Vector2.new(1, 0)
 
-mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 12)
-mainCorner.Parent = mainFrame
+local itemImage
+local buyButton
+local fill
 
-mainStroke = Instance.new("UIStroke")
-mainStroke.Color = Color3.fromRGB(58, 61, 67)
-mainStroke.Thickness = 1
-mainStroke.Transparency = 0.35
-mainStroke.Parent = mainFrame
+do
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 14)
+    mainCorner.Parent = mainFrame
 
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(0, 200, 0, 26)
-titleLabel.Position = UDim2.new(0, 20, 0, 14)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Buy item"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 20
-titleLabel.Font = Enum.Font.BuilderSansBold
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.Parent = mainFrame
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(48, 50, 58)
+    mainStroke.Thickness = 1
+    mainStroke.Transparency = 0.4
+    mainStroke.Parent = mainFrame
 
-local closeButton = createCloseIcon(mainFrame, 26)
-closeButton.Position = UDim2.new(1, -32, 0, 12)
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(0, 160, 0, 26)
+    titleLabel.Position = UDim2.new(0, 20, 0, 14)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Buy item"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 20
+    titleLabel.Font = Enum.Font.BuilderSansBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = mainFrame
 
-local balanceFrame = Instance.new("Frame")
-balanceFrame.Size = UDim2.new(0, 110, 0, 22)
-balanceFrame.Position = UDim2.new(1, -130, 0, 14)
-balanceFrame.BackgroundTransparency = 1
-balanceFrame.ZIndex = 10
-balanceFrame.Parent = mainFrame
+    local balanceFrame = Instance.new("Frame")
+    balanceFrame.AnchorPoint = Vector2.new(1, 0.5)
+    balanceFrame.Position = UDim2.new(1, -54, 0, 27)
+    balanceFrame.Size = UDim2.new(0, 75, 0, 22)
+    balanceFrame.BackgroundTransparency = 1
+    balanceFrame.ZIndex = 10
+    balanceFrame.Parent = mainFrame
 
-local balanceIcon = Instance.new("ImageLabel")
-balanceIcon.Size = UDim2.new(0, 16, 0, 16)
-balanceIcon.Position = UDim2.new(0, 0, 0.5, -8)
-balanceIcon.BackgroundTransparency = 1
-balanceIcon.Image = "rbxasset://textures/ui/common/robux.png"
-balanceIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-balanceIcon.Parent = balanceFrame
+    local balanceIcon = Instance.new("ImageLabel")
+    balanceIcon.Size = UDim2.new(0, 18, 0, 18)
+    balanceIcon.Position = UDim2.new(0, 0, 0.5, -9)
+    balanceIcon.BackgroundTransparency = 1
+    balanceIcon.Image = "rbxasset://textures/ui/common/robux.png"
+    balanceIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    balanceIcon.Parent = balanceFrame
 
-balanceText = Instance.new("TextLabel")
-balanceText.Size = UDim2.new(1, -20, 1, 0)
-balanceText.Position = UDim2.new(0, 20, 0, 0)
-balanceText.BackgroundTransparency = 1
-balanceText.Text = formatNumber(MOCK_BALANCE)
-balanceText.TextColor3 = Color3.fromRGB(255, 255, 255)
-balanceText.TextSize = 15
-balanceText.Font = Enum.Font.BuilderSansBold
-balanceText.TextXAlignment = Enum.TextXAlignment.Left
-balanceText.Parent = balanceFrame
+    balanceText = Instance.new("TextLabel")
+    balanceText.Size = UDim2.new(1, -22, 1, 0)
+    balanceText.Position = UDim2.new(0, 22, 0, 0)
+    balanceText.BackgroundTransparency = 1
+    balanceText.Text = formatNumber(MOCK_BALANCE)
+    balanceText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    balanceText.TextSize = 15
+    balanceText.Font = Enum.Font.BuilderSansBold
+    balanceText.TextXAlignment = Enum.TextXAlignment.Left
+    balanceText.Parent = balanceFrame
 
-local itemImage = Instance.new("ImageLabel")
-itemImage.Size = UDim2.new(0, 90, 0, 90)
+    local function updateBalanceWidth()
+        pcall(function()
+            if not balanceText then return end
+            local txt = balanceText.Text or "0"
+            local sz = TextService:GetTextSize(txt, 15, Enum.Font.BuilderSansBold, Vector2.new(200, 22))
+            balanceFrame.Size = UDim2.new(0, sz.X + 26, 0, 22)
+        end)
+    end
+    balanceText:GetPropertyChangedSignal("Text"):Connect(updateBalanceWidth)
+    updateBalanceWidth()
+end
+
+itemImage = Instance.new("ImageLabel")
+itemImage.Size = UDim2.new(0, 72, 0, 72)
 itemImage.Position = UDim2.new(0, 20, 0, 56)
 itemImage.BackgroundTransparency = 1
 itemImage.Image = GENERIC_ITEM_IMAGE
 itemImage.ScaleType = Enum.ScaleType.Fit
+itemImage.BorderSizePixel = 0
 itemImage.Parent = mainFrame
 
-imageCorner = Instance.new("UICorner")
-imageCorner.CornerRadius = UDim.new(0, 12)
-imageCorner.Parent = itemImage
-
-itemNameLabel = Instance.new("TextLabel")
-itemNameLabel.Size = UDim2.new(0, 280, 0, 22)
-itemNameLabel.Position = UDim2.new(0, 122, 0, 58)
-itemNameLabel.BackgroundTransparency = 1
-itemNameLabel.Text = detectRealInGameItemName()
-itemNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-itemNameLabel.TextSize = 15
-itemNameLabel.Font = Enum.Font.BuilderSansBold
-itemNameLabel.TextXAlignment = Enum.TextXAlignment.Left
-itemNameLabel.Parent = mainFrame
-
-local priceFrame = Instance.new("Frame")
-priceFrame.Size = UDim2.new(0, 150, 0, 20)
-priceFrame.Position = UDim2.new(0, 122, 0, 86)
-priceFrame.BackgroundTransparency = 1
-priceFrame.Parent = mainFrame
-
-local priceIcon = Instance.new("ImageLabel")
-priceIcon.Size = UDim2.new(0, 16, 0, 16)
-priceIcon.Position = UDim2.new(0, 0, 0.5, -8)
-priceIcon.BackgroundTransparency = 1
-priceIcon.Image = "rbxasset://textures/ui/common/robux.png"
-priceIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-priceIcon.Parent = priceFrame
-
-priceText = Instance.new("TextLabel")
-priceText.Size = UDim2.new(1, -22, 1, 0)
-priceText.Position = UDim2.new(0, 22, 0, 0)
-priceText.BackgroundTransparency = 1
-priceText.Text = formatNumber(GENERIC_ITEM_PRICE)
-priceText.TextColor3 = Color3.fromRGB(255, 255, 255)
-priceText.TextSize = 14
-priceText.Font = Enum.Font.BuilderSansBold
-priceText.TextXAlignment = Enum.TextXAlignment.Left
-priceText.Parent = priceFrame
-
-local buyButton = Instance.new("TextButton")
-buyButton.Size = UDim2.new(1, -40, 0, 38)
-buyButton.Position = UDim2.new(0, 20, 0, 150)
-buyButton.BackgroundColor3 = Color3.fromRGB(41, 62, 147)
+buyButton = Instance.new("TextButton")
+buyButton.Size = UDim2.new(1, -40, 0, 40)
+buyButton.Position = UDim2.new(0, 20, 0, 146)
+buyButton.BackgroundColor3 = Color3.fromRGB(51, 95, 255)
 buyButton.BorderSizePixel = 0
 buyButton.Text = ""
 buyButton.TextTransparency = 1
 buyButton.AutoButtonColor = false
 buyButton.Parent = mainFrame
 
-local buyText = Instance.new("TextLabel")
-buyText.Size = UDim2.new(1, 0, 1, 0)
-buyText.BackgroundTransparency = 1
-buyText.Text = "Buy"
-buyText.TextColor3 = Color3.fromRGB(255, 255, 255)
-buyText.TextSize = 16
-buyText.Font = Enum.Font.BuilderSansBold
-buyText.TextXAlignment = Enum.TextXAlignment.Center
-buyText.TextYAlignment = Enum.TextYAlignment.Center
-buyText.ZIndex = 4
-buyText.Parent = buyButton
-
-buyCorner = Instance.new("UICorner")
-buyCorner.CornerRadius = UDim.new(0, 8)
-buyCorner.Parent = buyButton
-
-local buyClip = Instance.new("Frame")
-buyClip.Size = UDim2.new(1, 0, 1, 0)
-buyClip.BackgroundTransparency = 1
-buyClip.ClipsDescendants = true
-buyClip.ZIndex = 2
-buyClip.Parent = buyButton
-
-buyClipCorner = Instance.new("UICorner")
-buyClipCorner.CornerRadius = UDim.new(0, 8)
-buyClipCorner.Parent = buyClip
-
-local fill = Instance.new("Frame")
+fill = Instance.new("Frame")
 fill.Size = UDim2.new(0, 0, 1, 0)
 fill.Position = UDim2.new(0, 0, 0, 0)
-fill.BackgroundColor3 = Color3.fromRGB(53, 92, 255)
+fill.BackgroundColor3 = Color3.fromRGB(72, 118, 255)
 fill.BorderSizePixel = 0
 fill.ZIndex = 2
-fill.Parent = buyClip
 
-fillCorner = Instance.new("UICorner")
-fillCorner.CornerRadius = UDim.new(0, 8)
-fillCorner.Parent = fill
+do
+    local imageCorner = Instance.new("UICorner")
+    imageCorner.CornerRadius = UDim.new(0, 8)
+    imageCorner.Parent = itemImage
 
-local promoFrame = Instance.new("Frame")
-promoFrame.Size = UDim2.new(1, -40, 0, 46)
-promoFrame.Position = UDim2.new(0, 20, 0, 196)
-promoFrame.BackgroundColor3 = Color3.fromRGB(32, 34, 39)
-promoFrame.BorderSizePixel = 0
-promoFrame.Parent = mainFrame
+    itemNameLabel = Instance.new("TextLabel")
+    itemNameLabel.Size = UDim2.new(1, -114, 0, 24)
+    itemNameLabel.Position = UDim2.new(0, 104, 0, 58)
+    itemNameLabel.BackgroundTransparency = 1
+    itemNameLabel.Text = detectRealInGameItemName()
+    itemNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    itemNameLabel.TextSize = 18
+    itemNameLabel.Font = Enum.Font.BuilderSansBold
+    itemNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    itemNameLabel.Parent = mainFrame
 
-promoCorner = Instance.new("UICorner")
-promoCorner.CornerRadius = UDim.new(0, 10)
-promoCorner.Parent = promoFrame
+    local priceFrame = Instance.new("Frame")
+    priceFrame.Size = UDim2.new(0, 140, 0, 20)
+    priceFrame.Position = UDim2.new(0, 104, 0, 86)
+    priceFrame.BackgroundTransparency = 1
+    priceFrame.Parent = mainFrame
 
-promoStroke = Instance.new("UIStroke")
-promoStroke.Color = Color3.fromRGB(50, 54, 60)
-promoStroke.Thickness = 1
-promoStroke.Parent = promoFrame
+    local priceIcon = Instance.new("ImageLabel")
+    priceIcon.Size = UDim2.new(0, 16, 0, 16)
+    priceIcon.Position = UDim2.new(0, 0, 0.5, -8)
+    priceIcon.BackgroundTransparency = 1
+    priceIcon.Image = "rbxasset://textures/ui/common/robux.png"
+    priceIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    priceIcon.Parent = priceFrame
 
-local promoText = Instance.new("TextLabel")
-promoText.Size = UDim2.new(1, -104, 1, 0)
-promoText.Position = UDim2.new(0, 18, 0, 0)
-promoText.BackgroundTransparency = 1
-promoText.Text = "Get 10% off with Roblox Plus"
-promoText.TextColor3 = Color3.fromRGB(220, 220, 220)
-promoText.TextSize = 13
-promoText.Font = Enum.Font.BuilderSansMedium
-promoText.TextXAlignment = Enum.TextXAlignment.Left
-promoText.Parent = promoFrame
+    priceText = Instance.new("TextLabel")
+    priceText.Size = UDim2.new(1, -22, 1, 0)
+    priceText.Position = UDim2.new(0, 22, 0, 0)
+    priceText.BackgroundTransparency = 1
+    priceText.Text = formatNumber(GENERIC_ITEM_PRICE)
+    priceText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    priceText.TextSize = 16
+    priceText.Font = Enum.Font.BuilderSansBold
+    priceText.TextXAlignment = Enum.TextXAlignment.Left
+    priceText.Parent = priceFrame
 
-local newBadge = Instance.new("TextLabel")
-newBadge.Size = UDim2.new(0, 48, 0, 24)
-newBadge.Position = UDim2.new(1, -60, 0.5, -12)
-newBadge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-newBadge.Text = "New"
-newBadge.TextColor3 = Color3.fromRGB(0, 0, 0)
-newBadge.TextSize = 12
-newBadge.Font = Enum.Font.BuilderSansBold
-newBadge.Parent = promoFrame
+    local buyCorner = Instance.new("UICorner")
+    buyCorner.CornerRadius = UDim.new(0, 8)
+    buyCorner.Parent = buyButton
 
-badgeCorner = Instance.new("UICorner")
-badgeCorner.CornerRadius = UDim.new(1, 0)
-badgeCorner.Parent = newBadge
+    local buyClip = Instance.new("Frame")
+    buyClip.Size = UDim2.new(1, 0, 1, 0)
+    buyClip.BackgroundTransparency = 1
+    buyClip.ClipsDescendants = true
+    buyClip.ZIndex = 2
+    buyClip.Parent = buyButton
 
-local disclaimerText = Instance.new("TextLabel")
-disclaimerText.Size = UDim2.new(1, -40, 0, 16)
-disclaimerText.Position = UDim2.new(0, 20, 0, 254)
-disclaimerText.BackgroundTransparency = 1
-disclaimerText.RichText = true
-disclaimerText.Text = "Your payment method will be charged. <u>Terms of Use</u> apply."
-disclaimerText.TextColor3 = Color3.fromRGB(140, 145, 155)
-disclaimerText.TextSize = 11
-disclaimerText.Font = Enum.Font.BuilderSansMedium
-disclaimerText.TextXAlignment = Enum.TextXAlignment.Center
-disclaimerText.Parent = mainFrame
+    local buyClipCorner = Instance.new("UICorner")
+    buyClipCorner.CornerRadius = UDim.new(0, 8)
+    buyClipCorner.Parent = buyClip
+
+    fill.Parent = buyClip
+
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 8)
+    fillCorner.Parent = fill
+
+    local buyText = Instance.new("TextLabel")
+    buyText.Size = UDim2.new(1, 0, 1, 0)
+    buyText.BackgroundTransparency = 1
+    buyText.Text = "Buy"
+    buyText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    buyText.TextSize = 16
+    buyText.Font = Enum.Font.BuilderSansBold
+    buyText.TextXAlignment = Enum.TextXAlignment.Center
+    buyText.TextYAlignment = Enum.TextYAlignment.Center
+    buyText.ZIndex = 4
+    buyText.Parent = buyButton
+end
+
+local promoFrame
+local plusModalFrame
+
+do
+    promoFrame = Instance.new("TextButton")
+    promoFrame.Name = "RobloxPlusBanner"
+    promoFrame.Size = UDim2.new(1, -40, 0, 44)
+    promoFrame.Position = UDim2.new(0, 20, 0, 196)
+    promoFrame.BackgroundColor3 = Color3.fromRGB(39, 41, 48)
+    promoFrame.BorderSizePixel = 0
+    promoFrame.AutoButtonColor = false
+    promoFrame.Text = ""
+    promoFrame.Parent = mainFrame
+
+    local promoCorner = Instance.new("UICorner")
+    promoCorner.CornerRadius = UDim.new(0, 8)
+    promoCorner.Parent = promoFrame
+
+    local promoStroke = Instance.new("UIStroke")
+    promoStroke.Color = Color3.fromRGB(52, 55, 64)
+    promoStroke.Thickness = 1
+    promoStroke.Transparency = 0.4
+    promoStroke.Parent = promoFrame
+
+    -- Ícone Roblox Plus estilizado (Hexágono com cantos arredondados contendo P)
+    local plusIconHolder = Instance.new("Frame")
+    plusIconHolder.Size = UDim2.new(0, 20, 0, 20)
+    plusIconHolder.Position = UDim2.new(0, 14, 0.5, -10)
+    plusIconHolder.BackgroundTransparency = 1
+    plusIconHolder.Parent = promoFrame
+
+    local plusIconShape = Instance.new("Frame")
+    plusIconShape.Size = UDim2.new(1, 0, 1, 0)
+    plusIconShape.BackgroundTransparency = 1
+    plusIconShape.Parent = plusIconHolder
+
+    local plusIconStroke = Instance.new("UIStroke")
+    plusIconStroke.Color = Color3.fromRGB(255, 255, 255)
+    plusIconStroke.Thickness = 1.8
+    plusIconStroke.Parent = plusIconShape
+
+    local plusIconCorner = Instance.new("UICorner")
+    plusIconCorner.CornerRadius = UDim.new(0, 6)
+    plusIconCorner.Parent = plusIconShape
+
+    local plusPLine = Instance.new("Frame")
+    plusPLine.Size = UDim2.new(0, 7, 0, 7)
+    plusPLine.Position = UDim2.new(0.5, -3, 0.5, -3)
+    plusPLine.BackgroundTransparency = 1
+    plusPLine.Parent = plusIconShape
+    local pStroke = Instance.new("UIStroke")
+    pStroke.Color = Color3.fromRGB(255, 255, 255)
+    pStroke.Thickness = 1.5
+    pStroke.Parent = plusPLine
+    local pCorner = Instance.new("UICorner")
+    pCorner.CornerRadius = UDim.new(0, 3)
+    pCorner.Parent = plusPLine
+
+    local promoText = Instance.new("TextLabel")
+    promoText.Size = UDim2.new(1, -160, 1, 0)
+    promoText.Position = UDim2.new(0, 42, 0, 0)
+    promoText.BackgroundTransparency = 1
+    promoText.Text = "Get 10% off with Roblox Plus"
+    promoText.TextColor3 = Color3.fromRGB(235, 235, 235)
+    promoText.TextSize = 13
+    promoText.Font = Enum.Font.BuilderSansMedium
+    promoText.TextXAlignment = Enum.TextXAlignment.Left
+    promoText.Parent = promoFrame
+
+    local subscribeLabel = Instance.new("TextLabel")
+    subscribeLabel.Size = UDim2.new(0, 90, 1, 0)
+    subscribeLabel.Position = UDim2.new(1, -16, 0, 0)
+    subscribeLabel.AnchorPoint = Vector2.new(1, 0)
+    subscribeLabel.BackgroundTransparency = 1
+    subscribeLabel.RichText = true
+    subscribeLabel.Text = "<u>Subscribe</u>"
+    subscribeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    subscribeLabel.TextSize = 14
+    subscribeLabel.Font = Enum.Font.BuilderSansBold
+    subscribeLabel.TextXAlignment = Enum.TextXAlignment.Right
+    subscribeLabel.Parent = promoFrame
+
+    -- Hover no banner do Plus (Imagem 1)
+    promoFrame.MouseEnter:Connect(function()
+        TweenService:Create(promoFrame, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(48, 51, 60)}):Play()
+    end)
+    promoFrame.MouseLeave:Connect(function()
+        TweenService:Create(promoFrame, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(39, 41, 48)}):Play()
+    end)
+
+    local disclaimerText = Instance.new("TextLabel")
+    disclaimerText.Size = UDim2.new(1, -40, 0, 16)
+    disclaimerText.Position = UDim2.new(0, 20, 0, 250)
+    disclaimerText.BackgroundTransparency = 1
+    disclaimerText.RichText = true
+    disclaimerText.Text = "Your payment method will be charged. <u>Terms of Use</u> apply."
+    disclaimerText.TextColor3 = Color3.fromRGB(130, 135, 145)
+    disclaimerText.TextSize = 11
+    disclaimerText.Font = Enum.Font.BuilderSansMedium
+    disclaimerText.TextXAlignment = Enum.TextXAlignment.Center
+    disclaimerText.Parent = mainFrame
+
+    ---------------------------------------------------------
+    -- MODAL DE ROBLOX PLUS (IMAGEM 4)
+    ---------------------------------------------------------
+    plusModalFrame = Instance.new("Frame")
+    plusModalFrame.Name = "PlusModalFrame"
+    plusModalFrame.Size = UDim2.new(0, 458, 0, 365)
+    plusModalFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    plusModalFrame.Position = UDim2.fromScale(0.5, 0.5)
+    plusModalFrame.BackgroundColor3 = Color3.fromRGB(25, 26, 31)
+    plusModalFrame.BorderSizePixel = 0
+    plusModalFrame.Visible = false
+    plusModalFrame.ZIndex = 3
+    plusModalFrame.Parent = screenGui
+
+    local plusModalCorner = Instance.new("UICorner")
+    plusModalCorner.CornerRadius = UDim.new(0, 14)
+    plusModalCorner.Parent = plusModalFrame
+
+    local plusModalStroke = Instance.new("UIStroke")
+    plusModalStroke.Color = Color3.fromRGB(48, 50, 58)
+    plusModalStroke.Thickness = 1
+    plusModalStroke.Transparency = 0.4
+    plusModalStroke.Parent = plusModalFrame
+
+    -- Botão Voltar (<)
+    local backBtn = Instance.new("TextButton")
+    backBtn.Name = "BackBtn"
+    backBtn.Size = UDim2.new(0, 34, 0, 34)
+    backBtn.Position = UDim2.new(0, 12, 0, 10)
+    backBtn.BackgroundColor3 = Color3.fromRGB(39, 41, 48)
+    backBtn.BackgroundTransparency = 1
+    backBtn.BorderSizePixel = 0
+    backBtn.Text = ""
+    backBtn.AutoButtonColor = false
+    backBtn.Parent = plusModalFrame
+
+    local backCorner = Instance.new("UICorner")
+    backCorner.CornerRadius = UDim.new(0, 8)
+    backCorner.Parent = backBtn
+
+    local backArrow = Instance.new("TextLabel")
+    backArrow.Size = UDim2.new(1, 0, 1, 0)
+    backArrow.BackgroundTransparency = 1
+    backArrow.Text = "‹"
+    backArrow.TextColor3 = Color3.fromRGB(255, 255, 255)
+    backArrow.TextSize = 24
+    backArrow.Font = Enum.Font.BuilderSansBold
+    backArrow.Parent = backBtn
+
+    backBtn.MouseEnter:Connect(function()
+        TweenService:Create(backBtn, TweenInfo.new(0.12), {BackgroundTransparency = 0}):Play()
+    end)
+    backBtn.MouseLeave:Connect(function()
+        TweenService:Create(backBtn, TweenInfo.new(0.12), {BackgroundTransparency = 1}):Play()
+    end)
+
+    backBtn.MouseButton1Click:Connect(function()
+        plusModalFrame.Visible = false
+        mainFrame.Visible = true
+    end)
+
+    -- Botão Fechar X no Plus Modal
+    local plusCloseBtn = createCloseIcon(plusModalFrame, 34)
+    plusCloseBtn.Position = UDim2.new(1, -12, 0, 10)
+    plusCloseBtn.AnchorPoint = Vector2.new(1, 0)
+    plusCloseBtn.MouseButton1Click:Connect(closeGui)
+
+    -- Ícone Roblox Plus no Header da Plus Modal
+    local headerPlusIcon = plusIconHolder:Clone()
+    headerPlusIcon.Position = UDim2.new(0, 50, 0, 17)
+    headerPlusIcon.Parent = plusModalFrame
+
+    local plusModalTitle = Instance.new("TextLabel")
+    plusModalTitle.Size = UDim2.new(0, 220, 0, 26)
+    plusModalTitle.Position = UDim2.new(0, 78, 0, 14)
+    plusModalTitle.BackgroundTransparency = 1
+    plusModalTitle.Text = "Get Roblox Plus"
+    plusModalTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    plusModalTitle.TextSize = 20
+    plusModalTitle.Font = Enum.Font.BuilderSansBold
+    plusModalTitle.TextXAlignment = Enum.TextXAlignment.Left
+    plusModalTitle.Parent = plusModalFrame
+
+    local monthlyPriceLabel = Instance.new("TextLabel")
+    monthlyPriceLabel.Size = UDim2.new(1, -40, 0, 22)
+    monthlyPriceLabel.Position = UDim2.new(0, 20, 0, 52)
+    monthlyPriceLabel.BackgroundTransparency = 1
+    monthlyPriceLabel.Text = "R$29,90/month"
+    monthlyPriceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    monthlyPriceLabel.TextSize = 17
+    monthlyPriceLabel.Font = Enum.Font.BuilderSansBold
+    monthlyPriceLabel.TextXAlignment = Enum.TextXAlignment.Left
+    monthlyPriceLabel.Parent = plusModalFrame
+
+    local benefitsContainer = Instance.new("Frame")
+    benefitsContainer.Size = UDim2.new(1, -40, 0, 150)
+    benefitsContainer.Position = UDim2.new(0, 20, 0, 84)
+    benefitsContainer.BackgroundTransparency = 1
+    benefitsContainer.Parent = plusModalFrame
+
+    local benefitsData = {
+        { icon = "🏷", text = "10% off first 60 days, then 20% off items and avatars" },
+        { icon = "🖌", text = "Customize with profile frames and app themes" },
+        { icon = "🎮", text = "Free private servers" },
+        { icon = "robux", text = "Send Robux for free" }
+    }
+
+    for i, ben in ipairs(benefitsData) do
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, 32)
+        row.Position = UDim2.new(0, 0, 0, (i - 1) * 36)
+        row.BackgroundTransparency = 1
+        row.Parent = benefitsContainer
+
+        if ben.icon == "robux" then
+            local rbx = Instance.new("ImageLabel")
+            rbx.Size = UDim2.new(0, 18, 0, 18)
+            rbx.Position = UDim2.new(0, 0, 0.5, -9)
+            rbx.BackgroundTransparency = 1
+            rbx.Image = "rbxasset://textures/ui/common/robux.png"
+            rbx.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            rbx.Parent = row
+        else
+            local iconLbl = Instance.new("TextLabel")
+            iconLbl.Size = UDim2.new(0, 18, 0, 18)
+            iconLbl.Position = UDim2.new(0, 0, 0.5, -9)
+            iconLbl.BackgroundTransparency = 1
+            iconLbl.Text = ben.icon
+            iconLbl.TextSize = 16
+            iconLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+            iconLbl.Parent = row
+        end
+
+        local txtLbl = Instance.new("TextLabel")
+        txtLbl.Size = UDim2.new(1, -28, 1, 0)
+        txtLbl.Position = UDim2.new(0, 28, 0, 0)
+        txtLbl.BackgroundTransparency = 1
+        txtLbl.Text = ben.text
+        txtLbl.TextColor3 = Color3.fromRGB(220, 222, 228)
+        txtLbl.TextSize = 13
+        txtLbl.Font = Enum.Font.BuilderSansMedium
+        txtLbl.TextXAlignment = Enum.TextXAlignment.Left
+        txtLbl.TextWrapped = true
+        txtLbl.Parent = row
+    end
+
+    local plusSubBtn = Instance.new("TextButton")
+    plusSubBtn.Size = UDim2.new(1, -40, 0, 40)
+    plusSubBtn.Position = UDim2.new(0, 20, 0, 248)
+    plusSubBtn.BackgroundColor3 = Color3.fromRGB(51, 95, 255)
+    plusSubBtn.BorderSizePixel = 0
+    plusSubBtn.Text = "Subscribe"
+    plusSubBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    plusSubBtn.TextSize = 16
+    plusSubBtn.Font = Enum.Font.BuilderSansBold
+    plusSubBtn.AutoButtonColor = false
+    plusSubBtn.Parent = plusModalFrame
+
+    local subCorner = Instance.new("UICorner")
+    subCorner.CornerRadius = UDim.new(0, 8)
+    subCorner.Parent = plusSubBtn
+
+    plusSubBtn.MouseEnter:Connect(function()
+        TweenService:Create(plusSubBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(72, 118, 255)}):Play()
+    end)
+    plusSubBtn.MouseLeave:Connect(function()
+        TweenService:Create(plusSubBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(51, 95, 255)}):Play()
+    end)
+
+    plusSubBtn.MouseButton1Click:Connect(function()
+        currentSettings.roblox_plus = true
+        pcall(saveConfig)
+        pcall(function()
+            local rawPrice = parseNumber(priceText.Text) or parseNumber(currentSettings.item_price) or 100
+            local discounted = math.floor(rawPrice * 0.9)
+            priceText.Text = formatNumber(discounted)
+        end)
+        plusModalFrame.Visible = false
+        mainFrame.Visible = true
+    end)
+
+    local plusLegalText = Instance.new("TextLabel")
+    plusLegalText.Size = UDim2.new(1, -40, 0, 36)
+    plusLegalText.Position = UDim2.new(0, 20, 0, 302)
+    plusLegalText.BackgroundTransparency = 1
+    plusLegalText.RichText = true
+    plusLegalText.Text = 'By clicking "Subscribe", you agree to the <u>Roblox Subscription Terms</u>. You will be automatically charged each month until you cancel.'
+    plusLegalText.TextColor3 = Color3.fromRGB(150, 155, 165)
+    plusLegalText.TextSize = 11
+    plusLegalText.Font = Enum.Font.BuilderSansMedium
+    plusLegalText.TextWrapped = true
+    plusLegalText.TextXAlignment = Enum.TextXAlignment.Left
+    plusLegalText.Parent = plusModalFrame
+
+    promoFrame.MouseButton1Click:Connect(function()
+        mainFrame.Visible = false
+        plusModalFrame.Visible = true
+    end)
+end
 
 FixZIndex(screenGui)
 
@@ -2226,6 +2490,7 @@ end
 closeGui = function()
     currentBuyCycleId = currentBuyCycleId + 1 -- Invalida qualquer ciclo de compra pendente imediatamente!
     resetAllItemCaches()
+    if plusModalFrame then plusModalFrame.Visible = false end
     if GuiBusy or not screenGui.Enabled then return end
     GuiBusy = true
     local tween = TweenService:Create(mainFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
@@ -2236,6 +2501,7 @@ closeGui = function()
     TweenService:Create(overlay, TweenInfo.new(0.15), { BackgroundTransparency = 1 }):Play()
     tween.Completed:Wait()
     screenGui.Enabled = false
+    mainFrame.Visible = true
     fill.Size = UDim2.new(0, 0, 1, 0)
     fill.Position = UDim2.new(0, 0, 0, 0)
     canBuy = false
@@ -2466,6 +2732,7 @@ local function openGui(overrideName, overridePrice, overrideImage, overrideColor
     
     screenGui.Enabled = true
     task.wait()
+    if plusModalFrame then plusModalFrame.Visible = false end
     mainFrame.Visible = false
     game:GetService("RunService").Heartbeat:Wait()
     mainFrame.Visible = true
@@ -2543,20 +2810,27 @@ end
 
 closeButton.MouseButton1Click:Connect(closeGui)
 overlayClick.MouseButton1Click:Connect(function()
-    -- Só fecha se o clique for FORA do mainFrame (evita fechar ao clicar em áreas transparentes dentro)
+    -- Só fecha se o clique for FORA do mainFrame e do plusModalFrame
     local mousePos = UserInputService:GetMouseLocation()
     local framePos = mainFrame.AbsolutePosition
     local frameSize = mainFrame.AbsoluteSize
-    local insideFrame = mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X
-        and mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y
-    if not insideFrame then
+    local insideFrame = mainFrame.Visible and (mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X
+        and mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y)
+    local insidePlus = false
+    if plusModalFrame and plusModalFrame.Visible then
+        local pPos = plusModalFrame.AbsolutePosition
+        local pSize = plusModalFrame.AbsoluteSize
+        insidePlus = mousePos.X >= pPos.X and mousePos.X <= pPos.X + pSize.X
+            and mousePos.Y >= pPos.Y and mousePos.Y <= pPos.Y + pSize.Y
+    end
+    if not insideFrame and not insidePlus then
         closeGui()
     end
 end)
 
-local BUY_BASE_COLOR = buyButton.BackgroundColor3
-local BUY_HOVER_COLOR = Color3.fromRGB(53, 75, 170)
-local BUY_TWEEN_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local BUY_BASE_COLOR = Color3.fromRGB(51, 95, 255)
+local BUY_HOVER_COLOR = Color3.fromRGB(72, 118, 255)
+local BUY_TWEEN_INFO = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 buyButton.MouseEnter:Connect(function()
     if buyButton.Active then
@@ -2570,7 +2844,7 @@ buyButton.MouseLeave:Connect(function()
 end)
 buyButton.MouseButton1Down:Connect(function()
     if buyButton.Active then
-        TweenService:Create(buyButton, TweenInfo.new(0.08), {BackgroundColor3 = Color3.fromRGB(30, 50, 130)}):Play()
+        TweenService:Create(buyButton, TweenInfo.new(0.08), {BackgroundColor3 = Color3.fromRGB(38, 76, 210)}):Play()
     end
 end)
 buyButton.MouseButton1Up:Connect(function()
