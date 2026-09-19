@@ -2362,7 +2362,7 @@ end
 
 local function activateGiftCancelButton()
     task.spawn(function()
-        task.wait(0.6)
+        task.wait(0.3)
         pcall(function()
             local gw = playerGui:FindFirstChild("GiftWindow")
             if not gw then return end
