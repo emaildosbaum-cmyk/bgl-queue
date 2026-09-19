@@ -1940,7 +1940,7 @@ openSuccessGui = function()
 end
 
 successCloseBtn.MouseButton1Click:Connect(closeSuccessGui)
-successOverlayClick.MouseButton1Click:Connect(closeSuccessGui)
+-- successOverlayClick não fecha a modal para evitar fechar ao clicar fora acidentalmente
 okButton.MouseButton1Click:Connect(closeSuccessGui)
 
 ---------------------------------------------------------
@@ -2392,17 +2392,6 @@ local function activateGiftCancelButton()
                             end
                         end
                     end)
-                    
-                    -- 3. Envio virtual direto e instantâneo sem delay de movimentação
-                    pcall(function()
-                        local pos = cancelBtn.AbsolutePosition
-                        local size = cancelBtn.AbsoluteSize
-                        local inset = GuiService:GetGuiInset()
-                        local cx = pos.X + (size.X / 2)
-                        local cy = pos.Y + (size.Y / 2) + inset.Y
-                        VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 0)
-                        VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 0)
-                    end)
                 end
                 
                 return false
@@ -2539,7 +2528,7 @@ local function openGui(overrideName, overridePrice, overrideImage, overrideColor
             
             activateGiftCancelButton()
             closeGui()
-            task.wait(0.18 + math.random(20, 50) / 1000)
+            task.wait(0.35)
             openSuccessGui()
         end
         
@@ -2620,7 +2609,7 @@ buyButton.MouseButton1Click:Connect(function()
     end
     
     closeGui()
-    task.wait(0.2)
+    task.wait(0.35)
     openSuccessGui()
     resetAllItemCaches()
     buyInProgress = false
