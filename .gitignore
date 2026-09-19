@@ -1,0 +1,16 @@
+# Arquivos de credenciais e segredos locais (NUNCA SUBIR PRO GITHUB)
+.env
+*.env
+discord_secrets.json
+local_secrets.json
+secrets.json
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Arquivos de estado local e sessoes temporarias
+ultimo_usuario*.txt
+queue_state.json
+banned_nicks.json
